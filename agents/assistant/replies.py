@@ -35,4 +35,4 @@ def balance(r: dict) -> str:
 
 HELP = "Hola, soy su asistente. Escriba lo que necesita, por ejemplo: 'la pastilla de la presión' o 'cuánto me queda'."
 CANCELLED = "Compra cancelada. ¿Necesita algo más?"
-UNKNOWN_PHONE = "Este número no está registrado en OpenRoute."
+UNKNOWN_PHONE = "Este número no está registrado en Paygent."

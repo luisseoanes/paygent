@@ -21,8 +21,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'OpenRoute',
-        short_name: 'OpenRoute',
+        name: 'Paygent',
+        short_name: 'Paygent',
         description: 'Poder de pago delegable, incluso sin internet',
         theme_color: '#0f766e',
         background_color: '#ffffff',

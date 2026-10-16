@@ -6,7 +6,7 @@ export const Page = ({ title, children, right }: { title: string; children: Reac
   <div className="mx-auto max-w-3xl space-y-4 p-4">
     <header className="flex items-center justify-between">
       <Link to="/" className="text-xl font-bold text-teal-800">
-        OpenRoute <span className="font-normal text-slate-500">· {title}</span>
+        Paygent <span className="font-normal text-slate-500">· {title}</span>
       </Link>
       {right}
     </header>

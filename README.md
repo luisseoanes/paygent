@@ -1,9 +1,9 @@
-# OpenRoute
+# Paygent
 
 Poder de pago delegable para personas y sus agentes, incluso sin internet y sin smartphone. Sobre [Open Payments](https://openpayments.dev).
 
-- Qué es y por qué: [proyecto-hackathon-open-payments.md](proyecto-hackathon-open-payments.md)
-- Tareas, responsables y contratos: [backlog.md](backlog.md)
+- Qué es y por qué: [docs/context.md](docs/context.md)
+- Tareas, responsables y contratos: [docs/backlog.md](docs/backlog.md)
 
 ## Arranque en 3 comandos
 
@@ -69,8 +69,8 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 
 ## Pasar a Open Payments real (PRE-01, PRE-02, H2)
 
-1. En el [Test Wallet](https://wallet.interledger-test.dev) crea las wallets (Juan en USD, OpenRoute, Tienda, Farmacia, Puntored, Inventario) y pon sus URLs en `.env`.
-2. En la wallet de OpenRoute genera una llave de desarrollador: `OP_KEY_ID` y el archivo `private.key` en la raíz (está en `.gitignore`).
+1. En el [Test Wallet](https://wallet.interledger-test.dev) crea las wallets (Juan en USD, Paygent, Tienda, Farmacia, Puntored, Inventario) y pon sus URLs en `.env`.
+2. En la wallet de Paygent genera una llave de desarrollador: `OP_KEY_ID` y el archivo `private.key` en la raíz (está en `.gitignore`).
 3. `MOCK_OP=0` y `pnpm op:smoke`: abre la URL, aprueba como Juan, pega la URL de vuelta. Debe aparecer un pago de $0.01 en la Tienda.
 4. Levanta un túnel (`cloudflared tunnel --url http://localhost:5173` o ngrok) y pon `PUBLIC_API_URL=<túnel>/api` y `WEB_URL=<túnel>`. El túnel también da HTTPS, que la cámara y el service worker necesitan en los celulares.
 5. `pnpm dev`, abre `/juan` y pulsa **Aprobar en mi billetera**.
@@ -89,4 +89,4 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 
 ## Endpoints
 
-Ver [backlog.md §2](backlog.md). Además de los del contrato, existen: `GET /mandates/:id` (con `remaining`), `GET /merchants`, `GET /gateway/public-key`, `GET /payments/:id`, `GET /sms/profile`, `POST /mandates/:id/unfreeze`, `POST /guardian/review`, `GET /feed`, `GET /vouchers`, `GET /demo/status`. En agents: `POST /guardian/score`, `POST /assistant/reset`.
+Ver [docs/backlog.md §2](docs/backlog.md). Además de los del contrato, existen: `GET /mandates/:id` (con `remaining`), `GET /merchants`, `GET /gateway/public-key`, `GET /payments/:id`, `GET /sms/profile`, `POST /mandates/:id/unfreeze`, `POST /guardian/review`, `GET /feed`, `GET /vouchers`, `GET /demo/status`. En agents: `POST /guardian/score`, `POST /assistant/reset`.

@@ -11,7 +11,7 @@ const LINKS = [
 export default function Home() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-6">
-      <h1 className="text-3xl font-bold text-teal-800">OpenRoute</h1>
+      <h1 className="text-3xl font-bold text-teal-800">Paygent</h1>
       <p className="text-slate-600">Juan autoriza una vez. María y sus agentes pagan donde sea.</p>
       {LINKS.map((l) => (
         <Link key={l.to} to={l.to} className="card flex items-center gap-4 hover:ring-teal-500">

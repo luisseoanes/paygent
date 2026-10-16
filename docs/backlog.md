@@ -1,6 +1,6 @@
-# Backlog OpenRoute — de 0 a 100
+# Backlog Paygent — de 0 a 100
 
-Documento de ejecución de [proyecto-hackathon-open-payments.md](proyecto-hackathon-open-payments.md). Cada tarea tiene responsable, prioridad, estimación, dependencias y criterio de aceptación (CA).
+Documento de ejecución de [context.md](context.md). Cada tarea tiene responsable, prioridad, estimación, dependencias y criterio de aceptación (CA).
 
 ---
 
@@ -113,7 +113,7 @@ interface FeedEvent {
 ### 2.4 Estructura del repo
 
 ```
-openroute/
+paygent/
 ├── apps/api/          (TypeScript: Fastify + @interledger/open-payments + better-sqlite3)
 │   └── src/{op,gateway,vouchers,sms,feed,demo}/
 ├── apps/web/          (React + Vite + vite-plugin-pwa + Tailwind)
@@ -133,8 +133,8 @@ openroute/
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
-| PRE-01 | Crear en el Test Wallet las wallets: Juan (USD), OpenRoute (cliente), Tienda Doña Rosa, Farmacia San José, Puntored Efectivo, Agente de Inventario. Fondear a Juan | BE | P0 | 1h | — | 6 wallet addresses anotadas en `.env.example`; Juan con saldo |
-| PRE-02 | Generar llaves de desarrollador (key id + llave privada) para la wallet de OpenRoute | BE | P0 | 0.5h | PRE-01 | Llave en `.env` local (nunca en git) |
+| PRE-01 | Crear en el Test Wallet las wallets: Juan (USD), Paygent (cliente), Tienda Doña Rosa, Farmacia San José, Puntored Efectivo, Agente de Inventario. Fondear a Juan | BE | P0 | 1h | — | 6 wallet addresses anotadas en `.env.example`; Juan con saldo |
+| PRE-02 | Generar llaves de desarrollador (key id + llave privada) para la wallet de Paygent | BE | P0 | 0.5h | PRE-01 | Llave en `.env` local (nunca en git) |
 | PRE-03 | Colección Bruno: grant incoming no interactivo → incoming payment → quote → **grant interactivo con `debitAmount` + `interval`** → continuación → outgoing | BE + LU | P0 | 2h | PRE-02 | Flujo completo ejecutado a mano. **Respuesta documentada:** ¿soporta `interval`? ¿Qué monedas hay (COP)? ¿Cuánto tarda cada paso? |
 | PRE-04 | Monorepo (pnpm workspaces + carpeta Python), scripts `dev`, README de arranque, `.env.example` | LU | P0 | 1.5h | — | `pnpm dev` levanta api + web; `uvicorn` levanta agents |
 | PRE-05 | Clave de la API de Claude y prueba mínima de *tool use* en Python | DS | P0 | 1h | — | Script que llama una herramienta dummy y devuelve su resultado |
@@ -148,7 +148,7 @@ openroute/
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
-| OP-01 | Cliente autenticado (`createAuthenticatedClient`) con las llaves de OpenRoute; lectura de wallet addresses | BE | P0 | 1h | PRE-02 | `GET /health/op` devuelve los datos de la wallet de Juan |
+| OP-01 | Cliente autenticado (`createAuthenticatedClient`) con las llaves de Paygent; lectura de wallet addresses | BE | P0 | 1h | PRE-02 | `GET /health/op` devuelve los datos de la wallet de Juan |
 | OP-02 | `POST /mandates/root`: grant interactivo `outgoing-payment` con `limits.debitAmount` + `limits.interval`; guardar `continue` (uri, token) y `nonce` | BE | P0 | 2h | OP-01 | Devuelve `redirectUrl` que abre la pantalla de consentimiento del Test Wallet |
 | OP-03 | `GET /callback`: verificar `hash`, `grant.continue` con `interact_ref`, guardar el token de acceso y la URL de gestión; crear el `Mandate` raíz | BE | P0 | 1.5h | OP-02, GW-01 | Tras aprobar, existe un mandato raíz con token válido |
 | OP-04 | `settle({ merchantWallet, amount, metadata })`: grant incoming (con caché) → incoming payment → quote → outgoing con el token raíz | BE | P0 | 3h | OP-03 | **Pago visible en la wallet del comercio.** Devuelve `{ outgoingPaymentId, debitAmount, receiveAmount }` |

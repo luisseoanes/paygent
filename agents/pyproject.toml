@@ -1,7 +1,7 @@
 [project]
 name = "openroute-agents"
 version = "0.1.0"
-description = "Agentes de OpenRoute: Asistente, Inventario, Intención y Guardián"
+description = "Agentes de Paygent: Asistente, Inventario, Intención y Guardián"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.69",

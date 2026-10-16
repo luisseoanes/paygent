@@ -34,11 +34,11 @@ Ficheros: `client.ts`, `grants.ts`, `settle.ts`, `routes.ts` y el script `apps/a
 ### 5. Documentación
 
 * `AI_USAGE.md`: estructura y redacción con Claude Code, a partir de la plantilla de la organización del hackatón. Revisado y completado por el equipo.
-* [COMPLETAR: `README.md`, `backlog.md`, `docs/context.md`: con qué herramienta y cuánto se editó a mano].
+* [COMPLETAR: `README.md`, `docs/backlog.md`, `docs/context.md`: con qué herramienta y cuánto se editó a mano].
 
 ## IA dentro del producto (no como herramienta de desarrollo)
 
-OpenRoute llama a la API de Claude en tiempo de ejecución. Esto es parte de la solución, no código generado:
+Paygent llama a la API de Claude en tiempo de ejecución. Esto es parte de la solución, no código generado:
 
 * `agents/assistant/llm.py`: el Agente Asistente usa Claude con *tool use* para entender el SMS y proponer la compra. Todas sus acciones pasan por `/pay`, que aplica el sub-mandato y el PIN.
 * `agents/intent/compiler.py`: convierte la intención de Juan en texto libre en el árbol de mandatos que él aprueba.

@@ -1,4 +1,4 @@
-"""Servicio de agentes de OpenRoute.  uv run python main.py  (puerto según AGENTS_URL del .env)"""
+"""Servicio de agentes de Paygent.  uv run python main.py  (puerto según AGENTS_URL del .env)"""
 
 import logging
 import os
@@ -15,7 +15,7 @@ from inventory.router import router as inventory_router
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="OpenRoute agents")
+app = FastAPI(title="Paygent agents")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(assistant_router)
 app.include_router(inventory_router)

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { createAuthenticatedClient, type AuthenticatedClient, type WalletAddress } from '@interledger/open-payments'
 import { env } from '../env.ts'
 
-// OP-01: cliente autenticado con las llaves de la wallet de OpenRoute.
+// OP-01: cliente autenticado con las llaves de la wallet de Paygent.
 
 let clientPromise: Promise<AuthenticatedClient> | null = null
 
