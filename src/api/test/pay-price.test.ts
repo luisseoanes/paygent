@@ -54,35 +54,39 @@ const buy = (pesosPrice: number, extra: object = {}) =>
     .then((r) => r.json())
 
 describe('Compra en pesos con Juan en dólares', () => {
-  it('la farmacia recibe sus 12.000 COP y a Juan se le descuenta el débito real, no el estimado', async () => {
-    fx.copPerUsd = 3800 // el Test Wallet cotiza 12.000 COP = $3.16, no $3.00
+  // El Test Wallet cambia a ~3.180 COP/USD (medido con `pnpm fx:probe`), no a los 4.000 de referencia.
+  beforeEach(() => {
+    fx.copPerUsd = 3180
+  })
+
+  it('la farmacia recibe sus 12.000 COP y a Juan se le descuenta el débito real ($3.77), no el estimado ($3.00)', async () => {
     const res = await buy(12_000)
     expect(res.result).toBe('allow')
     const p = store.db.payments[res.paymentId]
     expect(p.price).toEqual(A.cop(12_000))
     expect(p.receiveAmount).toEqual(A.cop(12_000))
-    expect(p.amount.value).toBe('316')
-    expect(getMandate('asistente').spentInPeriod.value).toBe('316')
-    expect(getMandate('root').spentInPeriod.value).toBe('316')
+    expect(p.amount.value).toBe('377')
+    expect(getMandate('asistente').spentInPeriod.value).toBe('377')
+    expect(getMandate('root').spentInPeriod.value).toBe('377')
   })
 
-  it('el losartán ($3) no pide PIN: el umbral es $10', async () => {
+  it('el losartán no pide PIN; la insulina sí (umbral de $10 sobre el débito real)', async () => {
     expect((await buy(12_000)).result).toBe('allow')
     expect((await buy(85_000)).result).toBe('needs_pin')
   })
 
-  it('si el cambio real se aleja más de 10 % del estimado, no se paga', async () => {
-    fx.copPerUsd = 3000 // $4.00 frente a $3.00 estimados
-    const res = await buy(12_000)
-    expect(res).toMatchObject({ result: 'deny', reason: 'payment_failed' })
-    expect(res.detail).toMatch(/cambió más de 10 %/)
-    expect(getMandate('asistente').spentInPeriod.value).toBe('0')
+  it('el PIN se decide con el débito real: 36.000 COP se estiman en $9.00 pero cuestan $11.32', async () => {
+    const res = await buy(36_000)
+    expect(res.result).toBe('needs_pin')
+    expect(Object.keys(store.db.payments)).toHaveLength(0) // no se movió dinero
+    const ok = await buy(36_000, { pendingId: res.pendingId, pin: '1234' })
+    expect(ok.result).toBe('allow')
+    expect(store.db.payments[ok.paymentId].amount.value).toBe('1132')
   })
 
-  it('con el débito real se vuelven a validar los topes antes de pagar', async () => {
-    fx.copPerUsd = 3850 // 156.000 COP: estimado $39.00 (bajo el tope de $40), real $40.52 (lo excede)
-    const res = await buy(156_000, { pin: '1234' })
-    expect(res).toMatchObject({ result: 'deny', reason: 'payment_failed' })
+  it('los topes se validan con el débito real: 150.000 COP se estiman en $37.50 pero cuestan $47.17', async () => {
+    const res = await buy(150_000, { pin: '1234' })
+    expect(res).toMatchObject({ result: 'deny', reason: 'over_limit' })
     expect(getMandate('asistente').spentInPeriod.value).toBe('0')
   })
 })

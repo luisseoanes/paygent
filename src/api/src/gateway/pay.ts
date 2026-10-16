@@ -1,6 +1,7 @@
 import {
   randomId,
   type Amount,
+  type AuthDecision,
   type Category,
   type Delivery,
   type DeliveryRequest,
@@ -18,8 +19,16 @@ import { checkPin } from './pin.ts'
 
 const PENDING_TTL_MS = 10 * 60_000
 const MAX_PIN_ATTEMPTS = 3
-/** Cuánto puede alejarse el débito real (cambio de Open Payments) del estimado con la tasa de referencia. */
-const MAX_FX_DRIFT = 0.1
+
+/** El débito real cotizado no pasa la autorización (pide PIN o excede un tope): no se movió dinero. */
+class NotAuthorized extends SettleError {
+  constructor(
+    public decision: Exclude<AuthDecision, { result: 'allow' }>,
+    public debit: Amount,
+  ) {
+    super(decision.result === 'deny' ? (decision.detail ?? decision.reason) : 'Requiere PIN')
+  }
+}
 
 const merchantName = (wallet: string) =>
   Object.values(db.merchants).find((m) => m.wallet === wallet)?.name ?? wallet
@@ -51,7 +60,9 @@ export const executePayment = async (input: {
   reason: string
   kind?: 'payment' | 'voucher_settled'
   delivery?: Delivery
+  /** Precio en la moneda del comercio: `amount` es solo el estimado y se autoriza con el débito real cotizado */
   price?: Amount
+  pinOk?: boolean
 }): Promise<Payment> => {
   const mandate = getMandate(input.mandateId)
   const payment: Payment = {
@@ -79,18 +90,16 @@ export const executePayment = async (input: {
       merchantWallet: destination,
       amount: input.amount,
       price: input.price,
-      // Con precio en pesos, el débito real lo fija Open Payments: se vuelve a autorizar con él antes de pagar.
-      confirmDebit: (debit) => {
-        if (debit.assetCode !== input.amount.assetCode)
-          throw new SettleError(`La cotización vino en ${debit.assetCode} y el mandato está en ${input.amount.assetCode}`)
-        // Margen: 10 % del estimado, y al menos 5 unidades mínimas para montos de centavos (redondeo de la cotización).
-        const estimate = Number(input.amount.value)
-        if (Math.abs(Number(debit.value) - estimate) > Math.max(estimate * MAX_FX_DRIFT, 5))
-          throw new SettleError('El precio en la moneda de Juan cambió más de 10 % frente al estimado; vuelve a cotizar')
-        // El PIN ya se decidió con el estimado; aquí se vuelven a validar topes, categoría y vigencia.
-        const decision = authorize({ mandateId: input.mandateId, amount: debit, category: input.category, pinOk: true })
-        if (decision.result === 'deny') throw new SettleError(decision.detail ?? decision.reason)
-      },
+      // Con precio en pesos, lo que cuesta de verdad lo cotiza Open Payments con su cambio (el Test Wallet usa
+      // ~3.180 COP/USD, no los 4.000 de referencia). Con ESE débito se deciden el PIN y los topes, antes de pagar.
+      confirmDebit: input.price
+        ? (debit) => {
+            if (debit.assetCode !== input.amount.assetCode)
+              throw new SettleError(`La cotización vino en ${debit.assetCode} y el mandato está en ${input.amount.assetCode}`)
+            const decision = authorize({ mandateId: input.mandateId, amount: debit, category: input.category, pinOk: input.pinOk })
+            if (decision.result !== 'allow') throw new NotAuthorized(decision, debit)
+          }
+        : undefined,
       metadata: { openroute: payment.id, mandate: mandate.id, description: input.reason.slice(0, 100), ...metadata },
     })
     payment.status = 'completed'
@@ -109,6 +118,10 @@ export const executePayment = async (input: {
       payout,
     })
   } catch (err) {
+    if (err instanceof NotAuthorized) {
+      delete db.payments[payment.id] // no hubo pago: /pay decide si pide PIN o lo niega
+      throw err
+    }
     payment.status = 'failed'
     const why = err instanceof SettleError ? err.message : String(err)
     emit({ mandateId: mandate.id, actor, kind: 'denied', amount: input.amount, merchant, reason: `Pago fallido: ${why}` })
@@ -149,23 +162,20 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
   if (delivery === null)
     return { result: 'deny', reason: 'no_address', detail: 'No hay dirección de entrega registrada por Juan' }
 
-  const decision = authorize({ mandateId, amount, category, pinOk })
-
-  if (decision.result === 'deny') {
+  const deny = (decision: Extract<AuthDecision, { result: 'deny' }>, shown: Amount) => {
     const m = db.mandates[mandateId]
     if (m)
       emit({
         mandateId,
         actor: { type: m.holderType, name: m.holderName },
         kind: 'denied',
-        amount,
+        amount: shown,
         merchant: merchantName(merchantWallet),
         reason: decision.detail ?? decision.reason,
       })
     return decision
   }
-
-  if (decision.result === 'needs_pin') {
+  const askPin = (): PayResponse => {
     const pendingId = randomId('pend_')
     db.pendings[pendingId] = {
       id: pendingId,
@@ -183,10 +193,19 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
     return { result: 'needs_pin', pendingId }
   }
 
+  // Con precio en la moneda del comercio, `amount` es solo un estimado (tasa de referencia): el tope y el PIN
+  // se deciden con el débito real cotizado (en executePayment). Aquí solo se descarta lo que no depende del monto.
+  const estimateOnly = !!price
+  const decision = authorize({ mandateId, amount, category, pinOk })
+  if (decision.result === 'deny' && !(estimateOnly && decision.reason === 'over_limit')) return deny(decision, amount)
+  if (decision.result === 'needs_pin' && !estimateOnly) return askPin()
+
   try {
-    const payment = await executePayment({ mandateId, merchantWallet, amount, category, reason, delivery, price })
+    const payment = await executePayment({ mandateId, merchantWallet, amount, category, reason, delivery, price, pinOk })
     return { result: 'allow', paymentId: payment.id }
   } catch (err) {
+    if (err instanceof NotAuthorized)
+      return err.decision.result === 'needs_pin' ? askPin() : deny(err.decision, err.debit)
     return { result: 'deny', reason: 'payment_failed', detail: String((err as Error).message) }
   }
 }
