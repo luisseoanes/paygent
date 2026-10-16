@@ -75,6 +75,16 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 4. Levanta un túnel (`cloudflared tunnel --url http://localhost:5173` o ngrok) y pon `PUBLIC_API_URL=<túnel>/api` y `WEB_URL=<túnel>`. El túnel también da HTTPS, que la cámara y el service worker necesitan en los celulares.
 5. `pnpm dev`, abre `/juan` y pulsa **Aprobar en mi billetera**.
 
+## SMS real con tu celular (`pnpm sms:bridge`)
+
+Sin Twilio: un Android conectado por USB hace de gateway SMS. El puente lee la bandeja con `adb`, reenvía a `<api>/sms/inbound` y contesta con un SMS real (servicio `isms`, sin abrir ninguna app).
+
+1. Activa la depuración USB y comprueba `adb devices`.
+2. En `.env` (o en la línea de comandos): `SMS_BRIDGE_ALLOW` con los números que pueden escribir (el celular es personal: **todo lo demás se ignora sin leer el cuerpo**, y los códigos cortos nunca pasan), `SMS_BRIDGE_ALIAS=<tu número>=+573001112233` para hablar como Doña Carmen, `SMS_BRIDGE_API` (local o `https://paygent.up.railway.app/api`), `ADB_SERIAL` y `SMS_BRIDGE_SUB_ID` (la SIM de SMS: `defaultSmsSubId` en `adb shell dumpsys isub`).
+3. `pnpm sms:bridge`. Solo atiende mensajes que lleguen después de arrancar.
+
+**Vales por SMS:** sin datos pero con señal, el tendero toca **Cobrar por SMS** en un vale pendiente (`VITE_APP_SMS_GATEWAY_NUMBER` = número del celular-puente). El vale viaja como `VALE <base64url>` (≈140 caracteres, un solo SMS): el certificado se busca por `certId` y el comercio por una huella de su wallet. `/sms/inbound` lo liquida por el mismo camino que `POST /vouchers/settle` (firma, replay, Guardián) y nunca lo pasa al LLM.
+
 ## Datos de la demo (semillas)
 
 - Moneda: la de la wallet de Juan (tabla `payers`); en mock, COP. Las semillas están en pesos y, si Juan paga en USD, se convierten con `FX_COP_PER_USD`.

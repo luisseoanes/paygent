@@ -16,6 +16,7 @@ from urllib.parse import quote
 
 import httpx
 
+from . import nearby
 from .search import MIN_SCORE, OFFERS, match_score, normalize, strip_stopwords, whole_words
 
 log = logging.getLogger("inventory.web")
@@ -41,6 +42,7 @@ CATEGORY_HINTS = {
 # Cada tienda responde 0,5-2 MB de JSON: pocas filas y un tope de tiempo TOTAL por tienda (el timeout de httpx
 # es por lectura y no corta una descarga lenta). En Railway la búsqueda llegó a pasar de 30 s sin esto.
 STORE_DEADLINE_S = 5
+NEARBY_WAIT_S = 2  # si la zona no está en caché, no hacemos esperar al SMS: se descarga en segundo plano
 CACHE_TTL_S = 600
 RESULTS_PER_STORE = 10
 _cache: dict[str, tuple[float, dict]] = {}
@@ -104,12 +106,28 @@ def _rank(offer: dict, need: dict) -> tuple:
     return (0 if same_strength or not need["strength"] else 1, offer["priceCOP"])
 
 
-async def search_web(query: str, limit: int = 3) -> dict:
-    """Busca en las tiendas en paralelo. Devuelve la mejor oferta de cada tienda, ordenadas."""
+async def search_web(query: str, limit: int = 3, location: dict | None = None) -> dict:
+    """Busca el producto en las tiendas en paralelo. Con la ubicación de la persona, ordena por la sucursal
+    física más cercana de cada cadena (OpenStreetMap); las que no tienen sucursal cerca van al final."""
+    result = await _search_stores(query)
+    offers, located = result["offers"], None
+    if location:
+        places = await nearby.places_near(location, wait_s=NEARBY_WAIT_S)
+        located = places is not None
+        if located:
+            branches = nearby.nearest_branches(places, location)
+            offers = [{**o, "branch": branches.get(o["store"])} for o in offers]
+            # Orden estable: lo más cercano primero; sin sucursal cerca, después y por precio.
+            offers.sort(key=lambda o: (o["branch"] is None, o["branch"]["distanceM"] if o["branch"] else 0))
+    return {**result, "offers": offers[:limit], "located": located}
+
+
+async def _search_stores(query: str) -> dict:
+    """La mejor oferta de cada tienda, ordenadas por presentación y precio (con caché de 10 min)."""
     need = understand(query)
     key = f"{need['term']}|{need['category']}|{need['strength']}"
     if (hit := _cache.get(key)) and time.time() - hit[0] < CACHE_TTL_S:
-        return {**hit[1], "offers": hit[1]["offers"][:limit], "cached": True}
+        return {**hit[1], "cached": True}
 
     async with httpx.AsyncClient(timeout=STORE_DEADLINE_S, follow_redirects=True,
                                  headers={"User-Agent": "Mozilla/5.0 (Paygent agente de compras)"}) as client:
@@ -133,13 +151,15 @@ async def search_web(query: str, limit: int = 3) -> dict:
               "storesFailed": failed, "searchedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "cached": False}
     if offers:  # no guardamos fallos de red en la caché
         _cache[key] = (time.time(), result)
-    return {**result, "offers": offers[:limit]}
+    return result
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
-    r = asyncio.run(search_web(" ".join(sys.argv[1:]) or "pastilla de la presión", limit=10))
+    demo = {"lat": 6.0, "lng": -75.43}  # la mamá en la demo (oriente antioqueño)
+    r = asyncio.run(search_web(" ".join(sys.argv[1:]) or "pastilla de la presión", limit=10, location=demo))
     print(f"Busqué \"{r['term']}\" ({r['category'] or 'sin categoría'}, {r['strength'] or 'cualquier presentación'}) "
           f"en {r['storesConsulted']} tiendas. Sin respuesta: {', '.join(r['storesFailed']) or 'ninguna'}")
     for o in r["offers"]:
-        print(f"  {o['store']:<10} ${o['priceCOP']:>9,}  {o['product']}  {o['url']}".replace(",", "."))
+        where = f"{o['branch']['distanceM'] / 1000:5.1f} km" if o.get("branch") else "solo en línea"
+        print(f"  {o['store']:<10} {where:>13}  ${o['priceCOP']:>9,}  {o['product']}".replace(",", "."))

@@ -49,14 +49,20 @@ async def buscar_producto(s: Session, consulta: str) -> dict:
     }
 
 
+def fmt_distance(m: int) -> str:
+    return f"{m} m" if m < 1000 else f"{m / 1000:.1f} km".replace(".", ",")
+
+
 async def buscar_en_internet(s: Session, consulta: str) -> dict:
-    """Busca el producto de verdad en tiendas en línea de Colombia (precio, disponibilidad y enlace).
-    Solo informa: NO compra ni paga. Comprar en línea todavía no está habilitado."""
-    r = await web.search_web(consulta, limit=3)
+    """Busca el producto de verdad en las cadenas de Colombia (precio, disponibilidad y enlace) y lo ordena por
+    la sucursal física más cercana a la persona. Solo informa: NO compra ni paga."""
+    r = await web.search_web(consulta, limit=3, location=s.profile.get("location"))
     s.web_offers = r["offers"]
     return {
         "producto": f"{r['label']} {r['strength'] or ''}".strip(),
-        "ofertas": [{"tienda": o["store"], "precio": fmt_cop(o["priceCOP"]), "producto": o["product"]}
+        "ofertas": [{"tienda": o["store"], "precio": fmt_cop(o["priceCOP"]), "producto": o["product"],
+                     "distancia": fmt_distance(o["branch"]["distanceM"]) if o.get("branch") else None,
+                     "sucursal": o["branch"]["name"] if o.get("branch") else "solo en línea"}
                     for o in r["offers"]],
         "tiendas_consultadas": r["storesConsulted"],
         "nota": "Solo comparación de precios: todavía no se puede comprar en línea.",
@@ -158,9 +164,10 @@ TOOL_SCHEMAS = [
     },
     {
         "name": "buscar_en_internet",
-        "description": "Busca el producto en tiendas en línea reales de Colombia (droguerías y supermercados) y "
-                       "devuelve las más baratas con su precio. Solo informa: no compra ni paga. Úsala si la persona "
-                       "pide buscar en internet o comparar precios, o si no está en las tiendas cercanas.",
+        "description": "Busca el producto en cadenas reales de Colombia (droguerías y supermercados) y devuelve "
+                       "las de sucursal más cercana a la persona, con distancia y precio. Solo informa: no compra ni "
+                       "paga. Úsala si la persona pide buscar en internet o comparar precios, o si no está en las "
+                       "tiendas de la vereda.",
         "input_schema": {
             "type": "object",
             "properties": {"consulta": {"type": "string", "description": "Lo que pidió la persona, en sus palabras"}},

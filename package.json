@@ -12,7 +12,8 @@
     "typecheck": "pnpm -r typecheck",
     "reset": "curl -s -X POST http://localhost:3001/demo/reset",
     "op:smoke": "pnpm --filter @openroute/api op:smoke",
-    "e2e": "pnpm --filter @openroute/api e2e"
+    "e2e": "pnpm --filter @openroute/api e2e",
+    "sms:bridge": "pnpm --filter @openroute/api sms:bridge"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
