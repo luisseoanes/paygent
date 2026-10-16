@@ -38,9 +38,11 @@ CATEGORY_HINTS = {
                 "endulzantes", "panaderia", "aceites"),
 }
 
-TIMEOUT_S = 6
+# Cada tienda responde 0,5-2 MB de JSON: pocas filas y un tope de tiempo TOTAL por tienda (el timeout de httpx
+# es por lectura y no corta una descarga lenta). En Railway la búsqueda llegó a pasar de 30 s sin esto.
+STORE_DEADLINE_S = 5
 CACHE_TTL_S = 600
-RESULTS_PER_STORE = 20
+RESULTS_PER_STORE = 10
 _cache: dict[str, tuple[float, dict]] = {}
 
 STRENGTH = re.compile(r"(\d+)\s*mg\b")
@@ -109,10 +111,11 @@ async def search_web(query: str, limit: int = 3) -> dict:
     if (hit := _cache.get(key)) and time.time() - hit[0] < CACHE_TTL_S:
         return {**hit[1], "offers": hit[1]["offers"][:limit], "cached": True}
 
-    async with httpx.AsyncClient(timeout=TIMEOUT_S, follow_redirects=True,
+    async with httpx.AsyncClient(timeout=STORE_DEADLINE_S, follow_redirects=True,
                                  headers={"User-Agent": "Mozilla/5.0 (Paygent agente de compras)"}) as client:
-        results = await asyncio.gather(*(_fetch_store(client, url, need["term"]) for _, url in STORES),
-                                       return_exceptions=True)
+        results = await asyncio.gather(
+            *(asyncio.wait_for(_fetch_store(client, url, need["term"]), STORE_DEADLINE_S) for _, url in STORES),
+            return_exceptions=True)
 
     offers, failed = [], []
     for (store, _), res in zip(STORES, results):

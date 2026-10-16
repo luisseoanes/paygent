@@ -78,3 +78,18 @@ def test_una_tienda_caida_no_tumba_la_busqueda():
 def test_sin_resultados_no_se_guarda_en_cache():
     r = run("tensiometro digital")
     assert r["offers"] == [] and not web._cache
+
+
+def test_una_tienda_lenta_se_omite_sin_frenar_la_busqueda(monkeypatch):
+    """Una tienda que no termina de responder no puede dejar sin respuesta el SMS."""
+    monkeypatch.setattr(web, "STORE_DEADLINE_S", 0.2)
+    real = web._fetch_store
+
+    async def slow(client, base_url, term):
+        if "olimpica" in base_url:
+            await asyncio.sleep(5)
+        return await real(client, base_url, term)
+
+    monkeypatch.setattr(web, "_fetch_store", slow)
+    r = run("losartan")
+    assert "Olímpica" in r["storesFailed"] and r["offers"]
