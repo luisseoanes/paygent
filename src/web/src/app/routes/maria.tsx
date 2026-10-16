@@ -12,6 +12,7 @@ import { ValeQr } from '@/features/billetera/components/vale-qr';
 import { Vincular } from '@/features/billetera/components/vincular';
 import { useRefrescarDispositivo } from '@/features/billetera/hooks/use-refrescar-dispositivo';
 import { useDispositivoStore } from '@/features/billetera/stores/dispositivo-store';
+import { ProtectedRoute } from '@/lib/auth';
 
 // PWA de María (FE-03, OFF-04): vincular el celular una vez, ver cuánto puede
 // gastar y pagar con un vale firmado en el teléfono, con o sin señal.
@@ -21,7 +22,7 @@ type Vista =
   | { tipo: 'pagar' }
   | { tipo: 'vale'; voucher: Voucher; merchant: Merchant; cop: number };
 
-const MariaRoute = () => {
+const MariaApp = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const cargado = useDispositivoStore((s) => s.cargado);
   const dispositivo = useDispositivoStore((s) => s.dispositivo);
@@ -41,7 +42,16 @@ const MariaRoute = () => {
   }, [dispositivo, codigo, setSearchParams]);
 
   return (
-    <AppShell rol="María">
+    <AppShell
+      rol="María"
+      titular="El permiso de Juan, en tu celular."
+      titularPixel="Paga aunque no haya señal."
+      pasos={[
+        'Vinculas el celular una vez con el código que te da Juan.',
+        'Eliges dónde pagas y cuánto, en pesos.',
+        'Muestras el QR del vale: el tendero lo cobra al instante o cuando vuelva la señal.',
+      ]}
+    >
       <Head
         title="María"
         description="Paga con el permiso de Juan, con o sin señal."
@@ -92,5 +102,11 @@ const MariaRoute = () => {
     </AppShell>
   );
 };
+
+const MariaRoute = () => (
+  <ProtectedRoute rol="maria">
+    <MariaApp />
+  </ProtectedRoute>
+);
 
 export default MariaRoute;

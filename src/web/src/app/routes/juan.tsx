@@ -106,7 +106,7 @@ const JuanContent = () => {
 };
 
 const JuanRoute = () => (
-  <ProtectedRoute>
+  <ProtectedRoute rol="juan">
     <JuanContent />
   </ProtectedRoute>
 );

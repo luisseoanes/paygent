@@ -4,6 +4,7 @@ import { Outlet, useNavigate } from 'react-router';
 import { MainLayout } from '@/components/layouts';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/components/ui/link';
+import { homeHref, rolLabel } from '@/config/demo-users';
 import { paths } from '@/config/paths';
 import { useLogout, useUser } from '@/lib/auth';
 
@@ -18,8 +19,8 @@ const HeaderActions = () => {
     return (
       <>
         <Button size="sm" asChild className="hidden sm:inline-flex">
-          <Link variant="unstyled" to={paths.juan.getHref()}>
-            Mi mandato
+          <Link variant="unstyled" to={homeHref(user.data.role)}>
+            {rolLabel[user.data.role].app}
           </Link>
         </Button>
         <Button

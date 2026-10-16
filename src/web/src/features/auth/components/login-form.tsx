@@ -1,11 +1,13 @@
 import { ArrowRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Form, Input } from '@/components/ui/form';
+import { Form, FormError, Input } from '@/components/ui/form';
+import { DEMO_PASSWORD, demoUsers, rolLabel } from '@/config/demo-users';
 import { loginInputSchema, useLogin } from '@/lib/auth';
+import { type User } from '@/types/api';
 
 type LoginFormProps = {
-  onSuccess: () => void;
+  onSuccess: (user: User) => void;
 };
 
 export const LoginForm = ({ onSuccess }: LoginFormProps) => {
@@ -13,13 +15,13 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
 
   return (
     <Form schema={loginInputSchema} onSubmit={(values) => login.mutate(values)}>
-      {({ register, formState }) => (
+      {({ register, formState, setValue }) => (
         <>
           <Input
             label="Correo"
             type="email"
             autoComplete="email"
-            placeholder="juan@correo.com"
+            placeholder="juan@paygent.dev"
             className="h-12 bg-paper text-base"
             error={formState.errors.email}
             registration={register('email')}
@@ -32,6 +34,7 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
             error={formState.errors.password}
             registration={register('password')}
           />
+          <FormError message={login.error?.message} />
           <Button
             type="submit"
             size="lg"
@@ -41,6 +44,28 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
             Iniciar sesión
             {!login.isPending && <ArrowRight aria-hidden="true" />}
           </Button>
+
+          {/* Cuentas de la demo: un toque llena el formulario. */}
+          <fieldset className="space-y-2">
+            <legend className="text-xs text-ink-2">Cuentas de la demo</legend>
+            <div className="grid grid-cols-3 gap-2">
+              {demoUsers.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => {
+                    setValue('email', u.email, { shouldValidate: true });
+                    setValue('password', DEMO_PASSWORD, {
+                      shouldValidate: true,
+                    });
+                  }}
+                  className="min-h-12 rounded-lg border border-rule bg-paper px-2 text-sm text-grafito transition-colors hover:bg-paper-sunken focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {rolLabel[u.role].nombre}
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </>
       )}
     </Form>
