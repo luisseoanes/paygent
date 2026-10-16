@@ -5,6 +5,7 @@ import { sql, type Row, type Sql } from '../store/sql.ts'
 import { badRequest, HttpError, notFound } from './errors.ts'
 import { chainOf, childrenOf, delegate, revoke, type DelegateInput } from './mandates.ts'
 import { modesOf } from './modes.ts'
+import { normalizarCelular } from './phone.ts'
 import { setPin } from './pin.ts'
 
 // Canal SMS de una rama: un número de celular habla con el Asistente, que paga con una hoja de esa rama.
@@ -16,14 +17,7 @@ export const UBICACION_POR_DEFECTO = { lat: 6.0, lng: -75.43 }
 /** Tope de las consultas del Asistente al Agente de Inventario, en pesos. */
 const TOPE_DATOS_COP = 2000
 
-/** Celular → E.164. Sin indicativo se asume Colombia (3XX XXX XXXX). */
-export const normalizarCelular = (raw: string): string | null => {
-  const d = (raw ?? '').replace(/[\s\-().]/g, '')
-  if (/^3\d{9}$/.test(d)) return `+57${d}`
-  if (/^573\d{9}$/.test(d)) return `+${d}`
-  if (/^\+[1-9]\d{7,14}$/.test(d)) return d
-  return null
-}
+export { normalizarCelular }
 
 /** Motivo por el que el PIN no sirve, o null. 4 números (el Asistente solo reconoce 4) y nada obvio. */
 export const pinSmsInvalido = (pin?: string): string | null => {

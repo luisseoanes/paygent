@@ -4,6 +4,7 @@ import { env } from '../env.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { OFFLINE_START_PCT } from './devices.ts'
 import { chainOf, childrenOf, delegate, getMandate, putMandate, remainingOf } from './mandates.ts'
+import { normalizarCelular } from './phone.ts'
 
 /** Orden en que se reparten y se muestran. */
 export const MODES: SpendMode[] = ['celular', 'asistente', 'sms']
@@ -84,7 +85,8 @@ const holderOf = async (personaId: string, conn: Sql) => {
     `select u.id, u.phone from mandates m left join users u on u.id = m.holder_user_id where m.id = $1`,
     [personaId],
   )
-  return { userId: r?.id ?? null, phone: r?.phone ?? null }
+  // El SMS entra en E.164: un celular guardado sin indicativo no encontraría su perfil.
+  return { userId: r?.id ?? null, phone: (r?.phone && normalizarCelular(r.phone)) || null }
 }
 
 /**
@@ -178,7 +180,15 @@ export const linkModeProfiles = async (personaId: string, conn: Sql = sql()) => 
   const sms = modes.get('sms')
   const owner = phone ? await profileIn(phone, conn) : undefined
   // Un número que ya habla con otra persona (la demo) no se pisa.
-  if (sms && phone && (!owner || owner.user_id === userId)) await ensureProfile(persona, sms, phone, userId, conn)
+  if (sms && phone && (!owner || owner.user_id === userId)) {
+    const channels = (await conn.query<{ channel: string }>(`select channel from profiles where mandate_id = $1 and chat_for is null`, [sms.id])).map(
+      (r) => r.channel,
+    )
+    // El mismo número guardado sin indicativo se cambia por el bueno; otro número lo eligió el titular y se respeta.
+    for (const raw of channels.filter((c) => c !== phone && normalizarCelular(c) === phone))
+      await conn.query(`delete from profiles where channel = $1`, [raw])
+    if (!channels.some((c) => normalizarCelular(c) !== phone)) await ensureProfile(persona, sms, phone, userId, conn)
+  }
 }
 
 export interface ModeView {
@@ -198,8 +208,11 @@ export const listModes = async (id: string) => {
   const m = await getMandate(id)
   const personaId = m.holderType === 'person' ? m.id : m.parentId!
   const modes = await modesOf(personaId)
-  const { phone } = await holderOf(personaId, sql())
-  const sms = phone ? await profileIn(phone, sql()) : undefined
+  // El número con el que habla su hoja SMS (el de la cuenta o el que eligió el titular).
+  const smsLeaf = modes.get('sms')
+  const [sms] = smsLeaf
+    ? await sql().query<{ channel: string }>(`select channel from profiles where mandate_id = $1 and chat_for is null limit 1`, [smsLeaf.id])
+    : []
   const views: ModeView[] = []
   for (const mode of MODES) {
     const b = modes.get(mode)
@@ -212,7 +225,7 @@ export const listModes = async (id: string) => {
       offlineCap: b.offlineCap,
       pinThreshold: b.pinThreshold,
       frozen: b.frozen,
-      phone: mode === 'sms' && sms?.mandate_id === b.id ? phone! : undefined,
+      phone: mode === 'sms' ? sms?.channel : undefined,
     })
   }
   return { personaId, modes: views }

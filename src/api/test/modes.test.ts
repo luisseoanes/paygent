@@ -4,6 +4,7 @@ import { buildApp } from '../src/app.ts'
 import { seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { delegate, getMandate } from '../src/gateway/mandates.ts'
+import { sql } from '../src/store/sql.ts'
 
 // Modos de consumo: al registrar un beneficiario quedan habilitados celular (vale QR, con o sin señal), Asistente
 // (chat de la app) y SMS; el titular los quita, los vuelve a habilitar y les cambia el tope.
@@ -24,8 +25,8 @@ const titular = (
   })
 ).json()
 // La raíz tiene 1.200.000: cada alta usa 100.000 para que quepan todas.
-const alta = (alias: string, offlineCap = 10_000) =>
-  post(`/mandates/${titular.rootMandateId}/beneficiaries`, { alias, maxDebit: A.cop(100_000), offlineCap: A.cop(offlineCap), pin: '246810' })
+const alta = (alias: string, offlineCap = 10_000, maxDebit = 100_000) =>
+  post(`/mandates/${titular.rootMandateId}/beneficiaries`, { alias, maxDebit: A.cop(maxDebit), offlineCap: A.cop(offlineCap), pin: '246810' })
 type Modo = { mode: string; mandateId: string; maxDebit: Amount; phone?: string }
 const modosDe = async (id: string): Promise<Modo[]> => (await get(`/mandates/${id}/modes`)).json().modes
 
@@ -129,6 +130,40 @@ describe('El titular administra los modos', () => {
     const nuevo = (await modosDe(mandateId)).find((m) => m.mode === 'sms')!
     expect(nuevo.mandateId).not.toBe(sms.mandateId)
     expect((await post(`/mandates/${mandateId}/modes`, {}, comoTitular())).json().created).toEqual([])
+  })
+})
+
+describe('El número del SMS va en E.164', () => {
+  it('una cuenta con el celular sin indicativo queda hablando como +57…', async () => {
+    const { code, mandateId } = (await alta('Novia', 1_000, 10_000)).json()
+    await post('/auth/register/beneficiario', {
+      documento: '71000077', nombre: 'Novia', email: 'novia@correo.co', telefono: '3052100077', password: 'clave-segura', mandateId: code,
+    })
+    expect((await modosDe(mandateId)).find((m) => m.mode === 'sms')?.phone).toBe('+573052100077')
+    expect((await get('/sms/profile?phone=%2B573052100077')).statusCode).toBe(200)
+  })
+
+  it('volver a habilitar arregla un perfil guardado sin indicativo (altas anteriores)', async () => {
+    const { code, mandateId } = (await alta('Novia 2', 1_000, 10_000)).json()
+    await post('/auth/register/beneficiario', {
+      documento: '71000078', nombre: 'Novia 2', email: 'novia2@correo.co', telefono: '3052100078', password: 'clave-segura', mandateId: code,
+    })
+    await sql().query(`update profiles set channel = '3052100078' where channel = '+573052100078'`)
+    await post(`/mandates/${mandateId}/modes`, {}, comoTitular())
+    expect((await get('/sms/profile?phone=%2B573052100078')).statusCode).toBe(200)
+    expect((await get('/sms/profile?phone=3052100078')).statusCode).toBe(404)
+  })
+
+  it('no pisa el número que el titular eligió para el SMS', async () => {
+    const { code, mandateId } = (await alta('Novia 3', 1_000, 10_000)).json()
+    await post('/auth/register/beneficiario', {
+      documento: '71000079', nombre: 'Novia 3', email: 'novia3@correo.co', telefono: '3052100079', password: 'clave-segura', mandateId: code,
+    })
+    await app.inject({ method: 'PUT', url: `/mandates/${mandateId}/sms`, payload: { phone: '3052100080', pin: '2580' }, headers: comoTitular() })
+    await post(`/mandates/${mandateId}/modes`, {}, comoTitular())
+    expect((await get('/sms/profile?phone=%2B573052100080')).statusCode).toBe(200)
+    expect((await get('/sms/profile?phone=%2B573052100079')).statusCode).toBe(404)
+    expect((await modosDe(mandateId)).find((m) => m.mode === 'sms')?.phone).toBe('+573052100080')
   })
 })
 
