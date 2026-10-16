@@ -1,72 +1,24 @@
 import { MessageCircle, MessageSquareText, Plus, QrCode } from 'lucide-react';
-import * as React from 'react';
+import type * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/dialog';
-import { useNotifications } from '@/components/ui/notifications';
 import { MODOS, modoInfo } from '@/config/modos';
 import { type ModeView, type SpendMode } from '@/types/api';
 
-import { useEnableModes, useModes, useSetLimits } from '../api/modes';
+import { useEnableModes, useModes } from '../api/modes';
 import { useRevokeMandate } from '../api/revoke-mandate';
-import { amountToNumber, money, parseMoney, toAmount } from '../utils/mandate';
+import { amountToNumber, money } from '../utils/mandate';
+
+import { RepartirModos } from './repartir-modos';
 
 // Formas de pagar de un beneficiario, en el panel del titular: qué es cada
-// modo, cómo lo usa, su tope (lo puede subir o bajar) y quitarlo.
+// modo y cómo lo usa. Los topes se reparten en «Ajustar topes»; aquí se quita.
 
 export const iconoModo: Record<SpendMode, React.ReactNode> = {
   celular: <QrCode aria-hidden="true" />,
   asistente: <MessageCircle aria-hidden="true" />,
   sms: <MessageSquareText aria-hidden="true" />,
-};
-
-const CambiarTope = ({ modo }: { modo: ModeView }) => {
-  const addNotification = useNotifications((s) => s.addNotification);
-  const [valor, setValor] = React.useState(
-    String(amountToNumber(modo.maxDebit)),
-  );
-  const setLimits = useSetLimits({
-    mutationConfig: {
-      onSuccess: () =>
-        addNotification({ type: 'success', title: 'Tope actualizado' }),
-    },
-  });
-  const n = parseMoney(valor);
-  const valido = Number.isFinite(n) && n >= 0;
-  return (
-    <form
-      className="flex items-end gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (valido)
-          setLimits.mutate({
-            mandateId: modo.mandateId,
-            data: { maxDebit: toAmount(n, modo.maxDebit) },
-          });
-      }}
-    >
-      <label className="grid flex-1 gap-1 text-xs text-ink-2">
-        Tope ({modo.maxDebit.assetCode})
-        <input
-          inputMode="decimal"
-          aria-label={`Tope de ${modoInfo[modo.mode].nombre}`}
-          className="num h-10 rounded-full border border-rule bg-paper px-4 text-base text-grafito"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-        />
-      </label>
-      <Button
-        type="submit"
-        size="sm"
-        variant="outline"
-        className="h-10 rounded-full"
-        disabled={!valido}
-        isLoading={setLimits.isPending}
-      >
-        Guardar
-      </Button>
-    </form>
-  );
 };
 
 const Modo = ({ modo }: { modo: ModeView }) => {
@@ -101,7 +53,6 @@ const Modo = ({ modo }: { modo: ModeView }) => {
             ? ` Su número: ${modo.phone}.`
             : ' Se activa cuando enlace su cuenta con su número de celular.')}
       </p>
-      <CambiarTope modo={modo} />
       <ConfirmationDialog
         title={`¿Quitar ${info.nombre}?`}
         body="Esta forma de pagar deja de funcionar y su tope vuelve a quedar libre. Las demás siguen igual; puedes habilitarla otra vez."
@@ -130,9 +81,12 @@ export const ModosDeConsumo = ({ personaId }: { personaId: string }) => {
 
   return (
     <section aria-labelledby="formas-de-pagar" className="space-y-1">
-      <h3 id="formas-de-pagar" className="text-sm font-medium text-grafito">
-        Formas de pagar
-      </h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 id="formas-de-pagar" className="text-sm font-medium text-grafito">
+          Formas de pagar
+        </h3>
+        {modos.data && lista.length > 0 && <RepartirModos datos={modos.data} />}
+      </div>
       {modos.isLoading ? (
         <p className="text-sm text-ink-2">Cargando…</p>
       ) : (

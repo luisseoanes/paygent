@@ -181,6 +181,49 @@ describe('El SMS que activa el titular (PUT /mandates/:id/sms)', () => {
   })
 })
 
+describe('El titular reparte el tope entre los modos de una vez (PATCH /mandates/:persona/modes)', () => {
+  const reparto = (id: string, limits: object[], headers: Record<string, string> = comoTitular()) =>
+    app.inject({ method: 'PATCH', url: `/mandates/${id}/modes`, payload: { limits }, headers })
+
+  it('da lo que hace falta para repartir: tope de la persona, reservado, mínimo y gastado por modo', async () => {
+    const { mandateId } = (await alta('Ahijada', 1_000, 10_000)).json()
+    const res = (await get(`/mandates/${mandateId}/modes`)).json()
+    expect(res).toMatchObject({ personaName: 'Ahijada', budget: A.cop(10_000), reserved: A.cop(0) })
+    const chat = res.modes.find((m: Modo) => m.mode === 'asistente')
+    expect(chat).toMatchObject({ minDebit: A.cop(2_000), spent: A.cop(0) })
+  })
+
+  it('sube uno con lo que baja otro en la misma petición, sin importar el orden', async () => {
+    const { mandateId } = (await alta('Comadre', 1_000, 10_000)).json()
+    const [cel, chat] = await modosDe(mandateId)
+    // 4.000 / 2.000 / 2.000 con 2.000 libres: subir el Asistente a 7.000 solo cabe si antes baja el celular.
+    const res = await reparto(mandateId, [
+      { mandateId: chat.mandateId, maxDebit: A.cop(7_000) },
+      { mandateId: cel.mandateId, maxDebit: A.cop(1_000) },
+    ])
+    expect(res.statusCode).toBe(200)
+    expect(res.json().modes.map((m: Modo) => m.maxDebit.value)).toEqual([A.cop(1_000).value, A.cop(7_000).value, A.cop(2_000).value])
+  })
+
+  it('todo o nada: si el reparto no cabe, no cambia ningún modo', async () => {
+    const { mandateId } = (await alta('Compadre', 1_000, 10_000)).json()
+    const [cel, chat] = await modosDe(mandateId)
+    const res = await reparto(mandateId, [
+      { mandateId: cel.mandateId, maxDebit: A.cop(1_000) },
+      { mandateId: chat.mandateId, maxDebit: A.cop(9_000) },
+    ])
+    expect(res.statusCode).toBe(403)
+    expect((await modosDe(mandateId)).map((m) => m.maxDebit.value)).toEqual([A.cop(4_000).value, A.cop(2_000).value, A.cop(2_000).value])
+  })
+
+  it('solo modos de esa persona y solo su titular', async () => {
+    const { mandateId } = (await alta('Padrino', 1_000, 10_000)).json()
+    expect((await reparto(mandateId, [{ mandateId: 'maria-device', maxDebit: A.cop(1) }])).statusCode).toBe(400)
+    const [cel] = await modosDe(mandateId)
+    expect((await reparto(mandateId, [{ mandateId: cel.mandateId, maxDebit: A.cop(1) }], {})).statusCode).toBe(401)
+  })
+})
+
 describe('Beneficiarios dados de alta antes de los modos', () => {
   it('habilitar los modos baja el celular a su parte y crea el Asistente y el SMS', async () => {
     // Como lo dejaba el alta anterior: persona + celular sin `mode` con todo el tope.

@@ -66,12 +66,26 @@ export type ModeView = {
   mode: SpendMode;
   mandateId: string;
   maxDebit: Amount;
+  // Lo mínimo que puede tener: lo que ya repartió a sus propias ramas
+  minDebit: Amount;
+  spent: Amount;
   remaining: Amount;
   offlineCap?: Amount;
+  // Techo sin señal que fijó el titular
+  offlineCapCeiling?: Amount;
   pinThreshold?: Amount;
   frozen: boolean;
   // Número desde el que escribe por SMS, si ya enlazó su cuenta
   phone?: string;
+};
+
+export type ModesResponse = {
+  personaId: string;
+  personaName: string;
+  // Tope de la persona y lo que tienen sus otras ramas (no modos)
+  budget: Amount;
+  reserved: Amount;
+  modes: ModeView[];
 };
 
 // Respuesta de GET /mandates/:id/tree: el mandato con sus hijos anidados.

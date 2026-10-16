@@ -30,7 +30,8 @@ Convenciones:
 | `GET /callback` · `GET /callback/:rootId` | `interact_ref`, `hash` (los pone la billetera) | Redirect a la web (`?ok=1` / `?ok=0`) |
 | `GET /demo/status?root=` | — | `{ rootGrant, mockOp, mockSms, asset, fxCopPerUsd }` |
 | `POST /mandates/:raíz/beneficiaries` | `{ alias, maxDebit, pin, offlineCap }` (todo obligatorio, en la moneda del árbol) | `{ code, mandateId, modes }` (201). Crea la persona (PIN siempre) y sus tres modos (`docs/producto/modos-de-consumo.md`) |
-| `GET /mandates/:id/modes` | — | `{ personaId, modes }`: modos vivos de la persona (o de la persona de esa rama de modo) |
+| `GET /mandates/:id/modes` | — | `{ personaId, personaName, budget, reserved, modes }`: modos vivos de la persona (o de la de esa rama de modo); cada modo con `maxDebit`, `minDebit`, `spent`, `remaining`, techo sin señal y número SMS |
+| `PATCH /mandates/:persona/modes` | `{ limits: { mandateId, maxDebit?, offlineCap? }[] }` + `x-user-id` del titular | Reparte el tope entre los modos en una transacción (todo o nada; primero baja, luego sube). Devuelve lo mismo que el `GET` |
 | `POST /mandates/:persona/modes` | — | `{ created, personaId, modes }`. Habilita los modos que falten. Solo el titular (`x-user-id`) |
 | `GET\|PUT /delivery-address/:rootId` | `{ recipientName, address }` | Dirección de entrega de ese árbol |
 

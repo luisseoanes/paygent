@@ -7,7 +7,7 @@ import {
   type FeedEvent,
   type HolderType,
   type MandateTree,
-  type ModeView,
+  type ModesResponse,
 } from '@/types/api';
 
 import { db, findInTree, usdAmount } from '../db';
@@ -74,29 +74,47 @@ const pct = (a: Amount, p: number): Amount => ({
 });
 
 // Como la api: los modos vivos de la persona dueña de la rama.
-const modesOf = (id: string): { personaId: string; modes: ModeView[] } => {
+const sumMinor = (ns: MandateTree[]) =>
+  ns
+    .filter((c) => !c.revoked)
+    .reduce((n, c) => n + Number(c.maxDebit.value), 0);
+
+// Como la api: los modos vivos de la persona dueña de la rama, con su reparto.
+const modesOf = (id: string): ModesResponse => {
   const node = findInTree(db.tree, id);
   const persona =
-    node?.holderType === 'person'
+    (node?.holderType === 'person'
       ? node
-      : findInTree(db.tree, node?.parentId ?? '');
+      : findInTree(db.tree, node?.parentId ?? '')) ?? node!;
   const order = ['celular', 'asistente', 'sms'];
-  const modes = (persona?.children ?? [])
-    .filter((c) => c.mode && !c.revoked)
+  const vivos = persona.children.filter((c) => c.mode && !c.revoked);
+  const like = persona.maxDebit;
+  const minor = (n: number): Amount => ({ ...like, value: String(n) });
+  const modes = [...vivos]
     .sort((a, b) => order.indexOf(a.mode!) - order.indexOf(b.mode!))
     .map((c) => ({
       mode: c.mode!,
       mandateId: c.id,
       maxDebit: c.maxDebit,
-      remaining: {
-        ...c.maxDebit,
-        value: String(Number(c.maxDebit.value) - Number(c.spentInPeriod.value)),
-      },
+      minDebit: minor(sumMinor(c.children)),
+      spent: c.spentInPeriod,
+      remaining: minor(
+        Number(c.maxDebit.value) - Number(c.spentInPeriod.value),
+      ),
       offlineCap: c.offlineCap,
+      offlineCapCeiling: c.offlineCapCeiling ?? c.offlineCap,
       pinThreshold: c.pinThreshold,
       frozen: c.frozen,
     }));
-  return { personaId: persona?.id ?? id, modes };
+  return {
+    personaId: persona.id,
+    personaName: persona.holderName,
+    budget: persona.maxDebit,
+    reserved: minor(
+      sumMinor(persona.children.filter((c) => !vivos.includes(c))),
+    ),
+    modes,
+  };
 };
 
 const emit = (event: Omit<FeedEvent, 'id' | 'at'>) =>
@@ -342,6 +360,37 @@ export const mandatesHandlers = [
         created: [],
         ...modesOf(String(params.mandateId)),
       });
+    },
+  ),
+
+  // Todo o nada, como la api: si el reparto no cabe en la persona, no cambia nada.
+  http.patch(
+    apiUrl('/mandates/:mandateId/modes'),
+    async ({ params, request }) => {
+      await networkDelay();
+      if (!request.headers.get('x-user-id'))
+        return fail('Inicia sesión como titular', 401);
+      const persona = findInTree(db.tree, String(params.mandateId));
+      if (!persona) return notFound();
+      const { limits } = (await request.json()) as {
+        limits: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[];
+      };
+      const nuevo = (c: MandateTree) =>
+        limits.find((l) => l.mandateId === c.id)?.maxDebit ?? c.maxDebit;
+      const suma = persona.children
+        .filter((c) => !c.revoked)
+        .reduce((n, c) => n + Number(nuevo(c).value), 0);
+      if (suma > Number(persona.maxDebit.value))
+        return fail(
+          'La suma de los sub-mandatos supera el tope del padre',
+          403,
+        );
+      for (const l of limits) {
+        const c = findInTree(db.tree, l.mandateId)!;
+        if (l.maxDebit) c.maxDebit = l.maxDebit;
+        if (l.offlineCap) c.offlineCapCeiling = l.offlineCap;
+      }
+      return HttpResponse.json(modesOf(persona.id));
     },
   ),
 

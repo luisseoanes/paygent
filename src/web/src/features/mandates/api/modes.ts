@@ -8,21 +8,22 @@ import {
 import { api } from '@/lib/api-client';
 import { currentUserId } from '@/lib/auth';
 import { type MutationConfig, type QueryConfig } from '@/lib/react-query';
-import {
-  type Amount,
-  type Mandate,
-  type ModeView,
-  type SpendMode,
-} from '@/types/api';
+import { type Amount, type ModesResponse, type SpendMode } from '@/types/api';
+
+export type { ModesResponse };
 
 // Modos de consumo de un beneficiario: GET /mandates/:id/modes (los ve él y su
 // titular), POST /mandates/:persona/modes (habilitar los que falten) y
-// PATCH /mandates/:id/limits (el titular sube o baja el tope de un modo).
+// PATCH /mandates/:persona/modes (el titular reparte el tope entre ellos).
 // Lo que solo decide el titular va con su cuenta en x-user-id.
 
 const comoTitular = () => ({ headers: { 'x-user-id': currentUserId() ?? '' } });
 
-export type ModesResponse = { personaId: string; modes: ModeView[] };
+export type ModeLimit = {
+  mandateId: string;
+  maxDebit?: Amount;
+  offlineCap?: Amount;
+};
 
 export const getModes = (mandateId: string): Promise<ModesResponse> =>
   api.get(`/mandates/${mandateId}/modes`);
@@ -53,15 +54,6 @@ export const enableModes = ({
 }): Promise<ModesResponse & { created: SpendMode[] }> =>
   api.post(`/mandates/${personaId}/modes`, undefined, comoTitular());
 
-export const setLimits = ({
-  mandateId,
-  data,
-}: {
-  mandateId: string;
-  data: { maxDebit?: Amount; offlineCap?: Amount };
-}): Promise<Mandate> =>
-  api.patch(`/mandates/${mandateId}/limits`, data, comoTitular());
-
 export const useEnableModes = ({
   mutationConfig,
 }: { mutationConfig?: MutationConfig<typeof enableModes> } = {}) => {
@@ -77,14 +69,24 @@ export const useEnableModes = ({
   });
 };
 
-export const useSetLimits = ({
+// PATCH /mandates/:persona/modes: el reparto entero de una vez (todo o nada).
+export const setModeLimits = ({
+  personaId,
+  limits,
+}: {
+  personaId: string;
+  limits: ModeLimit[];
+}): Promise<ModesResponse> =>
+  api.patch(`/mandates/${personaId}/modes`, { limits }, comoTitular());
+
+export const useSetModeLimits = ({
   mutationConfig,
-}: { mutationConfig?: MutationConfig<typeof setLimits> } = {}) => {
+}: { mutationConfig?: MutationConfig<typeof setModeLimits> } = {}) => {
   const queryClient = useQueryClient();
   const { onSuccess, ...restConfig } = mutationConfig ?? {};
   return useMutation({
     ...restConfig,
-    mutationFn: setLimits,
+    mutationFn: setModeLimits,
     onSuccess: (...args) => {
       queryClient.invalidateQueries({ queryKey: ['mandates'] });
       onSuccess?.(...args);

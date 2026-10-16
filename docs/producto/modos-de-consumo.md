@@ -28,8 +28,12 @@ Agente de Inventario.
 
 En `/cuenta`, en la rama del beneficiario, **Formas de pagar** (todo va con la cuenta del titular en `x-user-id`):
 
-- **Cambiar el tope** de un modo: `PATCH /mandates/:id/limits`. Sube o baja dentro de lo libre de la persona. Con
-  `offlineCap` cambia el techo sin señal. Si baja el celular por debajo de su techo, el techo baja con él.
+- **Ajustar topes** (botón en Formas de pagar): un modal con un slider por modo y otro para el techo sin señal del
+  celular. Todos usan la misma escala (el tope de la persona); cada slider se detiene donde se acaba lo libre (rayado)
+  y nunca baja de lo que el modo ya repartió. "Libre para asignar" se recalcula al mover y queda fijo arriba; nada
+  cambia hasta **Guardar reparto**, que manda todo junto a `PATCH /mandates/:persona/modes` (todo o nada).
+- Un solo modo, por api: `PATCH /mandates/:id/limits`. Con `offlineCap` cambia el techo sin señal. Si baja el celular
+  por debajo de su techo, el techo baja con él.
 - **Quitar** un modo: `POST /mandates/:id/revoke`. Su tope vuelve a quedar libre.
 - **Habilitar los que falten**: `POST /mandates/:persona/modes`. Crea una rama nueva por cada modo que falte. Sirve
   también para beneficiarios dados de alta antes de existir los modos: baja su celular a su parte y crea los demás.

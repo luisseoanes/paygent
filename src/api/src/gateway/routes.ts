@@ -33,7 +33,7 @@ import {
   treeOf,
   type DelegateInput,
 } from './mandates.ts'
-import { enableModes, listModes } from './modes.ts'
+import { enableModes, listModes, setModeLimits } from './modes.ts'
 import { pay } from './pay.ts'
 import { setPin } from './pin.ts'
 import { sql } from '../store/sql.ts'
@@ -49,6 +49,9 @@ const slug = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+
+/** Nombre del titular dueño de la raíz de la rama (para el feed). */
+const titularDe = async (mandateId: string) => (await chainOf(mandateId)).at(-1)!.holderName
 
 export default async function gatewayRoutes(app: FastifyInstance) {
   app.get('/gateway/public-key', async () => ({ publicKey: gatewayKey.publicKey }))
@@ -225,7 +228,7 @@ export default async function gatewayRoutes(app: FastifyInstance) {
     if (created.length)
       await emit({
         mandateId: persona.id,
-        actor: { type: 'person', name: 'Titular' },
+        actor: { type: 'person', name: await titularDe(persona.id) },
         kind: 'grant',
         reason: `${persona.holderName} ya puede pagar por: ${created.join(', ')}`,
       })
@@ -240,13 +243,33 @@ export default async function gatewayRoutes(app: FastifyInstance) {
     const m = await setLimits(req.params.id, { maxDebit, offlineCap })
     await emit({
       mandateId: m.id,
-      actor: { type: 'person', name: 'Titular' },
+      actor: { type: 'person', name: await titularDe(m.id) },
       kind: 'grant',
       amount: m.maxDebit,
       reason: `Nuevo tope de ${m.holderName}: ${A.format(m.maxDebit)}${m.offlineCap ? `, sin señal ${A.format(m.offlineCap)}` : ''}`,
     })
     return m
   })
+
+  // El titular reparte de una vez el tope de la persona entre sus modos (los sliders de la web). Todo o nada.
+  app.patch<{ Params: { id: string }; Body: { limits?: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[] } }>(
+    '/mandates/:id/modes',
+    async (req) => {
+      await requireTitularOf(req, req.params.id)
+      const persona = await getMandate(req.params.id)
+      if (persona.holderType !== 'person' || !persona.parentId) throw badRequest('Los modos se reparten en la rama de una persona')
+      const limits = req.body?.limits ?? []
+      if (!limits.length) throw badRequest('Faltan los topes (limits)')
+      const changed = await setModeLimits(persona.id, limits)
+      await emit({
+        mandateId: persona.id,
+        actor: { type: 'person', name: await titularDe(persona.id) },
+        kind: 'grant',
+        reason: `Nuevo reparto de ${persona.holderName}: ${changed.map((m) => `${m.holderName} ${A.format(m.maxDebit)}`).join(', ')}`,
+      })
+      return listModes(persona.id)
+    },
+  )
 
   // Canal SMS de una rama: el titular registra el celular y el PIN con los que su beneficiario habla con el Asistente.
   app.get<{ Params: { id: string } }>('/mandates/:id/sms', async (req) => {

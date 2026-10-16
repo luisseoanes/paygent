@@ -3,7 +3,8 @@ import { insertProfile } from '../db.ts'
 import { env } from '../env.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { OFFLINE_START_PCT } from './devices.ts'
-import { chainOf, childrenOf, delegate, getMandate, putMandate, remainingOf } from './mandates.ts'
+import { badRequest } from './errors.ts'
+import { chainOf, childrenOf, delegate, getMandate, putMandate, remainingOf, rollPeriod, setLimits } from './mandates.ts'
 import { normalizarCelular } from './phone.ts'
 
 /** Orden en que se reparten y se muestran. */
@@ -195,24 +196,37 @@ export interface ModeView {
   mode: SpendMode
   mandateId: string
   maxDebit: Amount
+  /** Lo mínimo que puede tener: lo que ya repartió a sus propias ramas (la consulta al Inventario) */
+  minDebit: Amount
+  spent: Amount
   remaining: Amount
   offlineCap?: Amount
+  /** Techo sin señal que fijó el titular */
+  offlineCapCeiling?: Amount
   pinThreshold?: Amount
   frozen: boolean
   /** Por dónde se usa: el número del SMS si ya está enlazado */
   phone?: string
 }
 
-/** Los modos vivos de la persona dueña de `id` (la persona o cualquiera de sus ramas de modo). */
+const sumOf = (ms: Mandate[], like: Amount) => ms.filter((c) => !c.revoked).reduce((acc, c) => A.add(acc, c.maxDebit), A.zero(like))
+
+/**
+ * Los modos vivos de la persona dueña de `id` (la persona o cualquiera de sus ramas de modo), con lo que hace falta
+ * para repartir su tope: `budget` (el de la persona) y `reserved` (lo que tienen sus otras ramas, que no son modos).
+ */
 export const listModes = async (id: string) => {
   const m = await getMandate(id)
   const personaId = m.holderType === 'person' ? m.id : m.parentId!
+  const persona = m.id === personaId ? m : await getMandate(personaId)
   const modes = await modesOf(personaId)
   // El número con el que habla su hoja SMS (el de la cuenta o el que eligió el titular).
   const smsLeaf = modes.get('sms')
   const [sms] = smsLeaf
     ? await sql().query<{ channel: string }>(`select channel from profiles where mandate_id = $1 and chat_for is null limit 1`, [smsLeaf.id])
     : []
+  const modeIds = new Set([...modes.values()].map((b) => b.id))
+  const reserved = sumOf((await childrenOf(personaId)).filter((c) => !modeIds.has(c.id)), persona.maxDebit)
   const views: ModeView[] = []
   for (const mode of MODES) {
     const b = modes.get(mode)
@@ -221,12 +235,32 @@ export const listModes = async (id: string) => {
       mode,
       mandateId: b.id,
       maxDebit: b.maxDebit,
+      minDebit: sumOf(await childrenOf(b.id), b.maxDebit),
+      spent: rollPeriod(b).spentInPeriod,
       remaining: await remainingOf(b.id),
       offlineCap: b.offlineCap,
+      offlineCapCeiling: b.offlineCapCeiling,
       pinThreshold: b.pinThreshold,
       frozen: b.frozen,
       phone: mode === 'sms' ? sms?.channel : undefined,
     })
   }
-  return { personaId, modes: views }
+  return { personaId, personaName: persona.holderName, budget: persona.maxDebit, reserved, modes: views }
 }
+
+/**
+ * El titular reparte de una vez el tope de la persona entre sus modos. Todo o nada: primero baja lo que baja y después
+ * sube lo que sube, para que la suma nunca pase por encima de la persona a mitad de camino.
+ */
+export const setModeLimits = async (personaId: string, limits: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[]) =>
+  sql().tx(async (tx) => {
+    const own = new Set([...(await modesOf(personaId, tx)).values()].map((b) => b.id))
+    const ajenos = limits.filter((l) => !own.has(l.mandateId))
+    if (ajenos.length) throw badRequest(`No son modos de esta persona: ${ajenos.map((l) => l.mandateId).join(', ')}`)
+    const current = new Map((await childrenOf(personaId, tx)).map((c) => [c.id, c]))
+    const baja = (l: (typeof limits)[number]) => !l.maxDebit || A.lte(l.maxDebit, current.get(l.mandateId)!.maxDebit)
+    const ordered = [...limits.filter(baja), ...limits.filter((l) => !baja(l))]
+    const changed: Mandate[] = []
+    for (const l of ordered) changed.push(await setLimits(l.mandateId, { maxDebit: l.maxDebit, offlineCap: l.offlineCap }, tx))
+    return changed
+  })
