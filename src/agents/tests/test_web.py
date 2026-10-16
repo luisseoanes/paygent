@@ -135,3 +135,15 @@ def test_si_la_zona_no_esta_lista_no_hace_esperar_al_sms(monkeypatch):
     monkeypatch.setattr(nearby, "places_near", places_near)
     r = asyncio.run(web.search_web("losartan", limit=10, location=HOME))
     assert r["located"] is False and [o["store"] for o in r["offers"]] == ["Pasteur", "La Rebaja"]
+
+
+def test_la_zona_de_la_demo_viene_incluida_aunque_overpass_falle(monkeypatch):
+    nearby._zones.clear()
+    monkeypatch.setattr(nearby, "CACHE_DIR", nearby.BUNDLED_DIR / "no-existe")
+
+    async def caido(lat, lng):
+        raise RuntimeError("Overpass 500")
+
+    monkeypatch.setattr(nearby, "_download", caido)
+    places = asyncio.run(nearby.places_near(HOME))
+    assert places and "La Rebaja" in nearby.nearest_branches(places, HOME)

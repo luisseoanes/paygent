@@ -1,0 +1,609 @@
+{
+"attribution": "© OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright)",
+"zone": "6.00,-75.43 (demo: la mamá en el oriente antioqueño), radio 20 km",
+"downloadedAt": 1792183669.2859287,
+"places": [
+{
+"name": "Éxito Rionegro-San Nicolás",
+"brand": null,
+"lat": 6.14864,
+"lng": -75.3782,
+"kind": "mercado"
+},
+{
+"name": "La esquina del toro",
+"brand": null,
+"lat": 6.0805384,
+"lng": -75.3327346,
+"kind": "mercado"
+},
+{
+"name": "Salsamentaria La Esquina",
+"brand": null,
+"lat": 6.0852704,
+"lng": -75.3358385,
+"kind": "mercado"
+},
+{
+"name": "El Paraiso",
+"brand": null,
+"lat": 6.0852917,
+"lng": -75.3358519,
+"kind": "mercado"
+},
+{
+"name": "Salsamentaria la Halambra",
+"brand": null,
+"lat": 6.0856977,
+"lng": -75.3370406,
+"kind": "mercado"
+},
+{
+"name": "Supermercado Mercavil",
+"brand": null,
+"lat": 6.0822118,
+"lng": -75.3353378,
+"kind": "mercado"
+},
+{
+"name": "IDEMA",
+"brand": null,
+"lat": 6.0312094,
+"lng": -75.4317455,
+"kind": "mercado"
+},
+{
+"name": "Droguería Profamiliar Parque",
+"brand": null,
+"lat": 6.0306277,
+"lng": -75.4312254,
+"kind": "farmacia"
+},
+{
+"name": "H -21",
+"brand": null,
+"lat": 6.0300282,
+"lng": -75.4295266,
+"kind": "mercado"
+},
+{
+"name": "Huevos de oro",
+"brand": null,
+"lat": 6.0332842,
+"lng": -75.4304257,
+"kind": "mercado"
+},
+{
+"name": "Colsubsidio",
+"brand": null,
+"lat": 6.1520447,
+"lng": -75.3740959,
+"kind": "farmacia"
+},
+{
+"name": "El Crucero de Pontezuela",
+"brand": null,
+"lat": 6.0782616,
+"lng": -75.4247125,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.1307776,
+"lng": -75.3795787,
+"kind": "mercado"
+},
+{
+"name": "Drofarma Droguería El Carmen",
+"brand": null,
+"lat": 6.0833257,
+"lng": -75.3344075,
+"kind": "farmacia"
+},
+{
+"name": "Bastilla Drogas",
+"brand": null,
+"lat": 6.1543394,
+"lng": -75.3707483,
+"kind": "farmacia"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.133089,
+"lng": -75.4025348,
+"kind": "mercado"
+},
+{
+"name": "Farmacia Pasteur",
+"brand": null,
+"lat": 6.1543767,
+"lng": -75.4358894,
+"kind": "farmacia"
+},
+{
+"name": "Drogueria Emmanuel",
+"brand": null,
+"lat": 6.1576148,
+"lng": -75.371234,
+"kind": "farmacia"
+},
+{
+"name": "Justo &Bueno",
+"brand": null,
+"lat": 6.1567875,
+"lng": -75.3735146,
+"kind": "mercado"
+},
+{
+"name": "La Rebaja",
+"brand": null,
+"lat": 6.1523793,
+"lng": -75.3739277,
+"kind": "farmacia"
+},
+{
+"name": "Droguería Santa Farma",
+"brand": null,
+"lat": 6.1518413,
+"lng": -75.3737667,
+"kind": "farmacia"
+},
+{
+"name": "Drofarma Droguería",
+"brand": null,
+"lat": 6.1514593,
+"lng": -75.3735508,
+"kind": "farmacia"
+},
+{
+"name": "Droguería Nueva",
+"brand": null,
+"lat": 6.1543637,
+"lng": -75.3731763,
+"kind": "farmacia"
+},
+{
+"name": "Farmacia Popular",
+"brand": null,
+"lat": 6.153192,
+"lng": -75.3735676,
+"kind": "farmacia"
+},
+{
+"name": "Carulla",
+"brand": null,
+"lat": 6.1251203,
+"lng": -75.42151,
+"kind": "mercado"
+},
+{
+"name": "Farmacia Central",
+"brand": null,
+"lat": 6.0828013,
+"lng": -75.3351311,
+"kind": "farmacia"
+},
+{
+"name": "Mercavil",
+"brand": null,
+"lat": 6.0852417,
+"lng": -75.335823,
+"kind": "mercado"
+},
+{
+"name": "Tiendas D1",
+"brand": null,
+"lat": 6.0319804,
+"lng": -75.4362035,
+"kind": "mercado"
+},
+{
+"name": "Mall Cantarana",
+"brand": null,
+"lat": 6.0473773,
+"lng": -75.3962232,
+"kind": "mercado"
+},
+{
+"name": "Justo & Bueno",
+"brand": null,
+"lat": 6.0948,
+"lng": -75.4888918,
+"kind": "mercado"
+},
+{
+"name": "Exito Express Mall San Miguel",
+"brand": null,
+"lat": 6.09472,
+"lng": -75.5013381,
+"kind": "mercado"
+},
+{
+"name": "Fazenda Mall",
+"brand": null,
+"lat": 6.0650149,
+"lng": -75.3829086,
+"kind": "mercado"
+},
+{
+"name": "Supermercado Panorama",
+"brand": null,
+"lat": 6.1032432,
+"lng": -75.4255604,
+"kind": "mercado"
+},
+{
+"name": "Mercaderia Justo & Bueno",
+"brand": null,
+"lat": 6.0648293,
+"lng": -75.3829865,
+"kind": "mercado"
+},
+{
+"name": "Supermercado Pempenao",
+"brand": null,
+"lat": 6.0674669,
+"lng": -75.500308,
+"kind": "mercado"
+},
+{
+"name": "Droguerias Smart",
+"brand": null,
+"lat": 6.0724024,
+"lng": -75.4978814,
+"kind": "farmacia"
+},
+{
+"name": "Drogueria Colsubsidio",
+"brand": null,
+"lat": 6.0726768,
+"lng": -75.4977231,
+"kind": "farmacia"
+},
+{
+"name": "Drogas La Rebaja",
+"brand": null,
+"lat": 6.0902953,
+"lng": -75.4925074,
+"kind": "farmacia"
+},
+{
+"name": "Distrimar",
+"brand": null,
+"lat": 6.1473476,
+"lng": -75.3869757,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.0944494,
+"lng": -75.488171,
+"kind": "mercado"
+},
+{
+"name": "Droguería Alemana",
+"brand": null,
+"lat": 6.1329516,
+"lng": -75.4023738,
+"kind": "farmacia"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.029959,
+"lng": -75.4310996,
+"kind": "mercado"
+},
+{
+"name": "Super Mercado Monte Rosas",
+"brand": null,
+"lat": 6.0784332,
+"lng": -75.4250032,
+"kind": "mercado"
+},
+{
+"name": "Drogueria Cabeceras",
+"brand": null,
+"lat": 6.1069071,
+"lng": -75.4251096,
+"kind": "farmacia"
+},
+{
+"name": "Tienda Viento Loco",
+"brand": null,
+"lat": 6.0945925,
+"lng": -75.4270237,
+"kind": "mercado"
+},
+{
+"name": "Supermercado Pintezuela",
+"brand": null,
+"lat": 6.0844659,
+"lng": -75.4260986,
+"kind": "mercado"
+},
+{
+"name": "Supermercado Simona",
+"brand": null,
+"lat": 6.0836464,
+"lng": -75.3356798,
+"kind": "mercado"
+},
+{
+"name": "Droguería El Carmen",
+"brand": null,
+"lat": 6.0830843,
+"lng": -75.3357552,
+"kind": "farmacia"
+},
+{
+"name": "Supermercado D1",
+"brand": null,
+"lat": 6.0858273,
+"lng": -75.3369576,
+"kind": "mercado"
+},
+{
+"name": "Supermercado Vital",
+"brand": null,
+"lat": 6.1423012,
+"lng": -75.3731482,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.1428101,
+"lng": -75.371342,
+"kind": "mercado"
+},
+{
+"name": "Fonda del buen estudiante",
+"brand": null,
+"lat": 6.143356,
+"lng": -75.3728981,
+"kind": "mercado"
+},
+{
+"name": "El vientecito",
+"brand": null,
+"lat": 6.1474231,
+"lng": -75.3910849,
+"kind": "mercado"
+},
+{
+"name": "Droguería Alemana",
+"brand": null,
+"lat": 6.0644054,
+"lng": -75.5016393,
+"kind": "farmacia"
+},
+{
+"name": "Tiendas D1",
+"brand": null,
+"lat": 6.0740549,
+"lng": -75.3315739,
+"kind": "mercado"
+},
+{
+"name": "Tienda El Alto",
+"brand": null,
+"lat": 6.0708906,
+"lng": -75.3531582,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.0812062,
+"lng": -75.3422344,
+"kind": "mercado"
+},
+{
+"name": "Dollar City",
+"brand": null,
+"lat": 6.152752,
+"lng": -75.3750673,
+"kind": "mercado"
+},
+{
+"name": "Ismo",
+"brand": null,
+"lat": 6.1529114,
+"lng": -75.3750736,
+"kind": "mercado"
+},
+{
+"name": "Mercavil",
+"brand": null,
+"lat": 6.0915095,
+"lng": -75.3372487,
+"kind": "mercado"
+},
+{
+"name": "tomo",
+"brand": null,
+"lat": 6.170135,
+"lng": -75.4282038,
+"kind": "mercado"
+},
+{
+"name": "Pura",
+"brand": "Pura",
+"lat": 6.1712791,
+"lng": -75.4275986,
+"kind": "farmacia"
+},
+{
+"name": "Supermercado Casa Mia",
+"brand": null,
+"lat": 6.1487712,
+"lng": -75.3661355,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": null,
+"lat": 6.149249,
+"lng": -75.3680137,
+"kind": "mercado"
+},
+{
+"name": "Exqui",
+"brand": null,
+"lat": 6.1722867,
+"lng": -75.427842,
+"kind": "mercado"
+},
+{
+"name": "Pura",
+"brand": "Pura",
+"lat": 6.1721107,
+"lng": -75.427839,
+"kind": "farmacia"
+},
+{
+"name": "Tomo",
+"brand": null,
+"lat": 6.1724157,
+"lng": -75.4281302,
+"kind": "mercado"
+},
+{
+"name": "Pura",
+"brand": "Pura",
+"lat": 6.172505,
+"lng": -75.4281517,
+"kind": "farmacia"
+},
+{
+"name": "Johnny Carl",
+"brand": null,
+"lat": 6.1714248,
+"lng": -75.427607,
+"kind": "mercado"
+},
+{
+"name": "Pasteur",
+"brand": "Pasteur",
+"lat": 6.1702651,
+"lng": -75.4282129,
+"kind": "farmacia"
+},
+{
+"name": "La Rebaja Drogueria",
+"brand": null,
+"lat": 6.1489932,
+"lng": -75.3903481,
+"kind": "farmacia"
+},
+{
+"name": "Mercados Julio",
+"brand": null,
+"lat": 5.9729669,
+"lng": -75.3596339,
+"kind": "mercado"
+},
+{
+"name": "MerqueCasa",
+"brand": null,
+"lat": 5.97308,
+"lng": -75.361429,
+"kind": "mercado"
+},
+{
+"name": "El Baraton",
+"brand": null,
+"lat": 5.974219,
+"lng": -75.361186,
+"kind": "mercado"
+},
+{
+"name": "Jumbo",
+"brand": "Jumbo",
+"lat": 6.141902,
+"lng": -75.3798565,
+"kind": "mercado"
+},
+{
+"name": "Farmacia",
+"brand": null,
+"lat": 5.9737478,
+"lng": -75.362499,
+"kind": "farmacia"
+},
+{
+"name": "El Jibarito",
+"brand": null,
+"lat": 5.9735224,
+"lng": -75.3632407,
+"kind": "mercado"
+},
+{
+"name": "Homecenter",
+"brand": null,
+"lat": 6.1467589,
+"lng": -75.3774909,
+"kind": "mercado"
+},
+{
+"name": "Drogueria",
+"brand": null,
+"lat": 6.1505687,
+"lng": -75.3947741,
+"kind": "farmacia"
+},
+{
+"name": "Tienda Samuel",
+"brand": null,
+"lat": 6.1587504,
+"lng": -75.3728003,
+"kind": "mercado"
+},
+{
+"name": "Tiendas D1 De todos",
+"brand": null,
+"lat": 6.1577519,
+"lng": -75.3737909,
+"kind": "mercado"
+},
+{
+"name": "Granjero El Buen Genioi",
+"brand": null,
+"lat": 6.106622,
+"lng": -75.4254943,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": "D1",
+"lat": 6.0807487,
+"lng": -75.3342162,
+"kind": "mercado"
+},
+{
+"name": "Farmatodo",
+"brand": "Farmatodo",
+"lat": 6.1228931,
+"lng": -75.4243086,
+"kind": "farmacia"
+},
+{
+"name": "D1",
+"brand": "D1",
+"lat": 5.9737696,
+"lng": -75.3606824,
+"kind": "mercado"
+},
+{
+"name": "D1",
+"brand": "D1",
+"lat": 5.9728997,
+"lng": -75.3574939,
+"kind": "mercado"
+}
+]
+}

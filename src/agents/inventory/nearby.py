@@ -20,10 +20,13 @@ from .search import distance_m, normalize
 
 log = logging.getLogger("inventory.nearby")
 
-OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
 RADIUS_M = 20_000
 TTL_S = 7 * 24 * 3600
 CACHE_DIR = Path(__file__).parent / ".cache"
+# Zonas incluidas en el repo (la de la demo): Overpass suele fallar desde servidores en la nube (en Railway dio 500).
+BUNDLED_DIR = Path(__file__).parent / "osm"
 
 # Cómo aparece cada cadena de la búsqueda de precios en OpenStreetMap (nombre o marca).
 CHAINS = {
@@ -52,7 +55,7 @@ def _query(lat: float, lng: float) -> str:
 
 async def _download(lat: float, lng: float) -> list[dict]:
     async with httpx.AsyncClient(timeout=90, headers={"User-Agent": "Paygent/0.1 (hackathon Open Payments)"}) as client:
-        last: Exception | None = None
+        errors = []
         for url in OVERPASS:
             try:
                 r = await client.post(url, data={"data": _query(lat, lng)})
@@ -60,9 +63,9 @@ async def _download(lat: float, lng: float) -> list[dict]:
                 elements = r.json().get("elements", [])
                 break
             except Exception as err:  # probamos el siguiente servidor
-                last = err
+                errors.append(f"{url.split('/')[2]}: {type(err).__name__} {str(err)[:80]}")
         else:
-            raise RuntimeError(f"Overpass no respondió: {last}")
+            raise RuntimeError("Overpass no respondió: " + " | ".join(errors))
     places = []
     for e in elements:
         tags = e.get("tags", {})
@@ -72,6 +75,15 @@ async def _download(lat: float, lng: float) -> list[dict]:
         places.append({"name": tags.get("name") or tags.get("brand"), "brand": tags.get("brand"),
                        "lat": point["lat"], "lng": point["lon"],
                        "kind": "farmacia" if tags.get("amenity") == "pharmacy" or tags.get("shop") == "chemist" else "mercado"})
+    return places
+
+
+def _bundled(key: str) -> list[dict] | None:
+    try:
+        places = json.loads((BUNDLED_DIR / f"{key}.json").read_text(encoding="utf-8"))["places"]
+    except (OSError, ValueError, KeyError):
+        return None
+    _zones[key] = (time.time(), places)
     return places
 
 
@@ -106,7 +118,7 @@ async def places_near(location: dict, wait_s: float = 0) -> list[dict] | None:
     key = _key(lat, lng)
     if (hit := _zones.get(key)) and time.time() - hit[0] < TTL_S:
         return hit[1]
-    if (saved := _from_disk(key)) is not None:
+    if (saved := _from_disk(key)) is not None or (saved := _bundled(key)) is not None:
         return saved
     task = _loading.get(key)
     if task is None or task.done():
