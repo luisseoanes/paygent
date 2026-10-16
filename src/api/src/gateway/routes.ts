@@ -16,11 +16,12 @@ import {
 } from '../db.ts'
 import { emit } from '../feed/bus.ts'
 import { revokeRootGrant } from '../op/grants.ts'
-import { assertHolder, requireAgent } from './auth.ts'
+import { assertHolder, requireAgent, requireTitularOf } from './auth.ts'
 import { issueDeviceCert } from './devices.ts'
 import { badRequest, forbidden, HttpError, notFound } from './errors.ts'
 import { gatewayKey } from './keys.ts'
 import {
+  chainOf,
   delegate,
   getMandate,
   remainingOf,
@@ -35,6 +36,7 @@ import { pay } from './pay.ts'
 import { setPin } from './pin.ts'
 import { sql } from '../store/sql.ts'
 import { describePayout } from './payout.ts'
+import { activarSms, desactivarSms, enmascarar, estadoSms } from './sms-canal.ts'
 
 const CATEGORIES: Category[] = ['mercado', 'farmacia', 'efectivo', 'datos']
 const isWallet = (w?: string) => /^https:\/\/\S+$/.test(w ?? '')
@@ -215,6 +217,29 @@ export default async function gatewayRoutes(app: FastifyInstance) {
       return { code, mandateId: id, deviceMandateId: code }
     },
   )
+
+  // Canal SMS de una rama: el titular registra el celular y el PIN con los que su beneficiario habla con el Asistente.
+  app.get<{ Params: { id: string } }>('/mandates/:id/sms', async (req) => {
+    await requireTitularOf(req, req.params.id)
+    return estadoSms(req.params.id)
+  })
+
+  app.put<{ Params: { id: string }; Body: { phone?: string; pin?: string } }>('/mandates/:id/sms', async (req) => {
+    await requireTitularOf(req, req.params.id)
+    const { rama, estado } = await activarSms(req.params.id, req.body ?? {})
+    const titular = (await chainOf(rama.id)).at(-1)!.holderName
+    await emit({ mandateId: rama.id, actor: { type: 'person', name: titular }, kind: 'grant', reason: `${titular} activó el SMS de ${rama.holderName} (${estado.phone})` })
+    return estado
+  })
+
+  app.delete<{ Params: { id: string } }>('/mandates/:id/sms', async (req) => {
+    await requireTitularOf(req, req.params.id)
+    const { phone, mandateId } = await desactivarSms(req.params.id)
+    const chain = await chainOf(req.params.id)
+    const titular = chain.at(-1)!.holderName
+    await emit({ mandateId, actor: { type: 'person', name: titular }, kind: 'revoked', reason: `${titular} apagó el SMS de ${chain[0].holderName} (${enmascarar(phone)})` })
+    return { active: false }
+  })
 
   app.post<{ Body: PayRequest }>('/pay', async (req) => {
     const agent = await requireAgent(req)

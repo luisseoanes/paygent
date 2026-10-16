@@ -36,6 +36,7 @@ import {
 } from '../utils/mandate';
 
 import { Libreta } from './libreta';
+import { SmsRama } from './sms-rama';
 import { VincularCelular } from './vincular-celular';
 
 // Detalle de una rama: cuánto le queda, las acciones de Juan a un toque
@@ -195,6 +196,12 @@ export const RamaDetalle = ({
     : undefined;
   const parentRemaining = parent ? quedanDe(parent) : undefined;
   const renueva = nextRenewal(node.interval);
+  // El SMS lo usa una persona (o el celular de una persona), nunca un agente ni la raíz.
+  const puedeSms =
+    !!node.parentId &&
+    status !== 'revoked' &&
+    node.canSpend &&
+    node.holderType !== 'agent';
   const puedeDelegar =
     onDelegate &&
     status === 'active' &&
@@ -355,6 +362,8 @@ export const RamaDetalle = ({
           />
         </section>
       )}
+
+      {puedeSms && <SmsRama mandateId={node.id} nombre={node.holderName} />}
 
       <dl className="divide-y divide-rule">
         {!restringe && (
