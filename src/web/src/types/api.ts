@@ -84,16 +84,22 @@ export type FeedEvent = {
 
 // --- Sesión -----------------------------------------------------------------
 
-// Quién usa la app: Juan delega, María paga, el tendero cobra.
-export type Rol = 'juan' | 'maria' | 'tendero';
+// Tipos de cuenta: el titular tiene wallet y delega; el beneficiario paga
+// con lo que le delegaron (se crea enlazando un código); el tendero cobra.
+export type Rol = 'titular' | 'beneficiario' | 'tendero';
 
 export type User = {
   id: string;
   role: Rol;
   name: string;
+  apellido?: string;
+  documento?: string;
+  telefono?: string;
   email: string;
-  // Wallet address de Open Payments; se muestra solo si se conoce.
+  // Wallet address de Open Payments del titular
   walletAddress?: string;
-  // Mandato raíz firmado por el usuario (grant GNAP)
+  // Mandato raíz firmado por el titular (grant GNAP)
   rootMandateId: string | null;
+  // Rama a la que quedó enlazado el beneficiario (el código que le dieron)
+  mandateId?: string;
 };

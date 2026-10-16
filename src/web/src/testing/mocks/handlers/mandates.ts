@@ -137,7 +137,8 @@ export const mandatesHandlers = [
         ? 'http://localhost:5173'
         : window.location.origin;
     return HttpResponse.json({
-      redirectUrl: `${origin}${paths.juan.getHref()}?ok=1`,
+      // Igual que src/api: vuelve a la ruta vieja /juan, que redirige a /cuenta
+      redirectUrl: `${origin}${paths.legado.juan.path}?ok=1`,
     });
   }),
 

@@ -47,8 +47,30 @@ export const createAppRouter = (queryClient: QueryClient) =>
           lazy: () => import('./routes/auth/login').then(convert(queryClient)),
         },
         {
-          path: paths.juan.path,
-          lazy: () => import('./routes/juan').then(convert(queryClient)),
+          path: paths.auth.registro.path,
+          lazy: () =>
+            import('./routes/auth/registro').then(convert(queryClient)),
+        },
+        {
+          path: paths.enlazar.path,
+          lazy: () => import('./routes/enlazar').then(convert(queryClient)),
+        },
+        {
+          path: paths.enlazar.registro.path,
+          lazy: () =>
+            import('./routes/enlazar-registro').then(convert(queryClient)),
+        },
+        {
+          path: paths.cuenta.path,
+          lazy: () => import('./routes/cuenta').then(convert(queryClient)),
+        },
+        {
+          path: paths.legado.juan.path,
+          lazy: () => import('./routes/legado').then(convert(queryClient)),
+        },
+        {
+          path: paths.legado.maria.path,
+          lazy: () => import('./routes/legado').then(convert(queryClient)),
         },
         // ROUTES:INSERT — keep this marker, new routes go above it.
         {
@@ -67,8 +89,8 @@ export const createAppRouter = (queryClient: QueryClient) =>
       ),
       children: [
         {
-          path: paths.maria.path,
-          lazy: () => import('./routes/maria').then(convert(queryClient)),
+          path: paths.billetera.path,
+          lazy: () => import('./routes/billetera').then(convert(queryClient)),
         },
         {
           path: paths.tendero.path,

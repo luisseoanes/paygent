@@ -131,7 +131,7 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
       <div className="mx-auto grid min-h-[min(calc(100svh+32px),900px)] w-full max-w-[1400px] grid-rows-[auto_1fr] gap-6 px-4 pt-28 sm:px-6 lg:grid-cols-12 lg:px-10 lg:pt-32">
         {/* Fuera: se aleja con el scroll. Dentro: entra al cargar. */}
         <motion.div
-          className="lg:col-span-5 lg:-mt-8"
+          className="lg:col-span-5 lg:-mt-8 lg:-ml-[clamp(0px,calc((100vw-1400px)/2),150px)]"
           style={
             reduceMotion ? undefined : { y: titularY, opacity: titularOpacidad }
           }
@@ -164,7 +164,7 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
                 asChild
                 className="h-11 rounded-lg bg-paper-raised px-5 font-geist text-[0.9375rem] text-grafito shadow-sm hover:bg-hueso"
               >
-                <Link variant="unstyled" to={paths.juan.getHref()}>
+                <Link variant="unstyled" to={paths.cuenta.getHref()}>
                   Entrar a mi mandato
                   <ArrowRight aria-hidden="true" />
                 </Link>

@@ -49,7 +49,7 @@ const DetalleVale = ({
       : undefined;
 
   // OFF-08: demo de doble cobro. El gateway lo rechaza y el Guardián lo
-  // anota en la libreta de Juan; aquí el vale original no cambia.
+  // anota en la libreta del titular; aquí el vale original no cambia.
   const reenviar = async () => {
     setReenviando(true);
     try {
@@ -60,7 +60,7 @@ const DetalleVale = ({
           r?.status === 'rejected'
             ? 'Rechazado: este vale ya se cobró'
             : `Respuesta: ${r?.status ?? 'sin respuesta'}`,
-        message: 'El Guardián lo anotó en la libreta de Juan.',
+        message: 'El Guardián lo anotó en la libreta del titular.',
       });
     } finally {
       setReenviando(false);

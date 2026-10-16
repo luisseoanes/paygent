@@ -5,9 +5,15 @@ import { SiteHeader } from './site-header';
 type MainLayoutProps = {
   children: React.ReactNode;
   headerActions?: React.ReactNode;
+  // Al final del menú móvil
+  headerMenuActions?: React.ReactNode;
 };
 
-export const MainLayout = ({ children, headerActions }: MainLayoutProps) => {
+export const MainLayout = ({
+  children,
+  headerActions,
+  headerMenuActions,
+}: MainLayoutProps) => {
   return (
     <div className="flex min-h-dvh flex-col bg-paper">
       <a
@@ -16,7 +22,7 @@ export const MainLayout = ({ children, headerActions }: MainLayoutProps) => {
       >
         Saltar al contenido
       </a>
-      <SiteHeader actions={headerActions} />
+      <SiteHeader actions={headerActions} menuActions={headerMenuActions} />
       <main id="main-content" className="flex flex-1 flex-col">
         {children}
       </main>

@@ -6,7 +6,7 @@ import { Libreta } from '../libreta';
 const guardian: FeedEvent = {
   id: 'evt_g',
   at: new Date().toISOString(),
-  mandateId: 'mnd_maria_cel',
+  mandateId: 'maria-device',
   actor: { type: 'agent', name: 'Agente Guardián' },
   kind: 'guardian',
   reason: 'Rechazó un vale repetido (mismo contador).',

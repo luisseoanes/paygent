@@ -1,7 +1,7 @@
 import { paths } from '../paths';
 
-test('the link code Juan shares opens María with the branch id', () => {
-  expect(paths.maria.getHref('maria-device')).toBe(
-    '/maria?vincular=maria-device',
+test('the code a titular shares opens the public link screen', () => {
+  expect(paths.enlazar.getHref('maria-device')).toBe(
+    '/enlazar?codigo=maria-device',
   );
 });

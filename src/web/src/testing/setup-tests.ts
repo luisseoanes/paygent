@@ -11,6 +11,7 @@ afterEach(() => {
   server.resetHandlers();
   resetDb();
   globalThis.sessionStorage?.clear();
+  globalThis.localStorage?.clear();
 });
 afterAll(() => server.close());
 

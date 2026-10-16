@@ -15,7 +15,7 @@ import { PastoPixel } from './pasto-pixel';
 // el resto apunta a secciones de esta portada hasta que existan.
 const enlaces = [
   [
-    { label: 'Árbol de mandatos', href: paths.juan.getHref() },
+    { label: 'Árbol de mandatos', href: paths.cuenta.getHref() },
     { label: 'Cómo funciona', href: '#como-funciona' },
     { label: 'Agentes', href: '#agentes' },
   ],
@@ -96,7 +96,7 @@ export const Cierre = () => (
               asChild
               className="mt-4 rounded-lg bg-paper-raised font-geist text-grafito shadow-sm hover:bg-hueso"
             >
-              <Link variant="unstyled" to={paths.juan.getHref()}>
+              <Link variant="unstyled" to={paths.cuenta.getHref()}>
                 Entrar a mi mandato
               </Link>
             </Button>

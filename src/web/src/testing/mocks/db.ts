@@ -55,7 +55,7 @@ const SEEDS: Seed[] = [
     categories: ['mercado', 'farmacia'],
   },
   {
-    id: 'mnd_maria_cel',
+    id: 'maria-device',
     parentId: 'mnd_maria',
     holderType: 'device',
     holderId: 'Celular de María · llave ed25519',
@@ -156,7 +156,7 @@ const buildFeed = (): FeedEvent[] => [
   {
     id: 'evt_3',
     at: minutesAgo(40),
-    mandateId: 'mnd_maria_cel',
+    mandateId: 'maria-device',
     actor: { type: 'device', name: 'Celular de María' },
     kind: 'voucher_settled',
     amount: usd(12),
@@ -166,7 +166,7 @@ const buildFeed = (): FeedEvent[] => [
   {
     id: 'evt_4',
     at: minutesAgo(41),
-    mandateId: 'mnd_maria_cel',
+    mandateId: 'maria-device',
     actor: { type: 'agent', name: 'Agente Guardián' },
     kind: 'guardian',
     reason:

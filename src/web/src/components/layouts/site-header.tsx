@@ -6,7 +6,7 @@ import { LogoPaygent } from '@/components/brand/logo-paygent';
 import { NubePixel } from '@/components/brand/nube-pixel';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/components/ui/link';
-import { landingSections, paths } from '@/config/paths';
+import { landingSections, pantallasDeEntrada, paths } from '@/config/paths';
 import { siteConfig } from '@/config/site';
 import { useActiveSection } from '@/hooks/use-active-section';
 import { useDisclosure } from '@/hooks/use-disclosure';
@@ -17,7 +17,7 @@ import { Container } from './container';
 
 const navLinkClassName = (isActive: boolean) =>
   cn(
-    'inline-flex min-h-12 items-center rounded-md px-3 text-sm font-medium text-ink-2 transition-colors hover:bg-paper-sunken hover:text-ink md:min-h-10',
+    'inline-flex min-h-12 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap text-ink-2 transition-colors hover:bg-paper-sunken hover:text-ink md:min-h-10 lg:px-2 xl:px-3',
     isActive && 'bg-paper-sunken text-ink',
   );
 
@@ -62,14 +62,18 @@ export const Wordmark = () => (
 type SiteHeaderProps = {
   // Slot for extra controls on the right (e.g. a user menu composed in app/routes/root.tsx).
   actions?: React.ReactNode;
+  // Slot al final del menú móvil (lo que no cabe en la barra del celular)
+  menuActions?: React.ReactNode;
 };
 
-export const SiteHeader = ({ actions }: SiteHeaderProps) => {
+export const SiteHeader = ({ actions, menuActions }: SiteHeaderProps) => {
   const mobileMenu = useDisclosure();
   const location = useLocation();
   // En la portada el header flota sobre el paisaje del hero (estilo Cofounder).
   const sobreHero = location.pathname === paths.home.getHref();
-  const enLogin = location.pathname === paths.auth.login.path;
+  // Pantallas de entrada (iniciar sesión, registrarse, enlazar): el menú
+  // flota sobre el paisaje y el logo va en su nube.
+  const enLogin = pantallasDeEntrada.includes(location.pathname);
   // El menú flota sobre el paisaje en la portada y en iniciar sesión.
   const sobreImagen = sobreHero || enLogin;
   const closeMobileMenu = mobileMenu.close;
@@ -159,6 +163,11 @@ export const SiteHeader = ({ actions }: SiteHeaderProps) => {
               className="flex flex-col gap-1"
               activeSection={activeSection}
             />
+            {menuActions && (
+              <div className="mt-3 flex flex-col gap-2 border-t border-rule pt-3">
+                {menuActions}
+              </div>
+            )}
           </Container>
         </nav>
       )}

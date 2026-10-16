@@ -12,8 +12,8 @@ import { SinSenal } from '@/features/marketing/components/sin-senal';
 
 // Portada con la estructura de Cofounder (Mobbin). Cada sección responde una
 // pregunta del jurado, en orden: qué es → por qué hace falta → cómo funciona
-// el mandato → por qué los agentes no se descontrolan → cómo paga quien no
-// tiene señal → qué es real. El hero recibe el celular (feature celular).
+// el mandato → cómo paga quien no tiene señal → por qué los agentes no se
+// descontrolan → qué es real. El hero recibe el celular (feature celular).
 // Los id son las anclas del menú (landingSections en src/config/paths.ts).
 const LandingRoute = () => {
   return (
@@ -35,14 +35,14 @@ const LandingRoute = () => {
           <ComoFunciona />
         </Revelar>
       </div>
-      <div id="agentes" className="scroll-mt-16">
-        <Revelar desde="derecha">
-          <GatewayDecide />
-        </Revelar>
-      </div>
       <div id="sin-senal" className="scroll-mt-16">
         <Revelar>
           <SinSenal />
+        </Revelar>
+      </div>
+      <div id="agentes" className="scroll-mt-16">
+        <Revelar desde="derecha">
+          <GatewayDecide />
         </Revelar>
       </div>
       <div id="que-es-real" className="scroll-mt-16">

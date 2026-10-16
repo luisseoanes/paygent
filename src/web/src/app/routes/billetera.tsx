@@ -16,24 +16,27 @@ import { Vincular } from '@/features/billetera/components/vincular';
 import { useRefrescarDispositivo } from '@/features/billetera/hooks/use-refrescar-dispositivo';
 import { useDispositivoStore } from '@/features/billetera/stores/dispositivo-store';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { ProtectedRoute } from '@/lib/auth';
+import { ProtectedRoute, useUser } from '@/lib/auth';
 
-// PWA de María (FE-03, OFF-04): vincular el celular una vez, ver cuánto puede
-// gastar y pagar con un vale firmado en el teléfono, con o sin señal.
+// App del beneficiario (FE-03, OFF-04): con el celular enlazado ve cuánto
+// puede gastar y paga con un vale firmado en el teléfono, con o sin señal.
+// Si entra desde otro celular, lo enlaza con el código de su cuenta.
 
 type Vista =
   | { tipo: 'inicio' }
   | { tipo: 'pagar' }
   | { tipo: 'vale'; voucher: Voucher; merchant: Merchant; cop: number };
 
-const MariaApp = () => {
+const BilleteraApp = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const user = useUser().data;
   const cargado = useDispositivoStore((s) => s.cargado);
   const dispositivo = useDispositivoStore((s) => s.dispositivo);
   const cargar = useDispositivoStore((s) => s.cargar);
   const olvidar = useDispositivoStore((s) => s.olvidar);
   const [vista, setVista] = React.useState<Vista>({ tipo: 'inicio' });
-  const codigo = searchParams.get('vincular') ?? undefined;
+  // ?vincular= de QR viejos o la rama con la que se registró la cuenta
+  const codigo = searchParams.get('vincular') ?? user?.mandateId;
   const [chatAbierto, setChatAbierto] = React.useState(false);
   const escritorio = useMediaQuery('(min-width: 1024px)');
   const contexto = React.useMemo(
@@ -51,16 +54,17 @@ const MariaApp = () => {
 
   // Ya vinculado: el ?vincular= de la URL sobra.
   React.useEffect(() => {
-    if (dispositivo && codigo) setSearchParams({}, { replace: true });
-  }, [dispositivo, codigo, setSearchParams]);
+    if (dispositivo && searchParams.has('vincular'))
+      setSearchParams({}, { replace: true });
+  }, [dispositivo, searchParams, setSearchParams]);
 
   return (
     <AppShell
-      rol="María"
-      titular="El permiso de Juan, en tu celular."
+      rol="Beneficiario"
+      titular="Un permiso para pagar, en tu celular."
       titularPixel="Paga aunque no haya señal."
       pasos={[
-        'Vinculas el celular una vez con el código que te da Juan.',
+        'Enlazas el celular una vez con el código que te dio el titular.',
         'Eliges dónde pagas y cuánto, en pesos.',
         'Muestras el QR del vale: el tendero lo cobra al instante o cuando vuelva la señal.',
       ]}
@@ -77,8 +81,8 @@ const MariaApp = () => {
       }
     >
       <Head
-        title="María"
-        description="Paga con el permiso de Juan, con o sin señal."
+        title="Mi billetera"
+        description="Paga con el permiso que te dieron, con o sin señal."
       />
       {!cargado ? (
         <div className="flex flex-1 items-center justify-center">
@@ -115,7 +119,7 @@ const MariaApp = () => {
           desvincular={
             <ConfirmationDialog
               title="¿Desvincular este celular?"
-              body="Se borran sus llaves. Para volver a pagar tendrás que vincularlo otra vez con el código de Juan."
+              body="Se borran sus llaves. Para volver a pagar tendrás que enlazarlo otra vez con el código de tu titular."
               confirmLabel="Desvincular"
               onConfirm={() => olvidar()}
               triggerButton={
@@ -134,10 +138,10 @@ const MariaApp = () => {
   );
 };
 
-const MariaRoute = () => (
-  <ProtectedRoute rol="maria">
-    <MariaApp />
+const BilleteraRoute = () => (
+  <ProtectedRoute rol="beneficiario">
+    <BilleteraApp />
   </ProtectedRoute>
 );
 
-export default MariaRoute;
+export default BilleteraRoute;

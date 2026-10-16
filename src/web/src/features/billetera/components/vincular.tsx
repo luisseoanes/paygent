@@ -9,29 +9,41 @@ import { useOnline } from '@/hooks/use-online';
 
 import { useVincularDispositivo } from '../api/vincular-dispositivo';
 
-// Primera vez: este celular se vuelve la rama "Celular de María" del árbol de
-// Juan. El código lo muestra Juan en su panel (QR o texto). Necesita señal.
+// Enlazar este celular: se vuelve una rama del árbol de un titular (p. ej.
+// "Celular de María"). El código lo muestra el titular en su cuenta (QR o
+// texto). Necesita señal una sola vez.
 
 const codigoSchema = z.object({
-  codigo: z.string().trim().min(3, 'Escribe el código que te dio Juan'),
+  codigo: z.string().trim().min(3, 'Escribe el código que te dieron'),
 });
 
-// El QR de Juan es un enlace a /maria?vincular=<id>; también vale el id solo.
+// El QR del titular es un enlace a /enlazar?codigo=<id> (antes
+// /maria?vincular=<id>); también vale el id solo.
 export const codigoDesdeQr = (texto: string) => {
   try {
-    return new URL(texto).searchParams.get('vincular') ?? texto.trim();
+    const { searchParams } = new URL(texto);
+    return (
+      searchParams.get('codigo') ?? searchParams.get('vincular') ?? texto.trim()
+    );
   } catch {
     return texto.trim();
   }
 };
 
-export const Vincular = ({ codigoInicial }: { codigoInicial?: string }) => {
+export const Vincular = ({
+  codigoInicial,
+  encabezado = true,
+}: {
+  codigoInicial?: string;
+  // Sin título propio cuando va dentro de un marco que ya lo tiene
+  encabezado?: boolean;
+}) => {
   const online = useOnline();
   const [escaneando, setEscaneando] = React.useState(false);
   const vincular = useVincularDispositivo();
   const intentado = React.useRef(false);
 
-  // Llegó desde el QR de Juan con la cámara del celular: vincula sola.
+  // Llegó desde el QR del titular con la cámara del celular: enlaza sola.
   React.useEffect(() => {
     if (!codigoInicial || !online || intentado.current) return;
     intentado.current = true;
@@ -39,26 +51,30 @@ export const Vincular = ({ codigoInicial }: { codigoInicial?: string }) => {
   }, [codigoInicial, online, vincular]);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 pt-6">
-      <div className="space-y-2">
-        <span
-          aria-hidden="true"
-          className="inline-flex size-12 items-center justify-center rounded-2xl bg-firma-tint text-firma"
-        >
-          <Smartphone className="size-6" />
-        </span>
-        <h1 className="text-[1.75rem] leading-tight tracking-[-0.02em] text-grafito">
-          Vincula este celular
-        </h1>
-        <p className="text-[0.9375rem] text-ink-2">
-          Así pagas con el permiso que te dio Juan, incluso donde no hay señal.
-          Solo lo haces una vez.
-        </p>
-      </div>
+    <div
+      className={encabezado ? 'flex flex-1 flex-col gap-6 pt-6' : 'space-y-5'}
+    >
+      {encabezado && (
+        <div className="space-y-2">
+          <span
+            aria-hidden="true"
+            className="inline-flex size-12 items-center justify-center rounded-2xl bg-firma-tint text-firma"
+          >
+            <Smartphone className="size-6" />
+          </span>
+          <h1 className="text-[1.75rem] leading-tight tracking-[-0.02em] text-grafito">
+            Enlaza este celular
+          </h1>
+          <p className="text-[0.9375rem] text-ink-2">
+            Así pagas con el permiso que te dieron, incluso donde no hay señal.
+            Solo lo haces una vez.
+          </p>
+        </div>
+      )}
 
       {!online && (
         <p className="rounded-2xl bg-pendiente-tint p-4 text-sm text-pendiente">
-          Para vincularlo necesitas señal un momento. Después puedes pagar sin
+          Para enlazarlo necesitas señal un momento. Después puedes pagar sin
           ella.
         </p>
       )}
@@ -66,7 +82,7 @@ export const Vincular = ({ codigoInicial }: { codigoInicial?: string }) => {
       {escaneando ? (
         <div className="space-y-3">
           <QrScanner
-            hint="Apunta al código del panel de Juan"
+            hint="Apunta al código que te muestra el titular"
             onScan={(texto) => {
               setEscaneando(false);
               vincular.mutate({ mandateId: codigoDesdeQr(texto) });
@@ -90,7 +106,7 @@ export const Vincular = ({ codigoInicial }: { codigoInicial?: string }) => {
             isLoading={vincular.isPending}
             onClick={() => setEscaneando(true)}
           >
-            Escanear el código de Juan
+            Escanear el código
           </Button>
           <div className="flex items-center gap-3 text-xs text-ink-2">
             <span className="h-px flex-1 bg-rule" />o escríbelo
@@ -120,7 +136,7 @@ export const Vincular = ({ codigoInicial }: { codigoInicial?: string }) => {
                   disabled={!online}
                   isLoading={vincular.isPending}
                 >
-                  Vincular
+                  Enlazar
                 </Button>
               </>
             )}

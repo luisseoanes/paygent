@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { paths } from '@/config/paths';
 
-// Juan le pasa a María el código de su rama de celular: un QR que abre
-// /maria?vincular=<id> (la cámara del celular basta) o el código escrito.
+// El titular le pasa al beneficiario el código de su rama de celular: un QR
+// que abre /enlazar?codigo=<id> (la cámara del celular basta) o el código
+// escrito en /enlazar.
 export const VincularCelular = ({
   mandateId,
   nombre,
@@ -22,7 +23,7 @@ export const VincularCelular = ({
   nombre: string;
   trigger: React.ReactElement;
 }) => {
-  const url = `${window.location.origin}${paths.maria.getHref(mandateId)}`;
+  const url = `${window.location.origin}${paths.enlazar.getHref(mandateId)}`;
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>

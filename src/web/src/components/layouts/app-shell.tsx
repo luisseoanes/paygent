@@ -1,16 +1,15 @@
-import { LogOut } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
-import { useNavigate } from 'react-router';
 
 import paisaje from '@/assets/paisaje-cielo.png';
 import { EstadoConexion } from '@/components/brand/estado-conexion';
-import { Button } from '@/components/ui/button';
 import { Link } from '@/components/ui/link';
+import { nombreCompleto } from '@/config/demo-users';
 import { paths } from '@/config/paths';
 import { useOnline } from '@/hooks/use-online';
-import { useLogout, useUser } from '@/lib/auth';
+import { useUser } from '@/lib/auth';
 
+import { MenuCuenta } from './menu-cuenta';
 import { Wordmark } from './site-header';
 
 // Marco de las apps de rol (María, tendero). En el celular es solo la tarea,
@@ -109,11 +108,7 @@ const PanelMarca = ({
 
 export const AppShell = ({ children, ...panel }: AppShellProps) => {
   const online = useOnline();
-  const navigate = useNavigate();
   const user = useUser().data;
-  const logout = useLogout({
-    onSuccess: () => navigate(paths.auth.login.getHref()),
-  });
 
   return (
     <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,36rem)]">
@@ -131,21 +126,11 @@ export const AppShell = ({ children, ...panel }: AppShellProps) => {
               <Wordmark />
             </Link>
             <p className="hidden min-w-0 truncate text-sm text-ink-2 lg:block">
-              {user ? `${user.name} · ${panel.rol}` : panel.rol}
+              {user ? `${nombreCompleto(user)} · ${panel.rol}` : panel.rol}
             </p>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <EstadoConexion online={online} />
-              {user && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Cerrar sesión"
-                  isLoading={logout.isPending}
-                  onClick={() => logout.mutate()}
-                >
-                  <LogOut aria-hidden="true" />
-                </Button>
-              )}
+              <MenuCuenta />
             </div>
           </div>
         </header>

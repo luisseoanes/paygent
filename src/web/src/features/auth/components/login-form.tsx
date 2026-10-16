@@ -2,9 +2,15 @@ import { ArrowRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Form, FormError, Input } from '@/components/ui/form';
-import { DEMO_PASSWORD, demoUsers, rolLabel } from '@/config/demo-users';
+import { DEMO_PASSWORD, demoUsers } from '@/config/demo-users';
 import { loginInputSchema, useLogin } from '@/lib/auth';
 import { type User } from '@/types/api';
+
+const etiquetaDemo: Record<User['role'], string> = {
+  titular: 'Titular',
+  beneficiario: 'Beneficiario',
+  tendero: 'Tendero',
+};
 
 type LoginFormProps = {
   onSuccess: (user: User) => void;
@@ -61,7 +67,7 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
                   }}
                   className="min-h-12 rounded-lg border border-rule bg-paper px-2 text-sm text-grafito transition-colors hover:bg-paper-sunken focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
-                  {rolLabel[u.role].nombre}
+                  {etiquetaDemo[u.role]}
                 </button>
               ))}
             </div>

@@ -13,7 +13,7 @@ import {
 import { redirectTo } from '@/utils/redirect';
 
 import LoginRoute from '../auth/login';
-import JuanRoute from '../juan';
+import CuentaRoute from '../cuenta';
 
 vi.mock('@/utils/redirect', () => ({ redirectTo: vi.fn() }));
 
@@ -22,7 +22,7 @@ const setupFlow = (url: string, { signedIn = false } = {}) => {
   const router = createMemoryRouter(
     [
       { path: paths.auth.login.path, element: <LoginRoute /> },
-      { path: paths.juan.path, element: <JuanRoute /> },
+      { path: paths.cuenta.path, element: <CuentaRoute /> },
     ],
     { initialEntries: [url] },
   );
@@ -36,10 +36,10 @@ const setupFlow = (url: string, { signedIn = false } = {}) => {
 
 const delegados = () => screen.findByRole('region', { name: /delegados/i });
 
-test('Juan needs to sign in and then sees his mandate from the API', async () => {
-  const { router } = setupFlow(paths.juan.getHref());
+test('the titular signs in and sees their mandate from the API', async () => {
+  const { router } = setupFlow(paths.cuenta.getHref());
 
-  // Sin sesión, /juan manda a iniciar sesión.
+  // Sin sesión, /cuenta manda a iniciar sesión.
   await screen.findByRole('heading', { name: /iniciar sesión/i });
   expect(router.state.location.pathname).toBe(paths.auth.login.path);
 
@@ -53,7 +53,7 @@ test('Juan needs to sign in and then sees his mandate from the API', async () =>
     await screen.findByRole('heading', { name: /hola, juan/i }),
   ).toBeInTheDocument();
   await waitFor(() =>
-    expect(router.state.location.pathname).toBe(paths.juan.path),
+    expect(router.state.location.pathname).toBe(paths.cuenta.path),
   );
 
   expect(
@@ -92,9 +92,9 @@ test('the login form validates before calling the API', async () => {
   ).toBeInTheDocument();
 });
 
-test('without a grant Juan signs a mandate in his wallet', async () => {
+test('without a grant the titular signs a mandate in their wallet', async () => {
   db.rootGrant = false;
-  setupFlow(paths.juan.getHref(), { signedIn: true });
+  setupFlow(paths.cuenta.getHref(), { signedIn: true });
 
   await screen.findByRole('heading', { name: /firma tu mandato/i });
   const tope = screen.getByLabelText(/tope entre todos/i);
@@ -121,8 +121,8 @@ test('without a grant Juan signs a mandate in his wallet', async () => {
   expect(db.tree.maxDebit.value).toBe('25000');
 });
 
-test('coming back from the wallet tells Juan what happened', async () => {
-  const { router } = setupFlow(`${paths.juan.getHref()}?ok=0`, {
+test('coming back from the wallet tells the titular what happened', async () => {
+  const { router } = setupFlow(`${paths.cuenta.getHref()}?ok=0`, {
     signedIn: true,
   });
 
@@ -133,8 +133,8 @@ test('coming back from the wallet tells Juan what happened', async () => {
   await waitFor(() => expect(router.state.location.search).toBe(''));
 });
 
-test('Juan delegates a new branch within what is left', async () => {
-  setupFlow(paths.juan.getHref(), { signedIn: true });
+test('the titular delegates a new branch within what is left', async () => {
+  setupFlow(paths.cuenta.getHref(), { signedIn: true });
 
   await userEvent.click(
     within(await delegados()).getByRole('button', {
@@ -174,8 +174,8 @@ test('Juan delegates a new branch within what is left', async () => {
   ).toBeInTheDocument();
 });
 
-test('Juan freezes a branch and reactivates it', async () => {
-  setupFlow(paths.juan.getHref(), { signedIn: true });
+test('the titular freezes a branch and reactivates it', async () => {
+  setupFlow(paths.cuenta.getHref(), { signedIn: true });
 
   await userEvent.click(
     within(await delegados()).getByRole('button', {
@@ -200,8 +200,8 @@ test('Juan freezes a branch and reactivates it', async () => {
   );
 });
 
-test('at a glance Juan sees what is left and who spent it', async () => {
-  setupFlow(paths.juan.getHref(), { signedIn: true });
+test('at a glance the titular sees what is left and who spent it', async () => {
+  setupFlow(paths.cuenta.getHref(), { signedIn: true });
 
   const resumen = await screen.findByRole('region', { name: /tu mandato/i });
   expect(within(resumen).getByText('$212,50')).toBeInTheDocument();
@@ -211,7 +211,7 @@ test('at a glance Juan sees what is left and who spent it', async () => {
 });
 
 test('revoking María takes three taps and the rest keeps working', async () => {
-  setupFlow(paths.juan.getHref(), { signedIn: true });
+  setupFlow(paths.cuenta.getHref(), { signedIn: true });
 
   // 1. Su fila
   await userEvent.click(

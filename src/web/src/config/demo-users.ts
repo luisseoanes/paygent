@@ -5,15 +5,16 @@ import { paths } from './paths';
 
 // Cuentas de la demo (ver CUENTAS-DEMO.md). La API no maneja cuentas: la
 // sesión es una puerta de demostración en el navegador. Lo real es el
-// mandato de Juan, el celular de María y los cobros del tendero.
+// mandato del titular, el celular del beneficiario y los cobros del tendero.
 
 export const DEMO_PASSWORD = 'paygent123';
 
 export const demoUsers: User[] = [
   {
     id: 'juan',
-    role: 'juan',
-    name: 'Juan Pérez',
+    role: 'titular',
+    name: 'Juan',
+    apellido: 'Pérez',
     email: 'juan@paygent.dev',
     walletAddress: env.JUAN_WALLET_ADDRESS,
     // El mandato raíz de la semilla del gateway siempre se llama "root" (GW-01)
@@ -21,30 +22,37 @@ export const demoUsers: User[] = [
   },
   {
     id: 'maria',
-    role: 'maria',
-    name: 'María Pérez',
+    role: 'beneficiario',
+    name: 'María',
+    apellido: 'Pérez',
     email: 'maria@paygent.dev',
     rootMandateId: null,
+    mandateId: 'maria-device',
   },
   {
     id: 'tendero',
     role: 'tendero',
-    name: 'Rosa Gómez',
+    name: 'Rosa',
+    apellido: 'Gómez',
     email: 'tendero@paygent.dev',
     rootMandateId: null,
   },
 ];
 
 export const rolLabel: Record<Rol, { nombre: string; app: string }> = {
-  juan: { nombre: 'Juan', app: 'Mi mandato' },
-  maria: { nombre: 'María', app: 'Mi billetera' },
-  tendero: { nombre: 'Tendero', app: 'Mi caja' },
+  titular: { nombre: 'titular', app: 'Mi cuenta' },
+  beneficiario: { nombre: 'beneficiario', app: 'Mi billetera' },
+  tendero: { nombre: 'tendero', app: 'Mi caja' },
 };
 
-// A dónde va cada rol al entrar.
+// "María Pérez"
+export const nombreCompleto = (u: Pick<User, 'name' | 'apellido'>) =>
+  [u.name, u.apellido].filter(Boolean).join(' ');
+
+// A dónde va cada tipo de cuenta al entrar.
 export const homeHref = (role: Rol) =>
-  role === 'maria'
-    ? paths.maria.getHref()
+  role === 'beneficiario'
+    ? paths.billetera.getHref()
     : role === 'tendero'
       ? paths.tendero.getHref()
-      : paths.juan.getHref();
+      : paths.cuenta.getHref();

@@ -4,6 +4,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { SectionErrorFallback } from '@/components/errors';
 import { Head } from '@/components/seo';
 import { Skeleton } from '@/components/ui/skeleton';
+import { nombreCompleto } from '@/config/demo-users';
 import {
   getGrantStatusQueryOptions,
   useGrantStatus,
@@ -15,8 +16,9 @@ import { useGrantCallback } from '@/features/mandates/hooks/use-grant-callback';
 import { ProtectedRoute, useUser } from '@/lib/auth';
 import { type User } from '@/types/api';
 
-// Juan: si aún no firmó (o revocó) su mandato, lo firma en su billetera; si
-// ya lo tiene, ve a quién le delegó y lo último que pasó. Solo con sesión.
+// Cuenta del titular (la persona con wallet): si aún no firmó (o revocó) su
+// mandato, lo firma en su billetera; si ya lo tiene, ve a quién le delegó y
+// lo último que pasó. Solo con sesión de titular.
 
 // Precarga el estado del grant mientras se resuelve la sesión.
 export const clientLoader = (queryClient: QueryClient) => async () => {
@@ -24,7 +26,7 @@ export const clientLoader = (queryClient: QueryClient) => async () => {
   return null;
 };
 
-const MandatoDeJuan = ({
+const MandatoDelTitular = ({
   user,
 }: {
   user: User & { rootMandateId: string };
@@ -57,7 +59,7 @@ const MandatoDeJuan = ({
   );
 };
 
-const JuanContent = () => {
+const CuentaContent = () => {
   useGrantCallback();
   const user = useUser().data;
   if (!user) return null;
@@ -65,14 +67,14 @@ const JuanContent = () => {
   return (
     <>
       <Head
-        title={user.name}
+        title={nombreCompleto(user)}
         description="Delega pagos a tu familia y a tus agentes."
       />
       <div className="mx-auto flex w-full max-w-[90rem] flex-1 flex-col">
         <header className="flex flex-wrap items-end justify-between gap-3 px-4 pt-6 pb-2 sm:px-8 sm:pt-8">
           <div>
             <h1 className="text-[1.75rem] leading-tight font-normal tracking-[-0.02em] text-grafito">
-              Hola, {user.name.split(' ')[0]}
+              Hola, {user.name}
             </h1>
             <p className="text-sm text-ink-2">
               Lo que le diste a tu familia y a tus agentes, y en qué se fue.
@@ -92,7 +94,7 @@ const JuanContent = () => {
         <div className="flex-1 px-4 py-6 sm:px-8 sm:pb-12">
           <ErrorBoundary FallbackComponent={SectionErrorFallback}>
             {user.rootMandateId ? (
-              <MandatoDeJuan
+              <MandatoDelTitular
                 user={{ ...user, rootMandateId: user.rootMandateId }}
               />
             ) : (
@@ -105,10 +107,10 @@ const JuanContent = () => {
   );
 };
 
-const JuanRoute = () => (
-  <ProtectedRoute rol="juan">
-    <JuanContent />
+const CuentaRoute = () => (
+  <ProtectedRoute rol="titular">
+    <CuentaContent />
   </ProtectedRoute>
 );
 
-export default JuanRoute;
+export default CuentaRoute;
