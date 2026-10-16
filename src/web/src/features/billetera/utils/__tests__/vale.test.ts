@@ -1,6 +1,10 @@
 // @vitest-environment node
 // tweetnacl compara Uint8Array por realm: con jsdom fallaría.
-import { verifyVoucherOffline } from '@openroute/shared';
+import {
+  amount as A,
+  type Amount,
+  verifyVoucherOffline,
+} from '@openroute/shared';
 
 import { type Dispositivo } from '@/features/billetera/stores/dispositivo-store';
 import {
@@ -11,8 +15,8 @@ import {
 
 import { crearVale, disponibleSinSenalCop } from '../vale';
 
-const dispositivo = (): Dispositivo => {
-  const { keys, cert } = celularDePrueba(20);
+const dispositivo = (offlineCap?: Amount): Dispositivo => {
+  const { keys, cert } = celularDePrueba(offlineCap);
   return {
     mandateId: 'maria-device',
     ...keys,
@@ -49,4 +53,17 @@ test('never lets the offline total pass the certificate cap', () => {
     ok: false,
     motivo: 'Supera lo que puedes gastar sin señal.',
   });
+});
+
+test('with a COP root the voucher is in pesos, no conversion', () => {
+  const d = dispositivo(A.cop(80_000));
+  const r = crearVale(d, tiendaDePrueba, 12_000);
+  if (!r.ok) throw new Error(r.motivo);
+
+  expect(r.voucher.amount).toEqual(A.cop(12_000));
+  expect(r.voucher.cumulative).toEqual(A.cop(12_000));
+  expect(verifyVoucherOffline(r.voucher, gatewayDePrueba.publicKey)).toEqual({
+    ok: true,
+  });
+  expect(disponibleSinSenalCop(r.siguiente)).toBe(68_000);
 });

@@ -16,7 +16,7 @@ import {
 import { verificarVale } from '../verificar';
 
 const valeFirmado = (): Voucher => {
-  const { keys, cert } = celularDePrueba(20);
+  const { keys, cert } = celularDePrueba();
   return signVoucher(
     {
       voucherId: 'v_1',

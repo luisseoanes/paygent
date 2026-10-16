@@ -19,7 +19,7 @@ export default async function opRoutes(app: FastifyInstance) {
     const body = req.body ?? {}
     return requestRootGrant({
       walletAddress: body.walletAddress ?? env.WALLET_JUAN,
-      maxDebit: body.maxDebit ?? A.usd(300),
+      maxDebit: body.maxDebit ?? getMandate(ROOT_ID).maxDebit,
       interval: body.interval ?? monthly(),
     })
   })

@@ -9,16 +9,22 @@ import {
 
 import { type Dispositivo } from '../stores/dispositivo-store';
 
-// Firma un vale en el celular, sin red: el monto se convierte de COP a USD con
-// la tasa de referencia, el contador sube y el acumulado nunca pasa del tope
-// sin señal del certificado (lo mismo que verifica el tendero y el gateway).
+// Firma un vale en el celular, sin red: el monto pasa de COP a la moneda de
+// Juan (la del tope del certificado; sin conversión si es COP), el contador
+// sube y el acumulado nunca pasa del tope sin señal del certificado.
+
+const monedaRaiz = (d: Dispositivo) => A.assetOf(d.cert.offlineCap);
+const enRaiz = (d: Dispositivo, minor: number) => ({
+  ...monedaRaiz(d),
+  value: String(minor),
+});
 
 export const topeSinSenalCents = (d: Dispositivo) =>
   Number(d.cert.offlineCap.value);
 
 export const disponibleSinSenalCop = (d: Dispositivo) =>
-  A.usdToCop(
-    A.USD(Math.max(0, topeSinSenalCents(d) - d.cumulativeCents)),
+  A.toCop(
+    enRaiz(d, Math.max(0, topeSinSenalCents(d) - d.cumulativeCents)),
     d.fx,
   );
 
@@ -42,7 +48,7 @@ export const crearVale = (
       motivo:
         'Tu permiso sin señal venció. Conéctate un momento para renovarlo.',
     };
-  const amount = A.copToUsd(cop, d.fx);
+  const amount = A.fromCop(cop, monedaRaiz(d), d.fx);
   const cumulativeCents = d.cumulativeCents + Number(amount.value);
   if (cumulativeCents > topeSinSenalCents(d))
     return {
@@ -60,7 +66,7 @@ export const crearVale = (
       category: merchant.category as Category,
       amount,
       counter,
-      cumulative: A.USD(cumulativeCents),
+      cumulative: enRaiz(d, cumulativeCents),
       createdAt: now.toISOString(),
     },
     d.secretKey,

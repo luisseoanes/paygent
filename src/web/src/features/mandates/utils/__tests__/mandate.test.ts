@@ -63,3 +63,10 @@ test('only lets a branch hand out what its active children leave', () => {
   expect(disponibleParaDelegar(root)).toBe(150);
   expect(ramasDelegables(root).map((n) => n.id)).toEqual(['root', 'a']);
 });
+
+test('parses Colombian thousands separators', () => {
+  expect(parseMoney('1.200.000')).toBe(1_200_000);
+  expect(parseMoney('40.000')).toBe(40_000);
+  expect(parseMoney('12,50')).toBe(12.5);
+  expect(parseMoney('12.50')).toBe(12.5);
+});

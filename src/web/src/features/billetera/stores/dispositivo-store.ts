@@ -26,7 +26,7 @@ export type Dispositivo = {
   secretKey: string;
   cert: DeviceCert;
   gatewayPublicKey: string;
-  // Último contador usado y acumulado (centavos USD) con el certificado actual
+  // Último contador usado y acumulado (unidades mínimas de la moneda de Juan) con el certificado actual
   counter: number;
   cumulativeCents: number;
   merchants: Merchant[];

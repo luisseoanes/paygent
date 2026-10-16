@@ -6,14 +6,15 @@ con restrict() contra el techo que autorizó Juan.
 
 from datetime import datetime, timedelta, timezone
 
-from common.money import fmt_usd, to_float, usd
+from common.money import asset_of, fmt_cop, from_cop, to_cop
 
 VELOCITY_N = 4  # N vales…
 VELOCITY_WINDOW = timedelta(minutes=10)  # …en M minutos
 MAX_AGE = timedelta(hours=72)
-NEW_MERCHANT_HIGH_USD = 15.0
-CAP_STEP_USD = 15.0
-MIN_CAP_USD = 5.0
+# Umbrales en pesos; se comparan contra el monto convertido a COP.
+NEW_MERCHANT_HIGH_COP = 60_000
+CAP_STEP_COP = 60_000
+MIN_CAP_COP = 20_000
 CLEAN_TO_RAISE = 3
 
 # GRD-03: historial simulado de 30 días (liquidaciones limpias) para que el puntaje tenga sentido en la demo.
@@ -44,8 +45,8 @@ def evaluate(vouchers: list[dict], history: list[dict], now: datetime | None = N
             flags.append(("vale_antiguo", "el vale tiene más de 3 días"))
         known = {h["merchantWallet"] for h in history if h["deviceKeyId"] == device}
         known |= SIMULATED_KNOWN_MERCHANTS.get(mandate, set())
-        if v["merchantWallet"] not in known and to_float(v["amount"]) > NEW_MERCHANT_HIGH_USD:
-            flags.append(("comercio_nuevo_monto_alto", f"comercio nuevo y monto alto ({fmt_usd(v['amount'])})"))
+        if v["merchantWallet"] not in known and to_cop(v["amount"]) > NEW_MERCHANT_HIGH_COP:
+            flags.append(("comercio_nuevo_monto_alto", f"comercio nuevo y monto alto ({fmt_cop(to_cop(v['amount']))})"))
 
         if not flags:
             decisions.append({"voucherId": v["voucherId"], "action": "approve", "rule": "", "explanation": ""})
@@ -63,15 +64,15 @@ def score(mandate_id: str, holder: str, offline_cap: dict, ceiling: dict, frozen
     """Puntaje de confianza → nuevo tope offline, siempre ≤ techo de Juan."""
     clean = sum(1 for h in history if h.get("status") == "settled") + SIMULATED_CLEAN_SETTLEMENTS.get(mandate_id, 0)
     alerts = sum(1 for h in history if h.get("status") in ("rejected", "flagged"))
-    cap, top = to_float(offline_cap), to_float(ceiling)
+    cap, top = to_cop(offline_cap), to_cop(ceiling)
 
     if frozen or alerts:
-        new = max(MIN_CAP_USD, cap / 2)
-        why = f"bajé el tope offline de {holder} de ${cap:.0f} a ${new:.0f} por {alerts} alerta(s)"
+        new = max(MIN_CAP_COP, cap / 2)
+        why = f"bajé el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)} por {alerts} alerta(s)"
     elif clean >= CLEAN_TO_RAISE and cap < top:
-        new = min(top, cap + CAP_STEP_USD)
-        why = f"subí el tope offline de {holder} de ${cap:.0f} a ${new:.0f}: {clean} compras liquidadas sin problemas (techo de Juan: ${top:.0f})"
+        new = min(top, cap + CAP_STEP_COP)
+        why = f"subí el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)}: {clean} compras liquidadas sin problemas (techo de Juan: {fmt_cop(top)})"
     else:
         new = cap
         why = "sin cambios"
-    return {"newCap": usd(new), "explanation": why[0].upper() + why[1:] + "."}
+    return {"newCap": from_cop(new, asset_of(offline_cap)), "explanation": why[0].upper() + why[1:] + "."}

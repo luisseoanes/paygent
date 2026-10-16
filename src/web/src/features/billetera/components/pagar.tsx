@@ -83,7 +83,7 @@ export const Pagar = ({
       </div>
     );
 
-  const usd = A.toNumber(A.copToUsd(cop, d.fx));
+  const enRaiz = A.fromCop(cop, A.assetOf(d.cert.offlineCap), d.fx);
   const excede = cop > disponible;
 
   const generar = async () => {
@@ -110,10 +110,15 @@ export const Pagar = ({
         >
           {formatCop(cop)}
         </p>
-        <p className="mt-2 text-xs text-ink-2">
-          ≈ {formatCurrency(usd, 'USD', { currencyDisplay: 'code' })} · tasa de
-          referencia
-        </p>
+        {enRaiz.assetCode !== 'COP' && (
+          <p className="mt-2 text-xs text-ink-2">
+            ≈{' '}
+            {formatCurrency(A.toNumber(enRaiz), enRaiz.assetCode, {
+              currencyDisplay: 'code',
+            })}{' '}
+            · tasa de referencia
+          </p>
+        )}
         <p
           className={
             excede ? 'mt-1 text-sm text-anulado' : 'mt-1 text-sm text-ink-2'

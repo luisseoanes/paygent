@@ -1,10 +1,12 @@
-import { amount as A, monthly, weekly, type Mandate } from '@openroute/shared'
+import { monthly, weekly, type Mandate } from '@openroute/shared'
 import { emptyDb, replaceDb, db, type DB } from '../db.ts'
 import { env } from '../env.ts'
 import { setPin } from '../gateway/pin.ts'
 import { delegate, putMandate, ROOT_ID } from '../gateway/mandates.ts'
+import { pesos } from '../op/asset.ts'
 
 // GW-01 / DEMO-01: estado inicial de la demo (el árbol de la sección 3.1 del documento del proyecto).
+// Montos en pesos; pesos() los pasa a la moneda de la wallet de Juan.
 
 export const PHONE_MAMA = '+573001112233'
 export const PIN_DEMO = '1234'
@@ -51,9 +53,9 @@ export const seed = ({ keepGrant = true } = {}) => {
     holderType: 'person',
     holderId: 'juan',
     holderName: 'Juan',
-    maxDebit: A.usd(300),
+    maxDebit: pesos(1_200_000),
     interval: monthly(now),
-    spentInPeriod: A.usd(0),
+    spentInPeriod: pesos(0),
     periodStart: '',
     categories: ['mercado', 'farmacia', 'efectivo', 'datos'],
     canSpend: true,
@@ -69,7 +71,7 @@ export const seed = ({ keepGrant = true } = {}) => {
     holderType: 'person',
     holderId: 'maria',
     holderName: 'María',
-    maxDebit: A.usd(250),
+    maxDebit: pesos(1_000_000),
     categories: ['mercado', 'farmacia', 'efectivo'],
   })
   delegate('maria', {
@@ -77,36 +79,36 @@ export const seed = ({ keepGrant = true } = {}) => {
     holderType: 'device',
     holderId: 'celular-maria',
     holderName: 'Celular de María',
-    maxDebit: A.usd(100),
+    maxDebit: pesos(400_000),
     categories: ['mercado', 'farmacia'],
-    offlineCap: A.usd(20),
-    offlineCapCeiling: A.usd(50),
+    offlineCap: pesos(80_000),
+    offlineCapCeiling: pesos(200_000),
   })
   delegate('maria', {
     id: 'maria-sms',
     holderType: 'person',
     holderId: 'maria-sms',
     holderName: 'María (SMS)',
-    maxDebit: A.usd(50),
-    pinThreshold: A.usd(0), // siempre PIN
+    maxDebit: pesos(200_000),
+    pinThreshold: pesos(0), // siempre PIN
   })
   delegate(ROOT_ID, {
     id: 'asistente',
     holderType: 'agent',
     holderId: 'asistente',
     holderName: 'Asistente de la mamá',
-    maxDebit: A.usd(40),
+    maxDebit: pesos(160_000),
     interval: weekly(now),
     categories: ['farmacia', 'mercado', 'datos'],
-    // Decisión del equipo: PIN si > $10 (≈ 40.000 COP). Compras menores las paga el agente sin preguntar.
-    pinThreshold: A.usd(10),
+    // Decisión del equipo: PIN si > 40.000 COP (≈ $10). Compras menores las paga el agente sin preguntar.
+    pinThreshold: pesos(40_000),
   })
   delegate('asistente', {
     id: 'asistente-datos',
     holderType: 'agent',
     holderId: 'asistente',
     holderName: 'Asistente → Inventario',
-    maxDebit: A.usd(0.5),
+    maxDebit: pesos(2000),
     categories: ['datos'],
   })
   delegate(ROOT_ID, {
@@ -114,7 +116,7 @@ export const seed = ({ keepGrant = true } = {}) => {
     holderType: 'agent',
     holderId: 'guardian',
     holderName: 'Agente Guardián',
-    maxDebit: A.usd(0),
+    maxDebit: pesos(0),
     canSpend: false, // solo puede RESTRINGIR
   })
 

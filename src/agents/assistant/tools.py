@@ -8,8 +8,8 @@ import random
 
 from common.api_client import api
 from common.config import WALLET_INVENTARIO
-from common.money import cop_to_usd, fmt_cop, usd, usd_to_cop
-from inventory.router import PRICE_PER_QUERY_USD, QueryIn, query
+from common.money import fmt_cop, from_cop, to_cop
+from inventory.router import PRICE_PER_QUERY_COP, QueryIn, query
 
 from .session import Session
 
@@ -26,9 +26,10 @@ def can_deliver(s: Session, o: dict) -> bool:
 
 
 async def buscar_producto(s: Session, consulta: str) -> dict:
-    """Paga $0.01 al Agente de Inventario (agente → agente) y consulta quién tiene el producto."""
+    """Paga 40 COP (≈ $0.01) al Agente de Inventario (agente → agente) y consulta quién tiene el producto."""
     pay = await api.pay(
-        mandateId=s.profile["dataMandateId"], merchantWallet=WALLET_INVENTARIO, amount=usd(PRICE_PER_QUERY_USD),
+        mandateId=s.profile["dataMandateId"], merchantWallet=WALLET_INVENTARIO,
+        amount=from_cop(PRICE_PER_QUERY_COP, await api.root_asset()),
         category="datos", reason=f"Consulta de inventario: \"{consulta[:40]}\"",
     )
     if pay.get("result") != "allow":
@@ -68,10 +69,10 @@ async def proponer_compra(s: Session, indice: int = 0, entrega: str = PICKUP) ->
     code = _code()
     delivery = {"mode": "delivery" if entrega == DELIVERY else "pickup", "code": code}
     if fee:
-        delivery["fee"] = cop_to_usd(fee)
+        delivery["fee"] = from_cop(fee, await api.root_asset())
     where = f"con envío a casa de {recipient(s)}" if entrega == DELIVERY else "para recoger"
     pay = await api.pay(
-        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=cop_to_usd(total),
+        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(total, await api.root_asset()),
         category=o["category"], reason=f"{o['product']} en {o['merchant']} para {s.profile['name']}, {where}",
         delivery=delivery,
     )
@@ -91,7 +92,7 @@ async def confirmar_pin(s: Session, pin: str) -> dict:
     o = p["option"]
     # El gateway usa lo que guardó en la compra pendiente (monto, comercio y entrega), no lo que mandemos aquí.
     pay = await api.pay(
-        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=cop_to_usd(p["total"]),
+        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(p["total"], await api.root_asset()),
         category=o["category"], reason=o["product"], pendingId=p["pendingId"], pin=pin,
     )
     if pay["result"] == "allow":
@@ -104,14 +105,14 @@ async def confirmar_pin(s: Session, pin: str) -> dict:
 
 async def consultar_saldo(s: Session) -> dict:
     m = await api.mandate(s.profile["mandateId"])
-    return {"disponible": fmt_cop(usd_to_cop(m["remaining"])), "estado": "revocado" if m["revoked"] else "activo"}
+    return {"disponible": fmt_cop(to_cop(m["remaining"])), "estado": "revocado" if m["revoked"] else "activo"}
 
 
 TOOL_SCHEMAS = [
     {
         "name": "buscar_producto",
         "description": "Busca qué tienda cercana tiene un producto (medicamento, mercado o efectivo) y a qué precio. "
-                       "Cuesta $0.01 por consulta. Úsala cuando la persona pida algo para comprar.",
+                       "Cuesta 40 pesos por consulta. Úsala cuando la persona pida algo para comprar.",
         "input_schema": {
             "type": "object",
             "properties": {"consulta": {"type": "string", "description": "Lo que pidió la persona, en sus palabras"}},

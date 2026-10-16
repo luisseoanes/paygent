@@ -65,7 +65,7 @@ const DetalleVale = ({
     <div className="space-y-6">
       <div>
         <p className="cifra text-5xl leading-none font-light tracking-[-0.03em] text-grafito">
-          {formatCop(A.usdToCop(vale.voucher.amount, fx))}
+          {formatCop(A.toCop(vale.voucher.amount, fx))}
         </p>
         <p className="mt-2 text-sm text-ink-2">
           ≈ US${A.toNumber(vale.voucher.amount).toFixed(2)} · tasa de referencia
@@ -133,7 +133,7 @@ export const Caja = ({
   const elegirTienda = useCobroStore((s) => s.elegirTienda);
   const [abierto, setAbierto] = React.useState<string>();
 
-  const cop = (v: ValeRecibido) => A.usdToCop(v.voucher.amount, fx);
+  const cop = (v: ValeRecibido) => A.toCop(v.voucher.amount, fx);
   const deHoy = vales.filter((v) => esHoy(v.scannedAt));
   const cobrado = deHoy
     .filter((v) => v.status === 'settled' || v.status === 'flagged')
