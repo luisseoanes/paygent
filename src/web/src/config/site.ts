@@ -17,7 +17,6 @@ export const siteConfig = {
       { label: 'Cómo funciona', section: 'como-funciona' },
       { label: 'Sin señal', section: 'sin-senal' },
       { label: 'Agentes', section: 'agentes' },
-      { label: 'Qué es real', section: 'que-es-real' },
     ] satisfies { label: string; section: LandingSection }[]
   ).map((item): NavItem => ({
     ...item,

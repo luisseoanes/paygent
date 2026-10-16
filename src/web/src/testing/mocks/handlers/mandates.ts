@@ -119,6 +119,12 @@ const feedStreamHandler = () =>
   });
 
 export const mandatesHandlers = [
+  // GET /feed — la libreta del árbol (lo más nuevo primero).
+  http.get(apiUrl('/feed'), async () => {
+    await networkDelay();
+    return HttpResponse.json(db.feed);
+  }),
+
   http.get(apiUrl('/demo/status'), async () => {
     await networkDelay();
     return HttpResponse.json({

@@ -21,7 +21,6 @@ const enlaces = [
   ],
   [
     { label: 'Sin señal', href: '#sin-senal' },
-    { label: 'Qué es real', href: '#que-es-real' },
     { label: 'Iniciar sesión', href: paths.auth.login.getHref() },
   ],
 ];

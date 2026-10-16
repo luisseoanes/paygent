@@ -1,5 +1,5 @@
 import { amount as A } from '@openroute/shared';
-import { MessageCircle, QrCode } from 'lucide-react';
+import { History, MessageCircle, QrCode } from 'lucide-react';
 import type * as React from 'react';
 
 import { ReglaDeConsumo } from '@/components/brand/regla-consumo';
@@ -17,11 +17,13 @@ export const InicioBilletera = ({
   dispositivo: d,
   onPagar,
   onAsistente,
+  onHistorial,
   desvincular,
 }: {
   dispositivo: Dispositivo;
   onPagar: () => void;
   onAsistente?: () => void;
+  onHistorial?: () => void;
   // Slot: el control para desvincular (lo compone la ruta con su confirmación)
   desvincular?: React.ReactNode;
 }) => {
@@ -90,6 +92,17 @@ export const InicioBilletera = ({
           onClick={onAsistente}
         >
           Hablar con el asistente
+        </Button>
+      )}
+      {onHistorial && (
+        <Button
+          size="lg"
+          variant="outline"
+          className="-mt-2 w-full rounded-full"
+          icon={<History aria-hidden="true" />}
+          onClick={onHistorial}
+        >
+          Mi historial
         </Button>
       )}
 

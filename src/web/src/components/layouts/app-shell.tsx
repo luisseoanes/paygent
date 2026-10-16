@@ -24,6 +24,9 @@ export type AppShellProps = {
   pasos: string[];
   // Escritorio: reemplaza el texto del paisaje (p. ej. el chat en una nube)
   escena?: React.ReactNode;
+  // Clave de la escena: al cambiar (chat ↔ historial) una nube se va y
+  // entra la otra con la misma animación.
+  escenaKey?: string;
   children: React.ReactNode;
 };
 
@@ -33,6 +36,7 @@ const PanelMarca = ({
   titularPixel,
   pasos,
   escena,
+  escenaKey = 'escena',
 }: Omit<AppShellProps, 'children'>) => {
   const reduceMotion = useReducedMotion();
   return (
@@ -61,7 +65,7 @@ const PanelMarca = ({
       <AnimatePresence mode="wait" initial={false}>
         {escena ? (
           <div
-            key="escena"
+            key={escenaKey}
             className="flex flex-1 items-center justify-center py-8"
           >
             {escena}

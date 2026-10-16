@@ -93,9 +93,39 @@ export type HeroPaisajeProps = {
   telefono: (paso: number) => React.ReactNode;
 };
 
+// Alto visible de la escena del celular (la caja mide 420px, pero la tapa
+// inclinada en 3D asoma ~70px más) y lo que ocupa el resto del hero en
+// pantallas angostas (menú, titular, botón, márgenes).
+const ALTO_TELEFONO = 490;
+const RESTO_DEL_HERO = 440;
+
+// Escala del celular según el alto visible. Por debajo de lg se achica para
+// que quepa; en escritorio crece hasta 1,25 si hay alto (deja ~300px: el
+// margen de arriba de la columna y los 160px de abajo).
+const useEscalaTelefono = () => {
+  const calcular = () => {
+    if (typeof window === 'undefined') return 1;
+    if (window.innerWidth >= 1024)
+      return Math.min(
+        1.25,
+        Math.max(1, (window.innerHeight - 300) / ALTO_TELEFONO),
+      );
+    const libre = window.innerHeight - RESTO_DEL_HERO;
+    return Math.min(1, Math.max(0.35, libre / ALTO_TELEFONO));
+  };
+  const [escala, setEscala] = React.useState(calcular);
+  React.useEffect(() => {
+    const alCambiar = () => setEscala(calcular());
+    window.addEventListener('resize', alCambiar);
+    return () => window.removeEventListener('resize', alCambiar);
+  }, []);
+  return escala;
+};
+
 export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
   const reduceMotion = useReducedMotion();
   const { paso } = useGuion();
+  const escala = useEscalaTelefono();
   const ref = React.useRef<HTMLElement>(null);
   // Al bajar, el paisaje se queda un poco atrás (profundidad) y el titular
   // se aleja.
@@ -128,7 +158,7 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
         />
       </motion.div>
 
-      <div className="mx-auto grid min-h-[min(calc(100svh+32px),900px)] w-full max-w-[1400px] grid-rows-[auto_1fr] gap-6 px-4 pt-28 sm:px-6 lg:grid-cols-12 lg:px-10 lg:pt-32">
+      <div className="mx-auto grid min-h-[calc(100svh+14px)] w-full max-w-[1400px] grid-rows-[auto_1fr] gap-6 px-4 pt-28 sm:min-h-[calc(100svh+30px)] sm:px-6 lg:grid-cols-12 lg:px-10 lg:pt-32">
         {/* Fuera: se aleja con el scroll. Dentro: entra al cargar. */}
         <motion.div
           className="lg:col-span-5 lg:-mt-8 lg:-ml-[clamp(0px,calc((100vw-1400px)/2),150px)]"
@@ -169,19 +199,12 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
                   <ArrowRight aria-hidden="true" />
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                asChild
-                className="h-11 rounded-lg border-paper-raised/80 bg-ink/15 px-5 font-geist text-[0.9375rem] font-medium text-paper-raised backdrop-blur-md hover:bg-paper-raised/25"
-              >
-                <a href="#que-es-real">Qué es real</a>
-              </Button>
             </div>
           </motion.div>
         </motion.div>
 
         {/* El objeto, apoyado en las montañas */}
-        <div className="relative flex items-end justify-center pb-20 lg:col-span-5 lg:col-start-8 lg:row-span-2 lg:row-start-1 lg:justify-end lg:pb-28">
+        <div className="relative flex items-end justify-center pb-12 lg:col-span-5 lg:col-start-8 lg:row-span-2 lg:row-start-1 lg:justify-end lg:pb-40">
           <motion.div
             className="relative w-[min(260px,72vw)] lg:w-[270px]"
             initial={reduceMotion ? false : { opacity: 0, y: 40 }}
@@ -197,7 +220,19 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
               aria-hidden="true"
               className="absolute -bottom-3 left-1/2 h-8 w-[85%] -translate-x-1/2 rounded-[50%] bg-ink/40 blur-xl"
             />
-            <div className="relative [&>div]:max-w-none">{telefono(paso)}</div>
+            {/* Por debajo de lg el celular (escena 3D de 420px de alto) se
+                escala al alto libre para que el hero quepa en la pantalla y
+                la franja pixel asome justo abajo. */}
+            <div style={{ height: ALTO_TELEFONO * escala }}>
+              <div
+                className="relative origin-top [&>div]:max-w-none"
+                style={
+                  escala !== 1 ? { transform: `scale(${escala})` } : undefined
+                }
+              >
+                {telefono(paso)}
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>

@@ -255,3 +255,35 @@ test('revoking María takes three taps and the rest keeps working', async () => 
     false,
   );
 });
+
+test('from a delegate the titular opens their whole history', async () => {
+  setupFlow(paths.cuenta.getHref(), { signedIn: true });
+
+  await userEvent.click(
+    within(await delegados()).getByRole('button', {
+      name: /^maría: ver detalle$/i,
+    }),
+  );
+  const drawer = await screen.findByRole('dialog', { name: /maría/i });
+  await userEvent.click(
+    within(drawer).getByRole('button', { name: /ver todo su historial/i }),
+  );
+
+  expect(
+    await within(drawer).findByRole('heading', { name: /historial de maría/i }),
+  ).toBeInTheDocument();
+  // Lo de su celular (cuelga de su rama) sí; lo de otra rama, no.
+  expect(
+    await within(drawer).findByText(/vale firmado sin señal/i),
+  ).toBeInTheDocument();
+  expect(
+    within(drawer).queryByText(/doña rosa pidió/i),
+  ).not.toBeInTheDocument();
+
+  await userEvent.click(
+    within(drawer).getByRole('button', { name: /volver/i }),
+  );
+  expect(
+    within(drawer).getByRole('button', { name: /ver todo su historial/i }),
+  ).toBeInTheDocument();
+});
