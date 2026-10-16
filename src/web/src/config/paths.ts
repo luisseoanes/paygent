@@ -38,4 +38,9 @@ export const paths = {
     path: '/tendero',
     getHref: () => '/tendero',
   },
+  // SMS-02: celular de teclas simulado (Doña Carmen) que conversa con el Asistente.
+  celular: {
+    path: '/celular',
+    getHref: () => '/celular',
+  },
 } as const;

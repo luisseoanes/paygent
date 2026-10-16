@@ -28,7 +28,8 @@ class QueryIn(BaseModel):
 
 async def verify_payment(payment_id: str | None) -> None:
     """Sin pago liquidado a la wallet del Agente de Inventario → 402.
-    TODO INV-03 (BE): verificar además el incoming payment directamente en la wallet de Inventario."""
+    La api solo marca el pago `completed` cuando el incoming payment de la wallet de Inventario ya recibió
+    lo cotizado (OP-06, src/api/src/op/settle.ts); si sigue en camino queda `pending` y aquí se rechaza."""
     if MOCK_INVENTORY_PAYMENT:
         return
     if not payment_id or payment_id in _used_payments:

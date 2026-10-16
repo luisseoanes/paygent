@@ -100,9 +100,25 @@ export const executePayment = async (input: {
             if (decision.result !== 'allow') throw new NotAuthorized(decision, debit)
           }
         : undefined,
+      // OP-06: el pago tardó más de lo que esperamos; aquí se sabe si llegó. El gasto ya contado no se
+      // devuelve: el tope queda consumido (lo seguro) y Juan ve en el feed que el comercio no cobró.
+      onLateOutcome: (outcome) => {
+        payment.status = outcome === 'completed' ? 'completed' : 'failed'
+        if (outcome !== 'completed')
+          emit({
+            mandateId: mandate.id,
+            actor,
+            kind: 'denied',
+            amount: payment.amount,
+            merchant,
+            reason: `Pago fallido: ${outcome === 'failed' ? 'no llegó al comercio' : 'el comercio no lo recibió a tiempo'}`,
+          })
+        save()
+      },
       metadata: { openroute: payment.id, mandate: mandate.id, description: input.reason.slice(0, 100), ...metadata },
     })
-    payment.status = 'completed'
+    // OP-06: `completed` solo si el comercio ya recibió el dinero (el Inventario cobra con esto, INV-03).
+    payment.status = result.confirmed ? 'completed' : 'pending'
     payment.outgoingPaymentId = result.outgoingPaymentId
     payment.amount = result.debitAmount // lo que de verdad se le debitó a Juan
     payment.receiveAmount = result.receiveAmount

@@ -16,6 +16,8 @@ export interface SettleInput {
   price?: Amount
   /** Se llama con el débito real cotizado ANTES de mover el dinero; si lanza, no se paga. */
   confirmDebit?: (debit: Amount) => void
+  /** OP-06: si settle respondió sin confirmar la llegada (`confirmed: false`), se llama cuando se sabe. */
+  onLateOutcome?: (outcome: PaymentOutcome) => void
   metadata?: Record<string, string>
 }
 
@@ -30,6 +32,8 @@ export interface SettleResult {
   outgoingPaymentId: string
   debitAmount: Amount
   receiveAmount: Amount
+  /** true: el comercio ya recibió el dinero. false: sigue en camino y el resultado llega por `onLateOutcome`. */
+  confirmed: boolean
 }
 
 export class SettleError extends Error {}
@@ -120,7 +124,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
   if (env.MOCK_OP) {
     await new Promise((r) => setTimeout(r, 250))
     input.confirmDebit?.(input.amount) // en mock el débito real es el estimado
-    return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.price ?? input.amount }
+    return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.price ?? input.amount, confirmed: true }
   }
   const root = db.rootGrant
   if (!root) throw new SettleError('Juan todavía no aprobó el mandato raíz en su billetera')
@@ -180,12 +184,17 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     // El pago suele completar en 1-4 s. Si tarda más, se responde y el cierre sigue en segundo plano.
     const outcome = await Promise.race([finished, sleep(SETTLE_WAIT_MS).then(() => 'timeout' as const)])
     if (outcome === 'failed') throw new SettleError('El pago no llegó al comercio: revisa el saldo de la wallet de Juan')
+    const confirmed = outcome === 'completed'
+    if (!confirmed) void finished.then((late) => input.onLateOutcome?.(late))
 
-    return { outgoingPaymentId: outgoing.id, debitAmount: quote.debitAmount, receiveAmount: quote.receiveAmount }
+    return { outgoingPaymentId: outgoing.id, debitAmount: quote.debitAmount, receiveAmount: quote.receiveAmount, confirmed }
   } catch (err) {
     if (err instanceof SettleError) throw err
     if (!retried && isExpiredToken(err)) {
-      await rotateRootToken()
+      // OP-07: si Juan revocó el mandato en su billetera, tampoco se puede rotar el token.
+      await rotateRootToken().catch(() => {
+        throw new SettleError('El mandato de Juan fue revocado o venció en su billetera: tiene que volver a firmarlo')
+      })
       return settle(input, true)
     }
     throw new SettleError(explainOpError(err))
