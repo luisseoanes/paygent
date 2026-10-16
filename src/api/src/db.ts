@@ -19,6 +19,7 @@ export interface User {
   name: string
   documentType: string
   documentNumber: string
+  lastName?: string
   email?: string
   phone?: string
 }
@@ -111,16 +112,24 @@ const clean = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o
 
 // ─── Usuarios y quien delega ───
 const toUser = (r: Row): User =>
-  clean({ id: r.id, name: r.name, documentType: r.document_type, documentNumber: r.document_number, email: opt(r.email), phone: opt(r.phone) })
+  clean({
+    id: r.id,
+    name: r.name,
+    lastName: opt(r.last_name),
+    documentType: r.document_type,
+    documentNumber: r.document_number,
+    email: opt(r.email),
+    phone: opt(r.phone),
+  })
 
 export const insertUser = async (
   u: User & { password?: { salt: string; hash: string } },
   conn?: Sql,
 ) => {
   await s(conn).query(
-    `insert into users (id, name, document_type, document_number, email, password_salt, password_hash, phone)
-     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [u.id, u.name, u.documentType, u.documentNumber, u.email ?? null, u.password?.salt ?? null, u.password?.hash ?? null, u.phone ?? null],
+    `insert into users (id, name, document_type, document_number, email, password_salt, password_hash, phone, last_name)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [u.id, u.name, u.documentType, u.documentNumber, u.email ?? null, u.password?.salt ?? null, u.password?.hash ?? null, u.phone ?? null, u.lastName ?? null],
   )
 }
 
@@ -484,9 +493,35 @@ export const insertEvent = async (e: FeedEvent) => {
     [e.id, e.at, e.mandateId, e.kind, j(e.actor), j(e.amount), e.merchant ?? null, e.reason ?? null, j(e.delivery), j(e.payout)],
   )
 }
-/** Los últimos `n` eventos, del más viejo al más nuevo. */
-export const recentEvents = async (n: number) =>
-  (await sql().query(`select * from (select * from feed_events order by seq desc limit $1) e order by seq asc`, [n])).map(toEvent)
+/** Los últimos `n` eventos, del más viejo al más nuevo. Con `rootId`, solo los del árbol de ese titular. */
+export const recentEvents = async (n: number, rootId?: string) =>
+  (
+    await sql().query(
+      rootId
+        ? `with recursive tree as (
+             select id from mandates where id = $2
+             union all
+             select m.id from mandates m join tree t on m.parent_id = t.id
+           )
+           select * from (select * from feed_events where mandate_id in (select id from tree) order by seq desc limit $1) e
+           order by seq asc`
+        : `select * from (select * from feed_events order by seq desc limit $1) e order by seq asc`,
+      rootId ? [n, rootId] : [n],
+    )
+  ).map(toEvent)
+
+/** ¿El mandato pertenece al árbol de esa raíz? (para filtrar el feed en vivo por titular) */
+export const inTree = async (mandateId: string, rootId: string) => {
+  const rows = await sql().query(
+    `with recursive chain as (
+       select id, parent_id from mandates where id = $1
+       union all
+       select m.id, m.parent_id from mandates m join chain c on m.id = c.parent_id
+     ) select 1 from chain where id = $2`,
+    [mandateId, rootId],
+  )
+  return rows.length > 0
+}
 
 // ─── Meta ───
 export const getMeta = async (key: string) => (await sql().query(`select value from meta where key = $1`, [key]))[0]?.value as string | undefined

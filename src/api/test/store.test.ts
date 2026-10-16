@@ -19,7 +19,7 @@ describe('Cuentas', () => {
     const res = await login('juan@paygent.dev', DEMO_PASSWORD)
     expect(res.statusCode).toBe(200)
     expect(res.json()).toMatchObject({
-      role: 'juan',
+      role: 'titular',
       user: { id: 'juan', name: 'Juan Pérez', documentNumber: '1017000001' },
       walletAddress: DEMO_WALLETS.juan,
       rootMandateId: 'root',
@@ -28,7 +28,7 @@ describe('Cuentas', () => {
 
   it('María entra como beneficiaria y ve sus ramas', async () => {
     const res = await login('MARIA@paygent.dev', DEMO_PASSWORD)
-    expect(res.json()).toMatchObject({ role: 'maria', rootMandateId: null, mandateIds: ['maria', 'maria-device', 'maria-sms'] })
+    expect(res.json()).toMatchObject({ role: 'beneficiario', rootMandateId: null, mandateIds: ['maria', 'maria-device', 'maria-sms'] })
   })
 
   it('la tendera entra con su tienda', async () => {

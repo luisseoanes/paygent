@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { getActiveGrant } from '../db.ts'
 import { env } from '../env.ts'
-import { ROOT_ID } from '../gateway/mandates.ts'
+import { findMandate, ROOT_ID } from '../gateway/mandates.ts'
 import { getRootAsset } from '../op/asset.ts'
 import { seed } from './seed.ts'
 
@@ -12,11 +12,16 @@ export default async function demoRoutes(app: FastifyInstance) {
     return { ok: true, rootGrant: !!(await getActiveGrant(ROOT_ID)), mockOp: env.MOCK_OP }
   })
 
-  app.get('/demo/status', async () => ({
-    mockOp: env.MOCK_OP,
-    mockSms: env.MOCK_SMS,
-    rootGrant: !!(await getActiveGrant(ROOT_ID)),
-    fxCopPerUsd: env.FX_COP_PER_USD,
-    asset: getRootAsset(),
-  }))
+  // ?root=<mandato raíz>: el estado de ese titular (su grant y su moneda). Sin root, la demo.
+  app.get<{ Querystring: { root?: string } }>('/demo/status', async (req) => {
+    const rootId = req.query.root ?? ROOT_ID
+    const root = await findMandate(rootId)
+    return {
+      mockOp: env.MOCK_OP,
+      mockSms: env.MOCK_SMS,
+      rootGrant: !!(await getActiveGrant(rootId)),
+      fxCopPerUsd: env.FX_COP_PER_USD,
+      asset: root ? { assetCode: root.maxDebit.assetCode, assetScale: root.maxDebit.assetScale } : getRootAsset(),
+    }
+  })
 }

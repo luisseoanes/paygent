@@ -19,10 +19,10 @@ import { getClient, getWallet } from './client.ts'
  * OP-02: grant interactivo `outgoing-payment` con limits.debitAmount + limits.interval.
  * Devuelve la URL de consentimiento de la billetera de Juan.
  */
-export const requestRootGrant = async (input: { walletAddress: string; maxDebit: Amount; interval: string }) => {
-  const payerId = (await payerOfRoot(ROOT_ID))?.userId ?? null
+export const requestRootGrant = async ({ rootId = ROOT_ID, ...input }: { rootId?: string; walletAddress: string; maxDebit: Amount; interval: string }) => {
+  const payerId = (await payerOfRoot(rootId))?.userId ?? null
   if (env.MOCK_OP) {
-    await insertPendingGrant(ROOT_ID, payerId, {
+    await insertPendingGrant(rootId, payerId, {
       id: randomId('grant_'),
       ...input,
       authServer: 'mock',
@@ -31,7 +31,7 @@ export const requestRootGrant = async (input: { walletAddress: string; maxDebit:
       clientNonce: 'mock',
       finishNonce: 'mock',
     })
-    return { redirectUrl: `${env.PUBLIC_API_URL}/callback?interact_ref=mock&hash=mock` }
+    return { redirectUrl: `${env.PUBLIC_API_URL}${callbackPath(rootId)}?interact_ref=mock&hash=mock` }
   }
 
   const client = await getClient()
@@ -53,13 +53,13 @@ export const requestRootGrant = async (input: { walletAddress: string; maxDebit:
       },
       interact: {
         start: ['redirect'],
-        finish: { method: 'redirect', uri: `${env.PUBLIC_API_URL}/callback`, nonce: clientNonce },
+        finish: { method: 'redirect', uri: `${env.PUBLIC_API_URL}${callbackPath(rootId)}`, nonce: clientNonce },
       },
     },
   )
   if (!isPendingGrant(grant)) throw new Error('Se esperaba un grant interactivo (pendiente)')
 
-  await insertPendingGrant(ROOT_ID, payerId, {
+  await insertPendingGrant(rootId, payerId, {
     id: randomId('grant_'),
     ...input,
     authServer: wallet.authServer,
@@ -71,17 +71,20 @@ export const requestRootGrant = async (input: { walletAddress: string; maxDebit:
   return { redirectUrl: grant.interact.redirect }
 }
 
+/** El callback lleva la raíz en la ruta para saber de qué titular es el grant (la de Juan conserva /callback). */
+export const callbackPath = (rootId: string) => (rootId === ROOT_ID ? '/callback' : `/callback/${encodeURIComponent(rootId)}`)
+
 /** hash = base64(sha256(clientNonce \n finishNonce \n interact_ref \n grantEndpoint)) — GNAP §4.2.3 */
 const expectedHash = (clientNonce: string, finishNonce: string, interactRef: string, authServer: string) =>
   createHash('sha256').update(`${clientNonce}\n${finishNonce}\n${interactRef}\n${authServer}`).digest('base64')
 
 /** OP-03: continuación del grant con interact_ref. Guarda el token raíz. */
-export const continueRootGrant = async (interactRef: string, hash: string) => {
-  const pending = await getPendingGrant(ROOT_ID)
+export const continueRootGrant = async (interactRef: string, hash: string, rootId = ROOT_ID) => {
+  const pending = await getPendingGrant(rootId)
   if (!pending) throw new Error('No hay un grant pendiente')
 
   if (env.MOCK_OP) {
-    await activateGrant(ROOT_ID, pending.id, { accessToken: 'mock-token', manageUrl: 'mock', continueUri: 'mock', continueToken: 'mock' })
+    await activateGrant(rootId, pending.id, { accessToken: 'mock-token', manageUrl: 'mock', continueUri: 'mock', continueToken: 'mock' })
     return pending
   }
 
@@ -95,7 +98,7 @@ export const continueRootGrant = async (interactRef: string, hash: string) => {
   )
   if (!isFinalizedGrant(grant) || !grant.access_token) throw new Error('El grant no quedó finalizado')
 
-  await activateGrant(ROOT_ID, pending.id, {
+  await activateGrant(rootId, pending.id, {
     accessToken: grant.access_token.value,
     manageUrl: grant.access_token.manage,
     continueUri: grant.continue.uri,
@@ -105,8 +108,8 @@ export const continueRootGrant = async (interactRef: string, hash: string) => {
 }
 
 /** OP-05: rota el token raíz cuando vence. */
-export const rotateRootToken = async () => {
-  const grant = await getActiveGrant(ROOT_ID)
+export const rotateRootToken = async (rootId = ROOT_ID) => {
+  const grant = await getActiveGrant(rootId)
   if (env.MOCK_OP || !grant) return
   const client = await getClient()
   const token = await client.token.rotate({ url: grant.manageUrl, accessToken: grant.accessToken })
@@ -114,8 +117,8 @@ export const rotateRootToken = async () => {
 }
 
 /** OP-07: revoca el grant raíz en el servidor de autorización (apaga TODO el árbol). */
-export const revokeRootGrant = async () => {
-  const grant = await getActiveGrant(ROOT_ID)
+export const revokeRootGrant = async (rootId = ROOT_ID) => {
+  const grant = await getActiveGrant(rootId)
   if (!grant) return
   if (!env.MOCK_OP) {
     const client = await getClient()

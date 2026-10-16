@@ -17,6 +17,8 @@ export interface SettleInput {
    */
   price?: Amount
   /** Se llama con el débito real cotizado ANTES de mover el dinero; si lanza, no se paga. */
+  /** Raíz del árbol que paga: su grant es el que mueve el dinero (un titular por raíz). */
+  rootId?: string
   confirmDebit?: (debit: Amount) => void | Promise<void>
   /** OP-06: si settle respondió sin confirmar la llegada (`confirmed: false`), se llama cuando se sabe. */
   onLateOutcome?: (outcome: PaymentOutcome) => void | Promise<void>
@@ -128,8 +130,9 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     await input.confirmDebit?.(input.amount) // en mock el débito real es el estimado
     return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.price ?? input.amount, confirmed: true }
   }
-  const root = await getActiveGrant(ROOT_ID)
-  if (!root) throw new SettleError('Juan todavía no aprobó el mandato raíz en su billetera')
+  const rootId = input.rootId ?? ROOT_ID
+  const root = await getActiveGrant(rootId)
+  if (!root) throw new SettleError('El titular todavía no aprobó el mandato raíz en su billetera')
 
   const client = await getClient()
   try {
@@ -169,7 +172,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     const check = async () => {
       const [out, inc] = await Promise.all([
         client.outgoingPayment
-          .get({ url: outgoing.id, accessToken: (await getActiveGrant(ROOT_ID))?.accessToken ?? root.accessToken })
+          .get({ url: outgoing.id, accessToken: (await getActiveGrant(rootId))?.accessToken ?? root.accessToken })
           .catch(() => null),
         client.incomingPayment.get({ url: incoming.id, accessToken: incomingToken }),
       ])
@@ -199,7 +202,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     if (err instanceof SettleError) throw err
     if (!retried && isExpiredToken(err)) {
       // OP-07: si Juan revocó el mandato en su billetera, tampoco se puede rotar el token.
-      await rotateRootToken().catch(() => {
+      await rotateRootToken(rootId).catch(() => {
         throw new SettleError('El mandato de Juan fue revocado o venció en su billetera: tiene que volver a firmarlo')
       })
       return settle(input, true)

@@ -1,5 +1,5 @@
 import { monthly, weekly, type Mandate } from '@openroute/shared'
-import { insertAgent, insertPayer, insertProfile, insertUser, putAddress, setMeta, upsertMerchant, type User } from '../db.ts'
+import { insertPayer, insertProfile, insertUser, putAddress, setMeta, upsertMerchant, type User } from '../db.ts'
 import { delegate, linkHolderUser, putMandate, ROOT_ID } from '../gateway/mandates.ts'
 import { hashSecret, setPin } from '../gateway/pin.ts'
 import { getRootAsset, pesos } from '../op/asset.ts'
@@ -32,12 +32,20 @@ const DEMO_USERS: (User & { password?: boolean })[] = [
   { id: 'rosa', name: 'Rosa Gómez', documentType: 'CC', documentNumber: '43000004', email: 'tendero@paygent.dev', phone: '+573105550101', password: true },
 ]
 
-/** Borra todo lo de la demo salvo el grant de Juan (y, con keepGrant: false, también el grant). */
+/**
+ * Borra SOLO la demo: el árbol de Juan (con todo lo que cuelga de él), sus cuentas de demo y sus eventos. Los titulares,
+ * beneficiarios, comercios y agentes dados de alta por la app no se tocan. Con keepGrant: false, también el grant de Juan.
+ */
 const wipe = async (tx: Sql, keepGrant: boolean) => {
-  if (!keepGrant) await tx.query(`delete from root_grants`)
-  // mandates arrastra (on delete cascade) PIN, perfiles, dirección, dispositivos, pagos y compras pendientes.
-  for (const table of ['feed_events', 'vouchers', 'device_certs', 'mandates', 'merchants', 'agents', 'payers', 'users'])
-    await tx.query(`delete from ${table}`)
+  if (!keepGrant) await tx.query(`delete from root_grants where root_mandate_id = $1`, [ROOT_ID])
+  const tree = `with recursive tree as (select id from mandates where id = $1
+                  union all select m.id from mandates m join tree t on m.parent_id = t.id) select id from tree`
+  await tx.query(`delete from feed_events where mandate_id in (${tree})`, [ROOT_ID])
+  await tx.query(`delete from vouchers where mandate_id in (${tree})`, [ROOT_ID])
+  await tx.query(`delete from device_certs where mandate_id in (${tree})`, [ROOT_ID])
+  // Arrastra (on delete cascade) PIN, perfiles, dirección, dispositivos, pagos y compras pendientes del árbol.
+  await tx.query(`delete from mandates where id = $1`, [ROOT_ID])
+  await tx.query(`delete from users where id = any($1::text[])`, [DEMO_USERS.map((u) => u.id)])
 }
 
 export const seed = async ({ keepGrant = true } = {}) =>
@@ -53,12 +61,18 @@ export const seed = async ({ keepGrant = true } = {}) =>
     // El grant de Juan sobrevive a la semilla: se vuelve a enlazar con su cuenta.
     await tx.query(`update root_grants set payer_id = 'juan' where root_mandate_id = $1 and payer_id is null`, [ROOT_ID])
 
+    // Agentes y comercios de la demo: se crean si faltan; los que dio de alta la app se conservan.
     for (const a of [
       { id: 'asistente', name: 'Agente Asistente', role: 'assistant' as const },
       { id: 'guardian', name: 'Agente Guardián', role: 'guardian' as const },
       { id: 'inventario', name: 'Agente de Inventario', role: 'inventory' as const, walletAddress: DEMO_WALLETS.inventario },
     ])
-      await insertAgent(a, tx)
+      await tx.query(`insert into agents (id, name, role, wallet_address) values ($1, $2, $3, $4) on conflict (id) do nothing`, [
+        a.id,
+        a.name,
+        a.role,
+        a.walletAddress ?? null,
+      ])
 
     // Doña Rosa no tiene wallet de Open Payments: cobra por Puntored a su llave Bre-B (su celular).
     await upsertMerchant(

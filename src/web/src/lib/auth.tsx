@@ -12,69 +12,32 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Link } from '@/components/ui/link';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  DEMO_PASSWORD,
-  demoUsers,
-  homeHref,
-  rolLabel,
-} from '@/config/demo-users';
+import { demoUsers, homeHref, rolLabel } from '@/config/demo-users';
 import { paths } from '@/config/paths';
+import { api } from '@/lib/api-client';
 import { type Rol, type User } from '@/types/api';
 
-// Cuentas y sesión de demostración. src/api no maneja cuentas: las cuentas
-// de demo (config/demo-users.ts) y las que se registran viven en este
-// navegador (localStorage, con la contraseña en hash SHA-256, nunca en
-// claro), y la sesión en sessionStorage. Lo que sí es real es el mandato, el
-// celular y los cobros, que viven en el gateway.
+// Cuentas en src/api (Postgres): POST /auth/login y /auth/register/*. La api devuelve la cuenta con su rol y su
+// mandato (raíz del titular o rama del beneficiario); la sesión guarda esa cuenta en sessionStorage. La api todavía
+// no emite token: la sesión es la cuenta que devolvió el login.
 
 const SESSION_KEY = 'paygent-session';
-const CUENTAS_KEY = 'paygent-cuentas';
 
-type CuentaGuardada = { user: User; hash: string };
-
-const leerCuentas = (): CuentaGuardada[] => {
+const readSession = (): User | null => {
   try {
-    return JSON.parse(localStorage.getItem(CUENTAS_KEY) ?? '[]');
-  } catch {
-    return [];
-  }
-};
-
-const guardarCuentas = (cuentas: CuentaGuardada[]) => {
-  try {
-    localStorage.setItem(CUENTAS_KEY, JSON.stringify(cuentas));
-  } catch {
-    // sin almacenamiento: la cuenta dura lo que dure la pestaña
-  }
-};
-
-const todasLasCuentas = (): User[] => [
-  ...demoUsers,
-  ...leerCuentas().map((c) => c.user),
-];
-
-const hashDe = async (email: string, password: string) => {
-  const bytes = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(`${email}:${password}`),
-  );
-  return Array.from(new Uint8Array(bytes), (b) =>
-    b.toString(16).padStart(2, '0'),
-  ).join('');
-};
-
-const readSession = () => {
-  try {
-    const id = sessionStorage.getItem(SESSION_KEY);
-    return todasLasCuentas().find((u) => u.id === id) ?? null;
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    if (raw.startsWith('{')) return JSON.parse(raw) as User;
+    // Sesión de la versión anterior (solo el id de una cuenta de demo).
+    return demoUsers.find((u) => u.id === raw) ?? null;
   } catch {
     return null;
   }
 };
 
-const writeSession = (userId: string | null) => {
+const writeSession = (user: User | null) => {
   try {
-    if (userId) sessionStorage.setItem(SESSION_KEY, userId);
+    if (user) sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
     else sessionStorage.removeItem(SESSION_KEY);
   } catch {
     // sin almacenamiento: la sesión dura hasta recargar
@@ -82,6 +45,9 @@ const writeSession = (userId: string | null) => {
 };
 
 const getUser = async (): Promise<User | null> => readSession();
+
+/** Raíz del titular con sesión: la api atiende a cada titular por su raíz (grant, estado y feed). */
+export const currentRootMandateId = () => readSession()?.rootMandateId ?? null;
 
 export const getUserQueryOptions = () =>
   queryOptions({ queryKey: ['auth-user'], queryFn: getUser });
@@ -95,18 +61,27 @@ export const loginInputSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
+/** El mensaje de la api ({ error }) o uno por defecto. */
+const motivo = (err: unknown, fallback: string) =>
+  (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
+  fallback;
+
+const entrar = (user: User) => {
+  writeSession(user);
+  return user;
+};
+
 const login = async ({ email, password }: LoginInput): Promise<User> => {
-  const correo = email.trim().toLowerCase();
-  const demo = demoUsers.find((u) => u.email === correo);
-  if (demo && password === DEMO_PASSWORD) {
-    writeSession(demo.id);
-    return demo;
+  try {
+    return entrar(
+      await api.post<unknown, User>('/auth/login', {
+        email: email.trim(),
+        password,
+      }),
+    );
+  } catch (err) {
+    throw new Error(motivo(err, 'Correo o contraseña incorrectos.'));
   }
-  const cuenta = leerCuentas().find((c) => c.user.email === correo);
-  if (!cuenta || cuenta.hash !== (await hashDe(correo, password)))
-    throw new Error('Correo o contraseña incorrectos.');
-  writeSession(cuenta.user.id);
-  return cuenta.user;
 };
 
 // --- Registro ----------------------------------------------------------------
@@ -154,55 +129,22 @@ export const registroBeneficiarioSchema = z.object({
 export type RegistroTitular = z.output<typeof registroTitularSchema>;
 export type RegistroBeneficiario = z.output<typeof registroBeneficiarioSchema>;
 
-const crearCuenta = async (
-  datos: Omit<User, 'id'>,
-  password: string,
-): Promise<User> => {
-  const email = datos.email.trim().toLowerCase();
-  const existentes = todasLasCuentas();
-  if (existentes.some((u) => u.email === email))
-    throw new Error('Ya hay una cuenta con ese correo. Inicia sesión.');
-  if (
-    datos.documento &&
-    existentes.some((u) => u.documento === datos.documento)
-  )
-    throw new Error('Ya hay una cuenta con ese documento.');
-  const user: User = { ...datos, email, id: `u_${crypto.randomUUID()}` };
-  guardarCuentas([
-    ...leerCuentas(),
-    { user, hash: await hashDe(email, password) },
-  ]);
-  writeSession(user.id);
-  return user;
+const registrar = async (url: string, datos: object): Promise<User> => {
+  try {
+    return entrar(await api.post<unknown, User>(url, datos));
+  } catch (err) {
+    throw new Error(motivo(err, 'No se pudo crear la cuenta.'));
+  }
 };
 
-const registrarTitular = ({ password, ...d }: RegistroTitular) =>
-  crearCuenta(
-    {
-      ...d,
-      name: d.nombre,
-      role: 'titular',
-      // La semilla del gateway tiene un solo mandato raíz (GW-01)
-      rootMandateId: 'root',
-    },
-    password,
-  );
+// Cada titular queda con SU mandato raíz (lo crea la api); firma el grant en su billetera desde su panel.
+const registrarTitular = (d: RegistroTitular) =>
+  registrar('/auth/register/titular', d);
 
-const registrarBeneficiario = ({
-  password,
-  mandateId,
-  ...d
-}: RegistroBeneficiario & { mandateId: string }) =>
-  crearCuenta(
-    {
-      ...d,
-      name: d.nombre,
-      role: 'beneficiario',
-      rootMandateId: null,
-      mandateId,
-    },
-    password,
-  );
+// El beneficiario queda enlazado a la rama que le dio su titular (el código).
+const registrarBeneficiario = (
+  d: RegistroBeneficiario & { mandateId: string },
+) => registrar('/auth/register/beneficiario', d);
 
 const useSesionNueva = <T,>(
   mutationFn: (datos: T) => Promise<User>,
