@@ -28,4 +28,5 @@ FX_COP_PER_USD = float(os.getenv("FX_COP_PER_USD", "4000"))
 AGENT_SERVICE_KEY = os.getenv("AGENT_SERVICE_KEY", "dev-agents-key")
 AGENT_ID = "asistente"
 
-SMS_MAX = 160
+# Tope de una respuesta SMS: 2 segmentos GSM-7 concatenados (2 × 153).
+SMS_MAX = int(os.getenv("SMS_MAX_CHARS", "306"))

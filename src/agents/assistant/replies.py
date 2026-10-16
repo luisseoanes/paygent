@@ -1,12 +1,25 @@
-"""Textos SMS deterministas (≤160 caracteres, español simple)."""
+"""Textos SMS deterministas (≤ SMS_MAX caracteres, español simple)."""
+
+import re
 
 from common.config import SMS_MAX
 from common.money import fmt_cop
 
 
-def clip(text: str) -> str:
+SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
+
+
+def clip(text: str, limit: int = SMS_MAX) -> str:
+    """Recorta al final de una frase (o, si no hay, de una palabra); nunca a mitad de palabra ni con "…"."""
     text = " ".join(text.split())
-    return text if len(text) <= SMS_MAX else text[: SMS_MAX - 1] + "…"
+    if len(text) <= limit:
+        return text
+    head = text[: limit + 1]  # +1: deja ver si el corte cae justo antes de un espacio
+    ends = [m.end() for m in SENTENCE_END.finditer(head) if m.end() <= limit]
+    if ends:
+        return head[: ends[-1]]
+    cut = head.rfind(" ")
+    return head[:cut].rstrip(",;:") if cut > 0 else text[:limit]
 
 
 def search_result(r: dict, consulta: str) -> str | None:

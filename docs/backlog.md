@@ -108,7 +108,7 @@ interface FeedEvent {
 
 | Método y ruta | Dueño | Entrada | Salida |
 |---|---|---|---|
-| `POST /assistant/message` | DS | `{ phone, text }` | `{ reply }` (≤ 160 caracteres) |
+| `POST /assistant/message` | DS | `{ phone, text }` | `{ reply }` (≤ `SMS_MAX_CHARS`, 306 por defecto; se recorta en una frase completa) |
 | `POST /inventory/query` | DS (búsqueda) + BE (verificación del pago) | `{ query, location, paymentId }` | `{ options: [{ merchant, wallet, product, priceCOP, distanceM, stock }] }` |
 | `POST /intent/compile` | DS | `{ text }` | `{ tree, summary }` |
 | `POST /guardian/evaluate` | LU | `{ vouchers, history }` | `{ decisions: [{ voucherId, action, rule, explanation }] }` |
@@ -200,7 +200,7 @@ paygent/
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
 | AG-01 ✅ | Esqueleto FastAPI + cliente HTTP hacia `src/api` (con la firma o API key del agente) | DS | P0 | 1.5h | PRE-04 | `agents` llama a `/pay` de forma autenticada → **Hecho: verificado en Railway** |
-| AG-02 🟡 | Asistente con Claude *tool use*: `buscar_producto`, `proponer_compra`, `consultar_saldo`, `generar_codigo_retiro`; memoria de sesión por teléfono; español simple; respuestas ≤ 160 caracteres | DS | P0 | 4h | AG-01, INV-02 | "necesito la pastilla de la presión" → propuesta con comercio, precio y distancia → **Implementado; en Railway falta `ANTHROPIC_API_KEY`, así que solo se probó la rama de reglas** |
+| AG-02 🟡 | Asistente con Claude *tool use*: `buscar_producto`, `proponer_compra`, `consultar_saldo`, `generar_codigo_retiro`; memoria de sesión por teléfono; español simple; respuestas ≤ `SMS_MAX_CHARS` (306) | DS | P0 | 4h | AG-01, INV-02 | "necesito la pastilla de la presión" → propuesta con comercio, precio y distancia → **Implementado; en Railway falta `ANTHROPIC_API_KEY`, así que solo se probó la rama de reglas** |
 | AG-03 ✅ | Flujo de PIN: la compra propuesta pide PIN → el siguiente mensaje con el PIN confirma vía `/pay` con `pendingId` | DS | P0 | 1h | AG-02, GW-06 | PIN correcto → pago real + SMS con el código de retiro → **Hecho: PIN → pago real → código de retiro, verificado en Railway** |
 | AG-04 ✅ | Guardarraíles: ningún pago fuera de las herramientas; validación de montos; respuesta a "no entendí"; **alternativa determinista** si el LLM falla o tarda más de 8 s | DS | P0 | 1.5h | AG-02 | Con `MOCK_LLM=1` la demo sigue funcionando con reglas → **Hecho: la demo funciona con reglas (`MOCK_LLM`) en Railway** |
 | AG-05 ⛔ | Respuesta inmediata "Buscando…" + respuesta final asíncrona | DS + BE | P1 | 1h | SMS-01 | El usuario recibe un acuse en menos de 2 s → **Descartado con Twilio** |
