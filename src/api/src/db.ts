@@ -502,3 +502,7 @@ export const payerOfRoot = async (rootId: string) => {
   )
   return r ? ({ userId: r.user_id, walletAddress: r.wallet_address, assetCode: r.asset_code, assetScale: r.asset_scale } as Payer) : undefined
 }
+
+/** Todos los certificados emitidos, por id (el decodificador de vales por SMS los busca de forma síncrona). */
+export const certsById = async () =>
+  new Map((await sql().query(`select cert_id, cert from device_certs`)).map((r) => [r.cert_id as string, r.cert as DeviceCert]))

@@ -12,13 +12,14 @@ vi.mock('../src/lib/agents.ts', () => ({
 
 const { buildApp } = await import('../src/app.ts')
 const store = await import('../src/db.ts')
+const { getMandate } = await import('../src/gateway/mandates.ts')
 const { seed, PHONE_MAMA } = await import('../src/demo/seed.ts')
 
 const app = await buildApp({ logger: false })
 const tienda = 'puntored:tienda' // Doña Rosa cobra por Puntored
 
-beforeEach(() => {
-  seed({ keepGrant: false })
+beforeEach(async () => {
+  await seed({ keepGrant: false })
   agents.paths = []
 })
 
@@ -49,7 +50,7 @@ describe('vale por SMS (sin datos, solo señal de SMS)', () => {
   it('vale válido → liquidado por el mismo camino que /vouchers/settle', async () => {
     const res = await sms(await valeSms())
     expect(res.json().reply).toBe('Vale liquidado: $20.000 COP a Tienda Doña Rosa')
-    expect(Object.values(store.db.vouchers).map((s) => s.status)).toEqual(['settled'])
+    expect((await store.listVouchers()).map((s) => s.status)).toEqual(['settled'])
     expect(agents.paths).toContain('/guardian/evaluate')
     expect(agents.paths).not.toContain('/assistant/message')
   })
@@ -59,7 +60,7 @@ describe('vale por SMS (sin datos, solo señal de SMS)', () => {
     await sms(text)
     const res = await sms(text)
     expect(res.json().reply).toBe('Vale rechazado: este vale ya se había cobrado')
-    expect(store.db.mandates['maria-device']!.frozen).toBe(true)
+    expect((await getMandate('maria-device')).frozen).toBe(true)
   })
 
   it('texto basura con el prefijo → error amable, sin pasar por el Asistente', async () => {
