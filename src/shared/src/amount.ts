@@ -22,6 +22,8 @@ export const cmp = (a: Amount, b: Amount): number => {
 }
 export const lte = (a: Amount, b: Amount) => cmp(a, b) <= 0
 export const zero = (like: Amount): Amount => ({ ...like, value: '0' })
+/** `pct` % del monto, redondeado hacia abajo a la unidad mínima. */
+export const percent = (a: Amount, pct: number): Amount => ({ ...a, value: String((BigInt(a.value) * BigInt(Math.round(pct * 100))) / 10_000n) })
 export const isZero = (a: Amount) => BigInt(a.value) === 0n
 
 export const toNumber = (a: Amount) => Number(a.value) / 10 ** a.assetScale

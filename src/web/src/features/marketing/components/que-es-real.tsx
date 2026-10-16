@@ -6,18 +6,23 @@ import { cn } from '@/utils/cn';
 import { TituloDosTonos } from './titulo-dos-tonos';
 
 // "Qué es real", con la forma de una página de estado (referencia en Mobbin:
-// Stripe Status). La lista sale tal cual de "Real vs simulado" del documento
-// del proyecto. Las barras se llenan al entrar a la vista.
+// Stripe Status). La lista sale de "Qué es real vs. qué es demo" del documento
+// del proyecto (docs/producto/context.md §6). Las barras se llenan al entrar a la vista.
 
 const filas = [
   {
     nombre: 'Grant GNAP interactivo',
-    nota: 'debitAmount + interval en la Test Wallet',
+    nota: 'debitAmount + interval, aprobado en la Test Wallet por cada titular',
     real: true,
   },
   {
     nombre: 'Outgoing Payments',
-    nota: 'en todos los flujos, de la wallet del titular al comercio',
+    nota: 'en todos los flujos, de la wallet del titular a la del comercio',
+    real: true,
+  },
+  {
+    nombre: 'Cobro en pesos (COP)',
+    nota: 'el comercio recibe su precio exacto; si el titular paga en dólares, con el cambio real',
     real: true,
   },
   {
@@ -26,23 +31,33 @@ const filas = [
     real: true,
   },
   {
-    nombre: 'Vales ed25519 y liquidación',
-    nota: 'firma en el celular, verificación offline',
+    nombre: 'Vales ed25519 sin señal',
+    nota: 'firma en el celular, verificación offline y liquidación al reconectar',
     real: true,
   },
   {
-    nombre: 'Red celular (SMS)',
-    nota: 'real con Twilio; si falla, celular en pantalla',
+    nombre: 'Agente Guardián',
+    nota: 'reglas contra el doble gasto y tope sin señal automático',
+    real: true,
+  },
+  {
+    nombre: 'Asistente por SMS',
+    nota: 'Claude con herramientas; SMS real por un Android, el PIN nunca pasa por la IA',
+    real: true,
+  },
+  {
+    nombre: 'Precios y tiendas cercanas',
+    nota: 'catálogos en vivo de 7 cadenas y sucursales reales (OpenStreetMap)',
+    real: true,
+  },
+  {
+    nombre: 'Tiendas de la vereda',
+    nota: 'catálogo del inventario sintético; consultarlo y comprar sí se paga',
     real: false,
   },
   {
-    nombre: 'Catálogo del inventario',
-    nota: 'datos sintéticos (el pago por consultarlo sí es real)',
-    real: false,
-  },
-  {
-    nombre: 'Conversión a COP',
-    nota: 'si la Test Wallet no la soporta',
+    nombre: 'Tendero sin wallet',
+    nota: 'el pago a Puntored es real; la acreditación final al tendero, simulada',
     real: false,
   },
 ];
@@ -129,8 +144,7 @@ export const QueEsReal = () => (
         </div>
       </div>
       <p className="mt-4 text-center font-geist text-xs text-grafito-2">
-        En este borrador sin backend, la red de prueba la simula el gateway
-        local hasta conectar apps/api.
+        Desplegado con Open Payments real sobre la red de prueba de Interledger.
       </p>
     </Container>
   </section>

@@ -120,7 +120,13 @@ describe('El titular registra un beneficiario: alias, tope, PIN y tope sin seña
     const { code, mandateId } = res.json()
     const persona = await getMandate(mandateId)
     expect(persona).toMatchObject({ parentId: beto.rootMandateId, holderType: 'person', holderName: 'Mamá de Beto', pinThreshold: A.cop(0) })
-    expect(await getMandate(code)).toMatchObject({ parentId: mandateId, holderType: 'device', offlineCap: A.cop(50_000) })
+    // Lo que puso el titular es el techo; el celular arranca con el 40 % y el Guardián lo sube con buen uso
+    expect(await getMandate(code)).toMatchObject({
+      parentId: mandateId,
+      holderType: 'device',
+      offlineCap: A.cop(20_000),
+      offlineCapCeiling: A.cop(50_000),
+    })
 
     const enlace = await post('/auth/register/beneficiario', {
       documento: '70000001', nombre: 'Rosa Beto', email: 'mama.beto@correo.co', telefono: '+573120000001', password: 'clave-segura', mandateId: code,

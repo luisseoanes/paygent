@@ -17,7 +17,7 @@ import {
 import { emit } from '../feed/bus.ts'
 import { revokeRootGrant } from '../op/grants.ts'
 import { assertHolder, requireAgent } from './auth.ts'
-import { issueDeviceCert } from './devices.ts'
+import { issueDeviceCert, OFFLINE_START_PCT } from './devices.ts'
 import { badRequest, forbidden, HttpError, notFound } from './errors.ts'
 import { gatewayKey } from './keys.ts'
 import {
@@ -202,7 +202,8 @@ export default async function gatewayRoutes(app: FastifyInstance) {
             holderId: `${id}-cel`,
             holderName: `Celular de ${alias}`,
             maxDebit: maxDebit!,
-            offlineCap: offlineCap!,
+            // Lo que puso el titular es el techo; el celular arranca con el 40 % y el Guardián lo sube con buen uso.
+            offlineCap: A.percent(offlineCap!, OFFLINE_START_PCT),
             offlineCapCeiling: offlineCap!,
           },
           tx,
@@ -212,7 +213,7 @@ export default async function gatewayRoutes(app: FastifyInstance) {
       })
       await emit({ mandateId: id, actor: { type: 'person', name: root.holderName }, kind: 'grant', amount: maxDebit, reason: `${root.holderName} registró a ${alias}` })
       reply.status(201)
-      return { code, mandateId: id, deviceMandateId: code }
+      return { code, mandateId: id, deviceMandateId: code, offlineCap: A.percent(offlineCap!, OFFLINE_START_PCT), offlineCapCeiling: offlineCap }
     },
   )
 
