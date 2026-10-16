@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import type { Amount, Category, DeliveryAddress, PayRequest, Payout } from '@openroute/shared'
+import { amount as A, randomId, type Amount, type Category, type DeliveryAddress, type PayRequest, type Payout } from '@openroute/shared'
 import {
   getAddress,
   getAgent,
@@ -32,6 +32,8 @@ import {
   type DelegateInput,
 } from './mandates.ts'
 import { pay } from './pay.ts'
+import { setPin } from './pin.ts'
+import { sql } from '../store/sql.ts'
 import { describePayout } from './payout.ts'
 
 const CATEGORIES: Category[] = ['mercado', 'farmacia', 'efectivo', 'datos']
@@ -165,6 +167,54 @@ export default async function gatewayRoutes(app: FastifyInstance) {
     reply.status(201)
     return getAgent(id)
   })
+
+  /**
+   * Alta de un beneficiario por su titular. Siempre sale de la raíz del titular (todo el dinero sale de su cuenta):
+   * crea la rama de la persona (alias, tope por periodo, PIN siempre) y la de su celular (tope sin señal). Devuelve el
+   * código con el que el beneficiario enlaza su cuenta (POST /auth/register/beneficiario) y su celular.
+   */
+  app.post<{ Params: { id: string }; Body: { alias?: string; maxDebit?: Amount; offlineCap?: Amount; pin?: string } }>(
+    '/mandates/:id/beneficiaries',
+    async (req, reply) => {
+      if (req.headers['x-api-key']) throw forbidden('Un agente no puede registrar beneficiarios')
+      const root = await getMandate(req.params.id)
+      if (root.parentId) throw badRequest('Los beneficiarios salen siempre de la raíz del titular')
+      const alias = req.body?.alias?.trim()
+      const { maxDebit, offlineCap, pin } = req.body ?? {}
+      const positive = (a?: Amount) => !!a && /^\d+$/.test(a.value) && BigInt(a.value) > 0n && a.assetCode === root.maxDebit.assetCode
+      if (!alias) throw badRequest('Falta el nombre con el que lo verás en tu panel')
+      if (!positive(maxDebit)) throw badRequest(`Falta el tope por periodo (en ${root.maxDebit.assetCode})`)
+      if (!positive(offlineCap)) throw badRequest(`Falta el tope sin señal (en ${root.maxDebit.assetCode})`)
+      if (!/^\d{4,6}$/.test(pin ?? '')) throw badRequest('El PIN son de 4 a 6 números')
+
+      const id = randomId('b')
+      const code = await sql().tx(async (tx) => {
+        const persona = await delegate(
+          root.id,
+          { id, holderType: 'person', holderId: id, holderName: alias, maxDebit: maxDebit!, pinThreshold: A.zero(maxDebit!) },
+          tx,
+        )
+        const celular = await delegate(
+          persona.id,
+          {
+            id: `${id}-cel`,
+            holderType: 'device',
+            holderId: `${id}-cel`,
+            holderName: `Celular de ${alias}`,
+            maxDebit: maxDebit!,
+            offlineCap: offlineCap!,
+            offlineCapCeiling: offlineCap!,
+          },
+          tx,
+        )
+        await setPin(persona.id, pin!, tx)
+        return celular.id
+      })
+      await emit({ mandateId: id, actor: { type: 'person', name: root.holderName }, kind: 'grant', amount: maxDebit, reason: `${root.holderName} registró a ${alias}` })
+      reply.status(201)
+      return { code, mandateId: id, deviceMandateId: code }
+    },
+  )
 
   app.post<{ Body: PayRequest }>('/pay', async (req) => {
     const agent = await requireAgent(req)

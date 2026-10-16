@@ -189,6 +189,67 @@ export const mandatesHandlers = [
     },
   ),
 
+  // El titular registra un beneficiario: persona (PIN siempre) + su celular (tope sin señal). Devuelve el código.
+  http.post(
+    apiUrl('/mandates/:mandateId/beneficiaries'),
+    async ({ params, request }) => {
+      await networkDelay();
+      const root = findInTree(db.tree, String(params.mandateId));
+      if (!root) return notFound();
+      const body = (await request.json()) as {
+        alias: string;
+        maxDebit: MandateTree['maxDebit'];
+        offlineCap: MandateTree['maxDebit'];
+      };
+      const used = root.children
+        .filter((c) => !c.revoked)
+        .reduce((sum, c) => sum + toNumber(c.maxDebit), 0);
+      if (used + toNumber(body.maxDebit) > toNumber(root.maxDebit))
+        return fail(
+          'La suma de los sub-mandatos supera el tope del padre',
+          403,
+        );
+      const id = `b_${Date.now().toString(36)}`;
+      const base = {
+        interval: root.interval,
+        spentInPeriod: usdAmount(0),
+        categories: root.categories,
+        canSpend: true,
+        expiresAt: root.expiresAt,
+        revoked: false,
+        frozen: false,
+        signature: `sig_${Date.now()}`,
+      };
+      const celular: MandateTree = {
+        ...base,
+        id: `${id}-cel`,
+        parentId: id,
+        holderType: 'device',
+        holderId: `${id}-cel`,
+        holderName: `Celular de ${body.alias}`,
+        maxDebit: body.maxDebit,
+        offlineCap: body.offlineCap,
+        children: [],
+      };
+      const persona: MandateTree = {
+        ...base,
+        id,
+        parentId: root.id,
+        holderType: 'person',
+        holderId: id,
+        holderName: body.alias,
+        maxDebit: body.maxDebit,
+        pinThreshold: usdAmount(0),
+        children: [celular],
+      };
+      root.children.push(persona);
+      return HttpResponse.json(
+        { code: celular.id, mandateId: id },
+        { status: 201 },
+      );
+    },
+  ),
+
   http.post(apiUrl('/mandates/:mandateId/unfreeze'), async ({ params }) => {
     await networkDelay();
     const node = findInTree(db.tree, String(params.mandateId));

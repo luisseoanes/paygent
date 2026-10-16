@@ -133,7 +133,7 @@ test('coming back from the wallet tells the titular what happened', async () => 
   await waitFor(() => expect(router.state.location.search).toBe(''));
 });
 
-test('the titular delegates a new branch within what is left', async () => {
+test('the titular registers a beneficiary and gets the code to link them', async () => {
   setupFlow(paths.cuenta.getHref(), { signedIn: true });
 
   await userEvent.click(
@@ -145,28 +145,42 @@ test('the titular delegates a new branch within what is left', async () => {
   expect(
     within(drawer).getByText(/disponible para repartir: \$70/i),
   ).toBeInTheDocument();
+  // Solo alias, tope, PIN y tope sin señal: no se elige de dónde sale ni el tipo.
+  expect(within(drawer).queryByLabelText(/sale de/i)).not.toBeInTheDocument();
+  expect(
+    within(drawer).queryByLabelText(/quién la usa/i),
+  ).not.toBeInTheDocument();
 
   await userEvent.type(within(drawer).getByLabelText(/nombre/i), 'Abuela');
-  await userEvent.type(
-    within(drawer).getByLabelText(/quién la usa/i),
-    '+57 300 555 0100',
-  );
   const tope = within(drawer).getByLabelText(/tope por periodo/i);
+  const sinSenal = within(drawer).getByLabelText(/tope sin señal/i);
   await userEvent.type(tope, '100');
-  await userEvent.click(
-    within(drawer).getByRole('button', { name: /^delegar$/i }),
-  );
+  await userEvent.type(within(drawer).getByLabelText(/^pin$/i), '1234');
+  await userEvent.type(sinSenal, '50');
+  const delegar = () =>
+    userEvent.click(within(drawer).getByRole('button', { name: /^delegar$/i }));
+  await delegar();
   expect(
-    await within(drawer).findByText(/solo puede repartir \$70/i),
+    await within(drawer).findByText(/solo puedes repartir \$70/i),
   ).toBeInTheDocument();
 
   await userEvent.clear(tope);
   await userEvent.type(tope, '40');
-  await userEvent.click(
-    within(drawer).getByRole('button', { name: /^delegar$/i }),
-  );
+  await delegar();
+  expect(
+    await within(drawer).findByText(/no puede superar el tope por periodo/i),
+  ).toBeInTheDocument();
 
-  expect(await screen.findByText(/rama abuela creada/i)).toBeInTheDocument();
+  await userEvent.clear(sinSenal);
+  await userEvent.type(sinSenal, '10');
+  await delegar();
+
+  expect(
+    await within(drawer).findByLabelText(/código para enlazar/i),
+  ).toHaveTextContent(/^b_/);
+  await userEvent.click(
+    within(drawer).getByRole('button', { name: /^listo$/i }),
+  );
   expect(
     await within(await delegados()).findByRole('button', {
       name: /^abuela: ver detalle$/i,

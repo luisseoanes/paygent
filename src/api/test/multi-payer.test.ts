@@ -110,3 +110,36 @@ describe('Grant, pagos y feed por titular', () => {
     expect((await getMandate(ana.rootMandateId)).spentInPeriod).toEqual(A.cop(12_000))
   })
 })
+
+describe('El titular registra un beneficiario: alias, tope, PIN y tope sin señal', () => {
+  it('sale de su raíz, crea la persona (PIN siempre) y su celular, y entrega el código para enlazar', async () => {
+    const res = await post(`/mandates/${beto.rootMandateId}/beneficiaries`, {
+      alias: 'Mamá de Beto', maxDebit: A.cop(200_000), offlineCap: A.cop(50_000), pin: '4321',
+    })
+    expect(res.statusCode).toBe(201)
+    const { code, mandateId } = res.json()
+    const persona = await getMandate(mandateId)
+    expect(persona).toMatchObject({ parentId: beto.rootMandateId, holderType: 'person', holderName: 'Mamá de Beto', pinThreshold: A.cop(0) })
+    expect(await getMandate(code)).toMatchObject({ parentId: mandateId, holderType: 'device', offlineCap: A.cop(50_000) })
+
+    const enlace = await post('/auth/register/beneficiario', {
+      documento: '70000001', nombre: 'Rosa Beto', email: 'mama.beto@correo.co', telefono: '+573120000001', password: 'clave-segura', mandateId: code,
+    })
+    expect(enlace.json()).toMatchObject({ role: 'beneficiario', mandateIds: [mandateId, code].sort() })
+  })
+
+  it('PIN, tope y tope sin señal son obligatorios; el tope sin señal no puede superar el del periodo', async () => {
+    const base = { alias: 'X', maxDebit: A.cop(10_000), offlineCap: A.cop(5_000), pin: '1234' }
+    const url = `/mandates/${beto.rootMandateId}/beneficiaries`
+    expect((await post(url, { ...base, pin: '12' })).statusCode).toBe(400)
+    expect((await post(url, { ...base, pin: undefined })).statusCode).toBe(400)
+    expect((await post(url, { ...base, offlineCap: undefined })).statusCode).toBe(400)
+    expect((await post(url, { ...base, maxDebit: undefined })).statusCode).toBe(400)
+    expect((await post(url, { ...base, offlineCap: A.cop(20_000) })).statusCode).toBe(400)
+  })
+
+  it('no se puede colgar de una rama que no sea la raíz', async () => {
+    const res = await post(`/mandates/maria/beneficiaries`, { alias: 'X', maxDebit: A.cop(1), offlineCap: A.cop(1), pin: '1234' })
+    expect(res.statusCode).toBe(400)
+  })
+})
