@@ -28,8 +28,19 @@ if (!callback) {
   console.log('\n1) Abre esta URL y aprueba con la cuenta de Juan:\n\n', redirectUrl)
   console.log('\n2) Copia la URL completa a la que te redirige (aunque falle la página) y corre:\n   pnpm op:smoke "<url>"\n')
 } else {
-  const url = new URL(callback)
-  await continueRootGrant(url.searchParams.get('interact_ref')!, url.searchParams.get('hash')!)
+  // zsh escapa ? y = al pegar dentro de comillas: se quitan las barras.
+  const url = new URL(callback.replaceAll('\\', ''))
+  const interactRef = url.searchParams.get('interact_ref')
+  const hash = url.searchParams.get('hash')
+  if (!interactRef || !hash) {
+    console.error(
+      '\nEsa no es la URL de vuelta. Tras pulsar "Aprobar", la billetera te lleva a\n' +
+        `  ${env.PUBLIC_API_URL}/callback?hash=…&interact_ref=…\n` +
+        'Copia esa (la página puede fallar, es normal) y vuelve a correr el script.\n',
+    )
+    process.exit(1)
+  }
+  await continueRootGrant(interactRef, hash)
   console.log('Grant raíz OK. Pagando 40 COP (≈ $0.01) a', env.WALLET_TIENDA)
   const t = Date.now()
   const result = await settle({ merchantWallet: env.WALLET_TIENDA, amount: pesos(40), metadata: { description: 'smoke' } })
