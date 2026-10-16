@@ -1,5 +1,9 @@
 packages:
-  - apps/*
-  - packages/*
+  - src/*
 allowBuilds:
   esbuild: true
+  msw: false
+  unrs-resolver: false
+overrides:
+  # Una sola copia de vite: si vitest resuelve otra, src/web no ve el tipo `test` en vite.config.ts
+  vite: ^7.3.7

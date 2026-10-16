@@ -1,0 +1,200 @@
+/*
+ * DESIGN TOKENS — Paygent «Vale por». Única fuente de verdad visual.
+ * Ver BRAND.md y el blueprint (§3.2 / §7.3).
+ *
+ * - Papel y tinta dominan el 80%; azul firma ~12%.
+ * - Los colores de sello tienen significado FIJO:
+ *     firma (azul)     = Juan autoriza
+ *     agente (violeta) = actúa un agente
+ *     anulado (rojo)   = se restringe / rechaza / congela / revoca
+ *     liquidado (verde)= se liquidó
+ * - Solo modo claro: nunca fondos oscuros ni blanco puro.
+ * - Los componentes usan solo utilidades semánticas (bg-paper, text-firma...).
+ */
+
+:root {
+  /* Papel y tinta */
+  /* Neutros estilo Cofounder: hueso, blanco y grises suaves */
+  --paper: #f3f2ee;
+  --paper-raised: #fdfdfc;
+  --paper-sunken: #ecebe6;
+  --ink: #1d1e22;
+  --ink-2: #626368;
+  --ink-3: #9c9ca1;
+  --rule: #e5e3dd;
+  --rule-strong: #d1cec6;
+
+  /* Sellos */
+  --firma: #1f3fae;
+  --firma-tint: #e3e8f7;
+  --agente: #5a3e9e;
+  --agente-tint: #ece6f5;
+  --resaltador: #f2c230;
+  --liquidado: #1e7a4c;
+  --liquidado-tint: #e2f0e7;
+  --anulado: #c2362b;
+  --anulado-tint: #f8e4e1;
+  --pendiente: #8a5a12;
+  --pendiente-borde: #b7791f;
+  --pendiente-tint: #f6ebd6;
+
+  /* Celular de teclas (LCD) */
+  --lcd: #c9d4b0;
+  --lcd-ink: #1f2a17;
+  --carcasa: #2b2d31;
+  --carcasa-2: #3a3d43;
+  --led: #3fbf4f;
+
+  /* Portada estilo Cofounder: hueso, grafito en dos tonos y vidrio */
+  --hueso: #f3f2ee;
+  --hueso-2: #e9e7e1;
+  --grafito: #1f1f22;
+  --grafito-2: #86868b;
+  --vidrio: rgb(255 255 255 / 0.55);
+  --vidrio-borde: rgb(255 255 255 / 0.75);
+
+  /* Semánticos (los usa la librería ui) */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--ink);
+
+  --primary: var(--ink);
+  --primary-foreground: var(--paper-raised);
+  --secondary: var(--paper-sunken);
+  --secondary-foreground: var(--ink);
+  --accent: var(--firma-tint);
+  --accent-foreground: var(--firma);
+  --muted: var(--paper-sunken);
+  --muted-foreground: var(--ink-2);
+
+  --destructive: var(--anulado);
+  --destructive-foreground: var(--paper-raised);
+  --success: var(--liquidado);
+  --success-foreground: var(--paper-raised);
+  --warning: var(--pendiente);
+  --warning-foreground: var(--paper-raised);
+  --info: var(--firma);
+  --info-foreground: var(--paper-raised);
+
+  --border: var(--rule);
+  --input: var(--rule-strong);
+  --ring: var(--firma);
+  --overlay: rgb(28 34 48 / 0.45);
+
+  /* Forma: 6px controles, 2px papel (rounded-sm) */
+  --radius: 0.625rem;
+
+  /* Personalidad */
+  --heading-weight: 400;
+  --subheading-weight: 500;
+  --heading-tracking: -0.025em;
+  --heading-case: none;
+  --button-radius: 8px;
+  --border-width: 1px;
+  --font-size-base: 106.25%; /* 17px */
+
+  /* Movimiento (§3.7) */
+  --dur-micro: 120ms;
+  --dur-sello: 220ms;
+  --dur-regla: 420ms;
+  --dur-flip: 480ms;
+  --dur-tachon: 520ms;
+  --dur-tinta: 900ms;
+  --ease-sello: cubic-bezier(0.2, 1.4, 0.4, 1);
+  --ease-tinta: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-salida: cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+/* Map the CSS variables above to Tailwind utilities. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+
+  /* Marca «Vale por» */
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-firma: var(--firma);
+  --color-firma-tint: var(--firma-tint);
+  --color-agente: var(--agente);
+  --color-agente-tint: var(--agente-tint);
+  --color-resaltador: var(--resaltador);
+  --color-liquidado: var(--liquidado);
+  --color-liquidado-tint: var(--liquidado-tint);
+  --color-anulado: var(--anulado);
+  --color-anulado-tint: var(--anulado-tint);
+  --color-pendiente: var(--pendiente);
+  --color-pendiente-borde: var(--pendiente-borde);
+  --color-pendiente-tint: var(--pendiente-tint);
+  --color-lcd: var(--lcd);
+  --color-lcd-ink: var(--lcd-ink);
+  --color-carcasa: var(--carcasa);
+  --color-carcasa-2: var(--carcasa-2);
+  --color-led: var(--led);
+  --color-hueso: var(--hueso);
+  --color-hueso-2: var(--hueso-2);
+  --color-grafito: var(--grafito);
+  --color-grafito-2: var(--grafito-2);
+  --color-vidrio: var(--vidrio);
+  --color-vidrio-borde: var(--vidrio-borde);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-button: var(--button-radius);
+
+  /* DESIGN-SYSTEM:SHADOWS — sombra de papel */
+  --shadow-xs: 0 1px 0 rgb(28 34 48 / 0.06);
+  --shadow-sm: 0 1px 0 rgb(28 34 48 / 0.06);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 28px -18px rgb(0 0 0 / 0.18);
+  --shadow-paper:
+    0 1px 2px rgb(0 0 0 / 0.04), 0 12px 28px -18px rgb(0 0 0 / 0.18);
+  --shadow-lg:
+    0 1px 0 rgb(28 34 48 / 0.06), 0 24px 48px -20px rgb(28 34 48 / 0.35);
+}
+
+/* Typography: font families. Self-hosted via @fontsource (see globals.css). */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-lcd: 'VT323', ui-monospace, monospace;
+  --font-geist: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-pixel: 'Pixelify Sans', ui-monospace, monospace;
+
+  /* Page width used by <Container /> */
+  --container-page: 80rem;
+}
