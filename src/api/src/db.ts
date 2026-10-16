@@ -48,6 +48,8 @@ export interface PhoneProfile {
   location: { lat: number; lng: number }
   /** Mandato raíz cuya dirección de entrega aplica (la que registró Juan) */
   rootId: string
+  /** Chat de la app: la persona cuyas ramas hablan con este perfil (María desde su celular → 'maria') */
+  chatFor?: string
 }
 
 export interface Pending {

@@ -1,5 +1,10 @@
 # Chat con el asistente: cómo conectarlo
 
+> **Estado: conectado.** `POST /api/asistente/chat` existe en `src/api/src/chat/routes.ts` y responde JSON
+> `{ texto }` (sin streaming). Habla el **Asistente de María**, una rama de agente que cuelga de María
+> (`asistente-maria`: $40 al mes, PIN si pasa de $10). Usa `contexto.mandato` (la rama del celular vinculado)
+> para saber que es María; sin celular vinculado responde 400.
+
 El frontend ya está listo: botón "Hablar con el asistente" en `/maria`, chat con
 streaming letra a letra, errores y reintento. Solo falta el endpoint.
 

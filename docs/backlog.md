@@ -100,6 +100,7 @@ interface FeedEvent {
 | `POST /pay` ✅ | LU (autorización) + BE (settle) | `{ mandateId, merchantWallet, amount, category, pin?, pendingId?, reason }` + firma del actor | `AuthDecision & { paymentId? }` |
 | `POST /vouchers/settle` ✅ | LU | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason? }[] }` |
 | `POST /sms/inbound` ✅ | BE | webhook Twilio (`From`, `Body`) o mock | TwiML / `{ reply }` → **Hecho con el celular simulado (`/celular`); Twilio descartado** |
+| `POST /asistente/chat` ✅ | BE | `{ mensajes: { rol, texto }[], contexto: { mandato } }` | `{ texto }` → **Chat de María con su Asistente (AG-07)** |
 | `GET /feed/stream` ✅ | BE | SSE | `FeedEvent` en vivo |
 | `POST /demo/reset` ✅ | LU | — | restaura las semillas |
 
@@ -160,10 +161,10 @@ paygent/
 | OP-06 ✅ | Seguimiento del outgoing (`sentAmount`, `failed`) y emisión de un `FeedEvent` | BE | P1 | 1h | OP-04, BE-FEED | El feed muestra "liquidado" al completar → **Hecho: `settle` espera a que el comercio reciba, cierra su incoming payment y si falla lo dice; el pago queda `pending` hasta saberlo y un fallo tardío llega al feed. Tests en `op-settle-wait.test.ts` y `pay-late.test.ts`** |
 | OP-07 ✅ | Revocación del grant raíz en el servidor de autorización | BE | P1 | 1h | OP-03 | Después de revocar, un `settle` falla con `revoked` → **Hecho: verificado contra el Test Wallet (tras revocar, el token se rechaza) y falla con "El mandato de Juan fue revocado…". Test en `op-settle-revoked.test.ts`** |
 | OP-08 ✅ | Mapa de errores de Open Payments → razones internas (límite excedido, saldo insuficiente, quote vencida, token inválido) | BE | P0 | 1.5h | OP-04 | Cada error llega a `/pay` como `deny` con una razón legible → **Hecho: `explainOpError`; la razón llega al feed (`denied`) y al SMS** |
-| OP-09 | Intervalo corto para la demo (`PT2M` o `PT5M`) y prueba de renovación | BE | P2 | 1h | PRE-03 | El tope vuelve a estar disponible después del intervalo |
+| OP-09 ⛔ | Intervalo corto para la demo (`PT2M` o `PT5M`) y prueba de renovación | BE | P2 | 1h | PRE-03 | El tope vuelve a estar disponible después del intervalo → **Descartado: se explica en el pitch que el permiso se renueva cada mes** |
 | OP-10 ✅ | Capa de presentación FX si no hay COP (tasa fija documentada y marcada como simulada) | BE | P1 | 0.5h | PRE-03 | La UI muestra COP con la etiqueta "tasa de referencia" → **Hecho: "Tasa de referencia" en la PWA de María; el débito real lo cotiza Open Payments (`pay-price.test.ts`)** |
 | BE-FEED ✅ | `FeedEvent` en SQLite + `GET /feed/stream` (SSE) | BE | P0 | 1.5h | GW-01 | El panel recibe eventos en menos de 1 segundo → **Hecho con JSON (no SQLite); el panel de Juan lo recibe en vivo** |
-| BE-AUTH ✅ | Autenticación de agentes: el agente firma la request (ed25519) con la llave registrada. Alternativa P0: API key por agente | BE | P1 | 1.5h | GW-01 | Una request sin firma válida recibe 401 → **Hecho con la alternativa P0 (API key por agente, test de 401). La firma ed25519 no se hizo** |
+| BE-AUTH ✅ | Autenticación de agentes: el agente firma la request (ed25519) con la llave registrada. Alternativa P0: API key por agente | BE | P1 | 1.5h | GW-01 | Una request sin firma válida recibe 401 → **Hecho con la alternativa P0 (API key por agente, test de 401). La firma ed25519 queda descartada** |
 
 ### ÉPICO GW — Mandate Gateway (LU)
 
@@ -203,6 +204,7 @@ paygent/
 | AG-06 | Set de evaluación: 25 mensajes reales (errores ortográficos, "la pasta de la presión", "cuánto me queda", montos en pesos) con su resultado esperado; reportar la tasa de acierto | DS | P1 | 1.5h | AG-02 | ≥ 90% de acierto; la cifra se usa en el pitch |
 | SMS-01 ✅ | `POST /sms/inbound`: Twilio → `src/agents/assistant/message` → respuesta. Con `MOCK_SMS=1` usa la vista del celular simulado | BE | P0 | 1.5h | AG-01 | Un SMS real o simulado llega al agente y vuelve → **Hecho con el celular simulado; la parte de Twilio queda descartada** |
 | SMS-02 ✅ | Vista `/celular`: UI de celular de teclas (pantalla pequeña, fuente monoespaciada) que usa el mismo endpoint. Es la alternativa si falla Twilio y la vista para el proyector | BE | P0 | 1.5h | SMS-01 | Conversación completa visible en el proyector → **Hecho en la web nueva: `/celular` conversa con el Asistente por `/sms/inbound` (pagos reales con PIN)** |
+| AG-07 ✅ | Chat de María con su agente en la PWA: rama "Asistente de María" bajo María ($40/mes, PIN si > $10) + `POST /asistente/chat` (contrato en `src/web/ASISTENTE-CHAT.md`) | BE | P1 | 1.5h | AG-03, OFF-02 | María consulta y compra desde su celular; Juan ve al agente como rama propia y puede revocarlo → **Hecho: probado con el Asistente real (pedido, recoger sin PIN, PIN para más de $10, saldo) y 5 tests en `chat.test.ts`** |
 
 ### ÉPICO INV — Agente de Inventario (DS · BE)
 

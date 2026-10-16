@@ -10,6 +10,7 @@ import gatewayRoutes from './gateway/routes.ts'
 import { resolveRootAsset } from './op/asset.ts'
 import opRoutes from './op/routes.ts'
 import smsRoutes from './sms/routes.ts'
+import chatRoutes from './chat/routes.ts'
 import voucherRoutes from './vouchers/routes.ts'
 
 export const buildApp = async ({ logger = true } = {}) => {
@@ -38,6 +39,7 @@ export const buildApp = async ({ logger = true } = {}) => {
   await app.register(gatewayRoutes)
   await app.register(voucherRoutes)
   await app.register(smsRoutes)
+  await app.register(chatRoutes)
   await app.register(feedRoutes)
   await app.register(demoRoutes)
   return app

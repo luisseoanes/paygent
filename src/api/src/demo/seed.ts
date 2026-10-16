@@ -13,9 +13,11 @@ import { pesos } from '../op/asset.ts'
  * guardada con otra versión se vuelve a sembrar conservando el grant de Juan; si no, el volumen de Railway
  * conserva la semilla vieja para siempre (así se quedó el umbral de PIN en $2).
  */
-export const SEED_VERSION = '2026-10-16.pin10-cop-entrega-puntored'
+export const SEED_VERSION = '2026-10-16.asistente-maria'
 
 export const PHONE_MAMA = '+573001112233'
+/** El chat de la PWA de María no tiene número: el Asistente la reconoce por este perfil. */
+export const CHAT_MARIA = 'app:maria'
 export const PIN_DEMO = '1234'
 
 export const seed = ({ keepGrant = true } = {}) => {
@@ -79,7 +81,8 @@ export const seed = ({ keepGrant = true } = {}) => {
     holderId: 'maria',
     holderName: 'María',
     maxDebit: pesos(1_000_000),
-    categories: ['mercado', 'farmacia', 'efectivo'],
+    // 'datos' solo para que su Asistente pague las consultas al Inventario (categorías ⊆ padre).
+    categories: ['mercado', 'farmacia', 'efectivo', 'datos'],
   })
   delegate('maria', {
     id: 'maria-device',
@@ -98,6 +101,25 @@ export const seed = ({ keepGrant = true } = {}) => {
     holderName: 'María (SMS)',
     maxDebit: pesos(200_000),
     pinThreshold: pesos(0), // siempre PIN
+  })
+  // El agente de María: habla con ella en el chat de su PWA. Es una hoja de SU rama, así que Juan lo ve y lo
+  // puede revocar sin tocar a María. Decisión del equipo: $40 al mes, PIN si > $10.
+  delegate('maria', {
+    id: 'asistente-maria',
+    holderType: 'agent',
+    holderId: 'asistente',
+    holderName: 'Asistente de María',
+    maxDebit: pesos(160_000),
+    categories: ['mercado', 'farmacia', 'efectivo', 'datos'],
+    pinThreshold: pesos(40_000),
+  })
+  delegate('asistente-maria', {
+    id: 'asistente-maria-datos',
+    holderType: 'agent',
+    holderId: 'asistente',
+    holderName: 'Asistente de María → Inventario',
+    maxDebit: pesos(2000),
+    categories: ['datos'],
   })
   delegate(ROOT_ID, {
     id: 'asistente',
@@ -129,6 +151,7 @@ export const seed = ({ keepGrant = true } = {}) => {
 
   setPin('asistente', PIN_DEMO)
   setPin('maria-sms', PIN_DEMO)
+  setPin('asistente-maria', PIN_DEMO)
 
   db.phones = {
     [PHONE_MAMA]: {
@@ -138,6 +161,15 @@ export const seed = ({ keepGrant = true } = {}) => {
       dataMandateId: 'asistente-datos',
       location: { lat: 6.0, lng: -75.43 }, // municipio de Antioquia (sintético)
       rootId: ROOT_ID,
+    },
+    [CHAT_MARIA]: {
+      phone: CHAT_MARIA,
+      name: 'María',
+      mandateId: 'asistente-maria',
+      dataMandateId: 'asistente-maria-datos',
+      location: { lat: 6.0, lng: -75.43 },
+      rootId: ROOT_ID,
+      chatFor: 'maria',
     },
   }
 
