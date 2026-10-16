@@ -35,3 +35,11 @@ def test_sin_stock_no_aparece():
 def test_basura_no_devuelve_nada():
     assert search("xyzzy qwerty") == []
     assert search("no") == []
+
+
+def test_comercio_sin_wallet_cobra_por_puntored():
+    """Doña Rosa no tiene wallet: su dirección de cobro es puntored:tienda y la api le paga por Puntored."""
+    rosa = [o for o in search("arroz", limit=10) if o["merchant"] == "Tienda Doña Rosa"]
+    assert rosa and rosa[0]["wallet"] == "puntored:tienda"
+    con_wallet = [o for o in search("arroz", limit=10) if o["merchant"] == "Minimercado El Paisa"]
+    assert con_wallet and con_wallet[0]["wallet"].startswith("https://")

@@ -8,10 +8,10 @@ Documento de ejecución de [proyecto-hackathon-open-payments.md](proyecto-hackat
 
 | Código | Persona | Rol principal | Es dueño de |
 |---|---|---|---|
-| **BE** | Backend | Integración Open Payments | `apps/api` → módulo `op/`, `/pay` a nivel de dinero, SMS, feed |
+| **BE** | Pedro (backend) | Integración Open Payments | `apps/api` → módulo `op/`, `/pay` a nivel de dinero, SMS, feed |
 | **LU** | Luis (DS + backend) | Mandate Gateway + Guardián | `apps/api` → módulo `gateway/`, `packages/shared` (criptografía), reglas de riesgo |
-| **DS** | Data science | Agentes de IA + datos | `agents/` (Python): Asistente, Inventario, Intención; cifras del pitch |
-| **FE** | Frontend | PWAs y panel | `apps/web`: `/juan`, `/maria`, `/tendero`, `/demo` |
+| **DS** | Roy (data science) | Agentes de IA + datos | `agents/` (Python): Asistente, Inventario, Intención; cifras del pitch |
+| **FE** | Carlos (frontend) | PWAs y panel | `apps/web`: `/juan`, `/maria`, `/tendero`, `/demo` |
 
 **Prioridades:**
 - **P0:** sin esto no hay demo.
@@ -225,6 +225,27 @@ openroute/
 | INT-01 | Texto → árbol de mandatos (esquema pydantic) + validación contra los invariantes de GW-03 | DS | P1 | 2h | AG-01 | 5 intenciones de prueba generan árboles válidos; una inválida se rechaza con explicación |
 | INT-02 | UI de Juan: textarea → vista previa del árbol → "Aprobar en mi billetera" | FE | P1 | 1.5h | INT-01, FE-02 | De la frase al consentimiento real sin tocar un formulario |
 
+### ÉPICO EXT — La idea en grande: pagadores institucionales, voz e historial
+
+Ver §3.6–3.8 de [proyecto-hackathon-open-payments.md](proyecto-hackathon-open-payments.md). Nada de este épico pasa antes que H2 (pago real).
+
+| ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
+|---|---|---|---|---|---|---|
+| EXT-01 | Semilla "Gobierno — subsidio adulto mayor" en `/demo/reset`: otra wallet raíz del Test Wallet, árbol con categorías `mercado` + `farmacia`, beneficiaria con PIN SMS y tope offline, y **dirección de entrega propia** (`db.addresses[<raíz del Gobierno>]`) | LU | P1 | 1.5h | GW-01, PRE-01, DEL-01 | `POST /demo/reset` deja los dos árboles (Juan y Gobierno), ambos pagan por `/pay` y la beneficiaria puede **recoger o pedir domicilio** |
+| DEL-01 ✅ | Entrega: dirección por mandato raíz (`PUT /delivery-address/:rootId`, solo Juan; un agente recibe 403). `/pay` acepta `delivery: { mode, code, fee }` y el gateway pone la dirección registrada, ignorando la del agente. Sin dirección → `deny: no_address` | LU | P1 | 2h | GW-05 | Hecho, con 4 tests en `gateway.test.ts` |
+| DEL-02 ✅ | Asistente: "1 recoger / 2 enviar a casa de María (+envío)" o lo detecta en el mensaje ("tráigamela"); producto + envío en un solo pago; el total cuenta para el umbral de PIN. Costo de envío por comercio en `merchants.csv` (0 = no hace domicilios) | DS | P1 | 2h | DEL-01, AG-02 | Hecho, con 6 tests en `test_assistant.py` y en `pnpm e2e` |
+| PAY-01 ✅ | Cobro del comercio: `payout` directo a su wallet o por Puntored a su llave Bre-B (`PUT /merchants/:id/payout`, solo el tendero; un agente recibe 403). La dirección de cobro no cambia, así los vales firmados siguen valiendo. Semilla: Doña Rosa sin wallet (`puntored:tienda`), Minimercado El Paisa con wallet | LU | P1 | 2h | GW-05 | Hecho, con 3 tests en `gateway.test.ts`, 1 en `test_inventory.py` y en `pnpm e2e` |
+| PAY-02 | Preguntarle a Puntored en el evento: cómo liquidan hoy al tendero (Bre-B, saldo en su punto), tiempos y comisiones, y si les interesa recibir por Open Payments. Ajustar §3.5b con sus respuestas | Todos | P1 | 0.5h | — | Respuestas anotadas en el documento del proyecto |
+| DEL-03 ✅ | Web: formulario de dirección en `/juan`, línea de envío en el feed y "Pedidos ya pagados" en `/tendero` (qué llevar, a quién, dirección y código) | FE | P1 | 1.5h | DEL-01 | Hecho. Carlos: falta pulir el diseño |
+| EXT-02 | Selector de pagador en `/juan` ("Juan — familia" / "Gobierno — subsidio" / "ONG — ayuda") que cambia el árbol mostrado | FE | P1 | 1h | EXT-01 | El cambio se ve en menos de 1 s, con el mismo componente del árbol |
+| EXT-03 | Cifras con fuente: beneficiarios y modalidad de pago de subsidios (Prosperidad Social / Colombia Mayor), alfabetización rural (DANE), inclusión financiera (Banca de las Oportunidades) | LU | P1 | 1h | PRE-08 | Tabla con cifra + fuente + fecha |
+| VOZ-01 | Número de Twilio Voice que pueda recibir llamadas desde Colombia; revisar restricciones de la cuenta | BE | P1 | 1h | PRE-06 | Una llamada desde un celular colombiano llega al webhook, o se decide quedarse con SMS |
+| VOZ-02 | `POST /voice/inbound` + `/voice/gather`: voz → texto (`<Gather input="speech" language="es-MX">`, o `es-US`) → `agents /assistant/message` → respuesta con `<Say>`; el PIN se pide con `<Gather input="dtmf">` y **no** pasa por el reconocimiento de voz ni por el LLM | BE | P1 | 3h | VOZ-01, SMS-01 | Llamada completa: pedido por voz → propuesta hablada → PIN por teclado → pago real → SMS con código |
+| VOZ-03 | Respuestas del Asistente aptas para voz: frases cortas, precios en palabras ("doce mil pesos"), sin abreviaturas | DS | P1 | 1h | AG-02 | 10 respuestas leídas en voz alta se entienden a la primera |
+| HIS-01 | `GET /merchants/:id/history` y `GET /mandates/:id/history`: pagos y vales liquidados, totales por mes y puntaje del Guardián | LU | P1 | 1.5h | OFF-03, GRD-02 | Devuelve el historial con la firma de cada registro |
+| HIS-02 | Vista "Mi historial" en `/tendero`: ventas por mes, número de vales sin incidentes y botón "Compartir con mi banco" (simulado) | FE | P1 | 1.5h | HIS-01 | El tendero ve sus meses de ventas en COP |
+| HIS-03 | Historial simulado de 6 meses para el tendero en la semilla | DS | P1 | 1h | GRD-03 | Cargado por `/demo/reset` |
+
 ### ÉPICO FE — Frontend (FE)
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
@@ -278,12 +299,15 @@ Se recorta de arriba hacia abajo, sin discutirlo de nuevo:
 
 1. FE-06 vista del proyector (P2)
 2. OP-09 intervalo corto (se explica verbalmente)
-3. INT-01/INT-02 compilador de intención → el formulario de FE-02
-4. GRD-04 explicaciones con LLM → plantilla
-5. GRD-02/03 ajuste dinámico del tope → tope fijo
-6. PRE-06/SMS real → vista `/celular`
-7. AG-06 evaluación → se quita la cifra del pitch
-8. BE-AUTH firma de agentes → API key
+3. HIS-01/02/03 historial → se menciona en el pitch con una diapositiva
+4. VOZ-01/02/03 llamada de voz → el mismo agente por SMS o `/celular`
+5. EXT-02 selector de pagador → solo diapositiva (EXT-01 y EXT-03 se mantienen: son baratos y cambian la escala del pitch)
+6. INT-01/INT-02 compilador de intención → el formulario de FE-02
+7. GRD-04 explicaciones con LLM → plantilla
+8. GRD-02/03 ajuste dinámico del tope → tope fijo
+9. PRE-06/SMS real → vista `/celular`
+10. AG-06 evaluación → se quita la cifra del pitch
+11. BE-AUTH firma de agentes → API key
 
 **Nunca se recortan:** OP-01…04, GW-04/05/06/07, OFF-01…07, AG-02/03/04, INV-02/03, DEMO-01/02/03/05.
 

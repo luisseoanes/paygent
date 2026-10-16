@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { amount as A, monthly, type MandateNode } from '@openroute/shared'
+import { amount as A, monthly, type DeliveryAddress, type MandateNode } from '@openroute/shared'
 import { agents, api, useFeed, type DemoStatus } from '../lib/api.ts'
 import { Feed } from '../components/Feed.tsx'
 import { MandateTree } from '../components/MandateTree.tsx'
@@ -22,6 +22,14 @@ export default function Juan() {
   const [intent, setIntent] = useState('Hasta 300 dólares al mes para mi mamá y María; medicinas sin preguntar hasta 10 dólares')
   const [summary, setSummary] = useState('')
   const [msg, setMsg] = useState('')
+  const [address, setAddress] = useState<DeliveryAddress>({ recipientName: '', address: '' })
+
+  useEffect(() => {
+    api<DeliveryAddress | null>('/delivery-address/root').then((a) => a && setAddress(a))
+  }, [])
+
+  // Solo Juan registra a dónde llegan los domicilios: el agente no puede cambiarla.
+  const saveAddress = () => api('/delivery-address/root', { method: 'PUT', json: address })
 
   const refresh = useCallback(async () => {
     setTree(await api<MandateNode>('/mandates/root/tree'))
@@ -100,6 +108,32 @@ export default function Juan() {
             </button>
           </div>
           <p className="text-xs text-slate-500">Grant raíz: {status?.rootGrant ? '✅ activo' : '— sin aprobar'}</p>
+        </section>
+      )}
+
+      {!embed && (
+        <section className="card space-y-3">
+          <h2 className="font-semibold">2. ¿A dónde llevan los pedidos?</h2>
+          <p className="text-sm text-slate-500">
+            Cuando el asistente compra con domicilio, la tienda lo lleva aquí. El envío se paga junto con el producto.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-sm">
+              Quién recibe
+              <input
+                className="input"
+                value={address.recipientName}
+                onChange={(e) => setAddress({ ...address, recipientName: e.target.value })}
+              />
+            </label>
+            <label className="grow text-sm">
+              Dirección
+              <input className="input" value={address.address} onChange={(e) => setAddress({ ...address, address: e.target.value })} />
+            </label>
+            <button className="btn" onClick={act(saveAddress)}>
+              Guardar dirección
+            </button>
+          </div>
         </section>
       )}
 

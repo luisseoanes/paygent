@@ -5,12 +5,15 @@ import {
   decodeVoucher,
   verifyVoucherOffline,
   type Merchant,
+  type Payment,
+  type Payout,
   type Voucher,
   type VoucherSettleResult,
 } from '@openroute/shared'
 import { api, useOnline } from '../lib/api.ts'
 import { idb, type QueuedVoucher } from '../lib/store.ts'
 import { FxNote, OnlineBadge, Page } from '../components/ui.tsx'
+import { maskKey } from '../components/Feed.tsx'
 
 const STATUS = {
   pending: '⏳ por liquidar',
@@ -62,6 +65,39 @@ export default function Tendero() {
   }, [])
 
   const myMerchant = merchants.find((m) => m.id === me)
+
+  // Cómo cobra: directo a su wallet de Open Payments o, si no tiene, por Puntored a su llave Bre-B.
+  const [payoutVia, setPayoutVia] = useState<Payout['via']>('puntored')
+  const [payoutValue, setPayoutValue] = useState('')
+  useEffect(() => {
+    const p = myMerchant?.payout
+    setPayoutVia(p?.via ?? 'wallet')
+    setPayoutValue(p?.via === 'puntored' ? p.llave : p?.via === 'wallet' ? p.wallet : (myMerchant?.wallet ?? ''))
+  }, [myMerchant])
+
+  const savePayout = async () => {
+    if (!myMerchant) return
+    const body: Payout = payoutVia === 'puntored' ? { via: 'puntored', llave: payoutValue } : { via: 'wallet', wallet: payoutValue }
+    try {
+      const updated = await api<Merchant>(`/merchants/${myMerchant.id}/payout`, { method: 'PUT', json: body })
+      const ms = merchants.map((m) => (m.id === updated.id ? updated : m))
+      setMerchants(ms)
+      await idb.set('tendero-merchants', ms)
+      setLast({ ok: true, text: payoutVia === 'puntored' ? 'Cobrarás por Puntored' : 'Cobrarás directo a tu wallet' })
+    } catch (e) {
+      setLast({ ok: false, text: (e as Error).message })
+    }
+  }
+
+  // Pedidos pagados por el Asistente: para recoger o para llevar a la casa que registró Juan.
+  const [orders, setOrders] = useState<Payment[]>([])
+  useEffect(() => {
+    if (!me || !online) return
+    const load = () => api<Payment[]>(`/merchants/${me}/orders`).then(setOrders).catch(() => {})
+    load()
+    const t = setInterval(load, 5000)
+    return () => clearInterval(t)
+  }, [me, online])
 
   // OFF-05: verificación 100% offline.
   const accept = useCallback(
@@ -151,6 +187,33 @@ export default function Tendero() {
             ))}
           </select>
         </label>
+        {myMerchant && (
+          <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-sm">
+            <p>
+              Cobras:{' '}
+              <b>
+                {myMerchant.payout?.via === 'puntored'
+                  ? `por Puntored a tu llave Bre-B ${maskKey(myMerchant.payout.llave)}`
+                  : 'directo a tu wallet de Open Payments'}
+              </b>
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <select className="input w-auto" value={payoutVia} onChange={(e) => setPayoutVia(e.target.value as Payout['via'])}>
+                <option value="wallet">Tengo wallet</option>
+                <option value="puntored">No tengo wallet: Puntored</option>
+              </select>
+              <input
+                className="input grow"
+                placeholder={payoutVia === 'puntored' ? 'Llave Bre-B (celular de 10 dígitos)' : 'https://… (tu wallet)'}
+                value={payoutValue}
+                onChange={(e) => setPayoutValue(e.target.value)}
+              />
+              <button className="btn-ghost" disabled={!online} onClick={savePayout}>
+                Guardar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {last && (
@@ -172,6 +235,29 @@ export default function Tendero() {
           </button>
         </details>
       </div>
+
+      {orders.length > 0 && (
+        <div className="card">
+          <h2 className="mb-2 font-semibold">Pedidos ya pagados</h2>
+          <div className="space-y-2">
+            {orders.map((o) => (
+              <div key={o.id} className="rounded-xl bg-slate-50 p-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium">{o.delivery?.mode === 'delivery' ? '🛵 Llevar' : '🏪 Recoge en tienda'}</span>
+                  <span>{A.formatCop(A.usdToCop(o.amount, fx))}</span>
+                </div>
+                <p className="text-slate-600">{o.reason}</p>
+                {o.delivery?.mode === 'delivery' && (
+                  <p className="text-slate-600">
+                    Para {o.delivery.recipientName}: {o.delivery.address}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">Pida el código {o.delivery?.code} al entregar</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="mb-2 flex items-center justify-between">

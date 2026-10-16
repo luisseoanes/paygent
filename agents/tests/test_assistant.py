@@ -10,17 +10,19 @@ from inventory import router as inventory_router
 
 PHONE = "+573001112233"
 PROFILE = {"phone": PHONE, "name": "Doña Carmen", "mandateId": "asistente", "dataMandateId": "asistente-datos",
-           "location": {"lat": 6.0, "lng": -75.43}}
+           "location": {"lat": 6.0, "lng": -75.43}, "rootId": "root",
+           "deliveryAddress": {"recipientName": "María", "address": "Vereda La Palma, casa 12"}}
 
 
 class FakeApi:
-    """Umbral de PIN de $2 y PIN 1234, como las semillas de la api."""
+    """Umbral de PIN de $10 y PIN 1234, como las semillas de la api."""
 
     def __init__(self):
         self.calls = []
+        self.profile_data = dict(PROFILE)
 
     async def profile(self, phone):
-        return PROFILE if phone == PHONE else None
+        return self.profile_data if phone == PHONE else None
 
     async def mandate(self, mandate_id):
         return {"remaining": {"value": "2500", "assetCode": "USD", "assetScale": 2}, "revoked": False}
@@ -34,7 +36,7 @@ class FakeApi:
         if body.get("pendingId"):
             return {"result": "allow", "paymentId": "p2"} if body["pin"] == "1234" else \
                 {"result": "deny", "reason": "bad_pin", "detail": "PIN incorrecto (1/3)"}
-        if cents > 200:
+        if cents > 1000:
             return {"result": "needs_pin", "pendingId": "pend1"}
         return {"result": "allow", "paymentId": "p1"}
 
@@ -54,16 +56,53 @@ def say(text):
     return asyncio.run(router.respond(PHONE, text))
 
 
-def test_pastilla_de_la_presion_pide_pin_y_paga(fake):
+def test_pastilla_de_la_presion_pregunta_recoger_o_enviar(fake):
     reply = say("necesito la pastilla de la presión")
-    assert "Farmacia San José" in reply and "PIN" in reply and len(reply) <= SMS_MAX
-    # 1ª llamada: micropago agente → agente al Inventario
+    assert "Farmacia San José" in reply and "1 para recogerlo" in reply and "casa de María" in reply
+    assert len(reply) <= SMS_MAX
+    # Hasta ahora solo el micropago agente → agente al Inventario: la compra espera la elección.
+    assert len(fake.calls) == 1
     assert fake.calls[0]["category"] == "datos" and fake.calls[0]["amount"]["value"] == "1"
 
+
+def test_domicilio_suma_el_envio_y_paga_sin_pin(fake):
+    say("necesito la pastilla de la presión")
+    reply = say("2")
+    assert "lleva" in reply and "casa de María" in reply and "código" in reply and "PIN" not in reply
+    compra = fake.calls[-1]
+    # $12.000 + $4.000 de envío = $16.000 COP = $4.00, en un solo pago a la tienda
+    assert compra["amount"]["value"] == "400"
+    assert compra["delivery"]["mode"] == "delivery" and compra["delivery"]["fee"]["value"] == "100"
+    # La dirección NUNCA la manda el agente: la pone el gateway con lo que registró Juan.
+    assert "address" not in compra["delivery"]
+
+
+def test_recoger_paga_solo_el_producto(fake):
+    say("necesito la pastilla de la presión")
+    reply = say("1")
+    assert "Recoja" in reply and "código" in reply
+    assert fake.calls[-1]["amount"]["value"] == "300" and fake.calls[-1]["delivery"]["mode"] == "pickup"
+
+
+def test_si_ya_dijo_que_se_la_traigan_no_pregunta(fake):
+    reply = say("tráigame la insulina")
+    assert "Insulina" in reply and "con envío a casa de María" in reply and "PIN" in reply
     assert "incorrecto" in say("0000")
     reply = say("1234")
-    assert "código" in reply
+    assert "lleva" in reply and "código" in reply
     assert "1234" not in reply
+
+
+def test_insulina_para_recoger_pide_pin(fake):
+    reply = say("necesito la insulina, yo la recojo")
+    assert "para recoger" in reply and "PIN" in reply and len(reply) <= SMS_MAX
+    assert "Recoja" in say("1234")
+
+
+def test_sin_direccion_registrada_solo_recoger(fake):
+    fake.profile_data = {**PROFILE, "deliveryAddress": None}
+    reply = say("necesito la pastilla de la presión")
+    assert "Recoja" in reply and "casa" not in reply
 
 
 def test_saldo():
@@ -71,7 +110,7 @@ def test_saldo():
 
 
 def test_cancelar():
-    say("losartan")
+    say("insulina")
     assert "cancelada" in say("no")
 
 

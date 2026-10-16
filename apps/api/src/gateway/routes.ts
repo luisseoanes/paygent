@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import { randomId, type Amount, type PayRequest } from '@openroute/shared'
+import { randomId, type Amount, type DeliveryAddress, type PayRequest, type Payout } from '@openroute/shared'
 import { db, save } from '../db.ts'
 import { emit } from '../feed/bus.ts'
 import { revokeRootGrant } from '../op/grants.ts'
 import { assertHolder, requireAgent } from './auth.ts'
 import { issueDeviceCert } from './devices.ts'
-import { notFound } from './errors.ts'
+import { badRequest, forbidden, notFound } from './errors.ts'
 import { gatewayKey } from './keys.ts'
 import {
   delegate,
@@ -19,10 +19,60 @@ import {
   type DelegateInput,
 } from './mandates.ts'
 import { pay } from './pay.ts'
+import { describePayout } from './payout.ts'
 
 export default async function gatewayRoutes(app: FastifyInstance) {
   app.get('/gateway/public-key', async () => ({ publicKey: gatewayKey.publicKey }))
   app.get('/merchants', async () => Object.values(db.merchants))
+
+  // Pedidos de un comercio (pagos del Asistente con su modo de entrega): lo que el tendero debe entregar.
+  app.get<{ Params: { id: string } }>('/merchants/:id/orders', async (req) => {
+    const merchant = db.merchants[req.params.id]
+    if (!merchant) throw notFound('Comercio')
+    return Object.values(db.payments)
+      .filter((p) => p.merchantWallet === merchant.wallet && p.delivery && p.status === 'completed')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  })
+
+  // Cómo cobra el comercio: directo a su wallet o por Puntored a su llave Bre-B. Lo decide el tendero,
+  // nunca un agente. Su dirección de cobro no cambia, así que los vales que ya recibió siguen valiendo.
+  app.put<{ Params: { id: string }; Body: Payout }>('/merchants/:id/payout', async (req) => {
+    if (req.headers['x-api-key']) throw forbidden('Un agente no puede cambiar cómo cobra un comercio')
+    const merchant = db.merchants[req.params.id]
+    if (!merchant || merchant.isAgent) throw notFound('Comercio')
+    const body = req.body
+    if (body?.via === 'wallet' && /^https:\/\/\S+$/.test(body.wallet ?? '')) merchant.payout = { via: 'wallet', wallet: body.wallet }
+    else if (body?.via === 'puntored' && /^\d{10}$/.test(body.llave ?? '')) merchant.payout = { via: 'puntored', llave: body.llave }
+    else throw badRequest('Use { via: "wallet", wallet: "https://…" } o { via: "puntored", llave: "<celular de 10 dígitos>" }')
+    save()
+    emit({
+      mandateId: ROOT_ID,
+      actor: { type: 'person', name: merchant.name },
+      kind: 'grant',
+      reason: `${merchant.name} ahora cobra ${describePayout(merchant.payout)}`,
+    })
+    return merchant
+  })
+
+  // Dirección de entrega del mandato raíz. La pone Juan (o quien aprobó la raíz), nunca un agente.
+  app.get<{ Params: { rootId: string } }>('/delivery-address/:rootId', async (req) => db.addresses[req.params.rootId] ?? null)
+  app.put<{ Params: { rootId: string }; Body: DeliveryAddress }>('/delivery-address/:rootId', async (req) => {
+    if (req.headers['x-api-key']) throw forbidden('Un agente no puede cambiar la dirección de entrega')
+    const root = getMandate(req.params.rootId)
+    if (root.parentId) throw badRequest('La dirección se registra en el mandato raíz')
+    const recipientName = req.body?.recipientName?.trim()
+    const address = req.body?.address?.trim()
+    if (!recipientName || !address) throw badRequest('Faltan el nombre de quien recibe o la dirección')
+    db.addresses[root.id] = { recipientName, address }
+    save()
+    emit({
+      mandateId: root.id,
+      actor: { type: 'person', name: root.holderName },
+      kind: 'grant',
+      reason: `Dirección de entrega: casa de ${recipientName}, ${address}`,
+    })
+    return db.addresses[root.id]
+  })
 
   app.get<{ Params: { id: string } }>('/mandates/:id', async (req) => ({
     ...getMandate(req.params.id),
@@ -91,6 +141,6 @@ export default async function gatewayRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { phone: string } }>('/sms/profile', async (req) => {
     const profile = db.phones[req.query.phone]
     if (!profile) throw notFound('Teléfono')
-    return profile
+    return { ...profile, deliveryAddress: db.addresses[profile.rootId] ?? null }
   })
 }

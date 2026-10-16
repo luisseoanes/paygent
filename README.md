@@ -77,16 +77,18 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 
 ## Datos de la demo (semillas)
 
-- Árbol: Juan $300/mes → María $250 (celular $100 con tope offline $20, techo $50; SMS $50 con PIN siempre) · Asistente $40/semana (PIN si > $2) → Inventario $0.50 · Guardián $0.
+- Árbol: Juan $300/mes → María $250 (celular $100 con tope offline $20, techo $50; SMS $50 con PIN siempre) · Asistente $40/semana (PIN si > $10) → Inventario $0.50 · Guardián $0.
+- Umbral de PIN del Asistente: **$10** (decisión del equipo). El losartán (≈ $3) se paga sin PIN; la insulina (≈ $21) lo pide.
+- Cobro de los comercios: **Tienda Doña Rosa no tiene wallet** y cobra por Puntored a su llave Bre-B (`3105550101`): el pago real va a `WALLET_PUNTORED` con el comercio y la llave en el `metadata`. Farmacia San José y Minimercado El Paisa cobran directo a su wallet. El tendero lo cambia en `/tendero`.
+- Entrega: el Asistente pregunta "1 recoger / 2 enviar". Con domicilio paga producto + envío en un solo pago a la tienda, a la dirección que registró Juan (por defecto: casa de María, Vereda La Palma). El costo de envío de cada comercio está en `agents/inventory/merchants.csv` (0 = no hace domicilios).
 - PIN de la demo: **1234** · Teléfono de la mamá (Doña Carmen): **+573001112233**.
 - Tasa de referencia simulada: 1 USD = 4.000 COP (`FX_COP_PER_USD`).
 - Estado en [apps/api/.data/db.json](apps/api/.data/) (borrarlo = empezar de cero). La llave del gateway está en `gateway-key.json` y **no** se borra con el reset, para no invalidar los certificados de los celulares.
 
 ## Decisiones pendientes del equipo
 
-- **Umbral de PIN del Asistente:** el documento dice "$10", pero el losartán cuesta $12.000 COP ≈ $3, así que con $10 el paso 3 de la demo no pediría PIN. La semilla usa **$2**. Se cambia en [apps/api/src/demo/seed.ts](apps/api/src/demo/seed.ts).
 - **Base de datos:** es en memoria con respaldo en JSON (cero instalación, reset instantáneo). Si hace falta SQLite, solo cambia `apps/api/src/db.ts`.
 
 ## Endpoints
 
-Ver [backlog.md §2](backlog.md). Además de los del contrato, existen: `GET /mandates/:id` (con `remaining`), `GET /merchants`, `GET /gateway/public-key`, `GET /payments/:id`, `GET /sms/profile`, `POST /mandates/:id/unfreeze`, `POST /guardian/review`, `GET /feed`, `GET /vouchers`, `GET /demo/status`. En agents: `POST /guardian/score`, `POST /assistant/reset`.
+Ver [backlog.md §2](backlog.md). Además de los del contrato, existen: `GET /mandates/:id` (con `remaining`), `GET /merchants`, `GET /merchants/:id/orders`, `GET|PUT /delivery-address/:rootId` (solo Juan; un agente recibe 403), `PUT /merchants/:id/payout` (solo el tendero), `GET /gateway/public-key`, `GET /payments/:id`, `GET /sms/profile`, `POST /mandates/:id/unfreeze`, `POST /guardian/review`, `GET /feed`, `GET /vouchers`, `GET /demo/status`. En agents: `POST /guardian/score`, `POST /assistant/reset`.

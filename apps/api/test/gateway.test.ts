@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { amount as A, generateKeyPair, randomId, signVoucher, type Voucher } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
+import { db } from '../src/db.ts'
 import { seed } from '../src/demo/seed.ts'
+import { env } from '../src/env.ts'
+import { payoutFor } from '../src/gateway/payout.ts'
 import { authorize } from '../src/gateway/authorize.ts'
 import { delegate, getMandate, restrict, revoke } from '../src/gateway/mandates.ts'
 import { verifyMandate } from '@openroute/shared'
@@ -88,6 +91,98 @@ describe('/pay', () => {
     expect(ok.result).toBe('allow')
     expect(getMandate('asistente').spentInPeriod.value).toBe('1500')
     expect(getMandate('root').spentInPeriod.value).toBe('1500')
+  })
+})
+
+describe('Entrega: recoger o domicilio a la casa que registró Juan', () => {
+  const pay = (payload: object) =>
+    app.inject({ method: 'POST', url: '/pay', headers: assistantKey, payload }).then((r) => r.json())
+  const order = (delivery: object, usd = 4) => ({
+    mandateId: 'asistente',
+    merchantWallet: db.merchants.farmacia.wallet,
+    amount: A.usd(usd),
+    category: 'farmacia',
+    reason: 'losartán con envío',
+    delivery,
+  })
+
+  it('el gateway pone la dirección de Juan aunque el agente mande otra', async () => {
+    const res = await pay(order({ mode: 'delivery', code: '4321', fee: A.usd(1), address: 'Otra casa', recipientName: 'Ladrón' }))
+    expect(res.result).toBe('allow')
+    const p = db.payments[res.paymentId]
+    expect(p.delivery).toMatchObject({ mode: 'delivery', code: '4321', recipientName: 'María' })
+    expect(p.delivery?.address).toMatch(/Vereda La Palma/)
+  })
+
+  it('un agente no puede cambiar la dirección; Juan sí', async () => {
+    const body = { recipientName: 'Ladrón', address: 'Otra casa' }
+    const asAgent = await app.inject({ method: 'PUT', url: '/delivery-address/root', headers: assistantKey, payload: body })
+    expect(asAgent.statusCode).toBe(403)
+    const asJuan = await app.inject({ method: 'PUT', url: '/delivery-address/root', payload: { recipientName: 'María', address: 'Calle 5 #3-20' } })
+    expect(asJuan.statusCode).toBe(200)
+    const res = await pay(order({ mode: 'delivery', code: '1111' }))
+    expect(db.payments[res.paymentId].delivery?.address).toBe('Calle 5 #3-20')
+  })
+
+  it('sin dirección registrada, el domicilio se rechaza y recoger sigue funcionando', async () => {
+    db.addresses = {}
+    expect(await pay(order({ mode: 'delivery', code: '1111' }))).toMatchObject({ reason: 'no_address' })
+    expect((await pay(order({ mode: 'pickup', code: '2222' }))).result).toBe('allow')
+  })
+
+  it('con PIN, la entrega se conserva y la tienda ve el pedido', async () => {
+    const first = await pay(order({ mode: 'delivery', code: '7777', fee: A.usd(1) }, 22))
+    expect(first.result).toBe('needs_pin')
+    const ok = await pay({ ...order({ mode: 'pickup', code: 'x' }, 22), pendingId: first.pendingId, pin: '1234' })
+    expect(ok.result).toBe('allow')
+    const orders = (await app.inject({ method: 'GET', url: '/merchants/farmacia/orders' })).json()
+    expect(orders[0]).toMatchObject({ id: ok.paymentId, delivery: { mode: 'delivery', code: '7777', recipientName: 'María' } })
+  })
+})
+
+describe('Cobro: directo a la wallet del comercio o por Puntored si no tiene', () => {
+  const pay = (merchantWallet: string) =>
+    app
+      .inject({
+        method: 'POST',
+        url: '/pay',
+        headers: assistantKey,
+        payload: { mandateId: 'asistente', merchantWallet, amount: A.usd(2), category: 'mercado', reason: 'arroz' },
+      })
+      .then((r) => r.json())
+
+  it('Doña Rosa (sin wallet) cobra por Puntored; la farmacia (con wallet) directo', async () => {
+    expect(payoutFor('puntored:tienda')).toMatchObject({
+      destination: env.WALLET_PUNTORED,
+      metadata: { payoutVia: 'puntored', comercio: 'tienda', llaveBreB: '3105550101' },
+    })
+    expect(payoutFor(db.merchants.farmacia.wallet).destination).toBe(db.merchants.farmacia.wallet)
+
+    const res = await pay('puntored:tienda')
+    expect(res.result).toBe('allow')
+    expect(db.payments[res.paymentId].payout).toEqual({ via: 'puntored', llave: '3105550101' })
+    expect(db.feed.at(-1)).toMatchObject({ merchant: 'Tienda Doña Rosa', payout: { via: 'puntored' } })
+  })
+
+  it('si el tendero abre una wallet, cobra directo sin cambiar su dirección de cobro', async () => {
+    const wallet = 'https://ilp.interledger-test.dev/dona-rosa-nueva'
+    const r = await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'wallet', wallet } })
+    expect(r.statusCode).toBe(200)
+    expect(payoutFor('puntored:tienda').destination).toBe(wallet)
+    const res = await pay('puntored:tienda')
+    expect(db.payments[res.paymentId].payout).toEqual({ via: 'wallet', wallet })
+  })
+
+  it('un agente no puede cambiar cómo cobra un comercio; datos inválidos → 400', async () => {
+    const asAgent = await app.inject({
+      method: 'PUT',
+      url: '/merchants/tienda/payout',
+      headers: assistantKey,
+      payload: { via: 'puntored', llave: '3009999999' },
+    })
+    expect(asAgent.statusCode).toBe(403)
+    const bad = await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'puntored', llave: '12' } })
+    expect(bad.statusCode).toBe(400)
   })
 })
 

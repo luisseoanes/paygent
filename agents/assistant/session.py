@@ -9,7 +9,8 @@ class Session:
     profile: dict
     history: list = field(default_factory=list)  # mensajes para el LLM
     options: list[dict] = field(default_factory=list)  # última búsqueda
-    pending: dict | None = None  # {pendingId, option}
+    pending: dict | None = None  # {pendingId, option, entrega, codigo, total}
+    awaiting: dict | None = None  # {indice}: opción esperando que elija recoger (1) o domicilio (2)
 
 
 _sessions: dict[str, Session] = {}

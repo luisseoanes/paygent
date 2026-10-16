@@ -69,6 +69,7 @@ export type DenyReason =
   | 'cannot_spend'
   | 'not_found'
   | 'payment_failed'
+  | 'no_address'
 
 export type AuthDecision =
   | { result: 'allow' }
@@ -85,6 +86,26 @@ export interface PayRequest {
   reason: string
   pin?: string
   pendingId?: string
+  delivery?: DeliveryRequest
+}
+
+/** Dirección de entrega que registra quien aprueba el mandato raíz (Juan, el Gobierno…). */
+export interface DeliveryAddress {
+  recipientName: string
+  address: string
+}
+
+/** Lo que pide el agente. La dirección NO viene del agente: el gateway usa la que registró Juan. */
+export interface DeliveryRequest {
+  mode: 'pickup' | 'delivery'
+  code: string
+  fee?: Amount
+}
+
+/** Lo que queda guardado en el pago y en el feed (el tendero lo ve). */
+export interface Delivery extends DeliveryRequest {
+  recipientName?: string
+  address?: string
 }
 
 export type FeedKind = 'payment' | 'agent_to_agent' | 'voucher_settled' | 'guardian' | 'revoked' | 'denied' | 'grant'
@@ -98,14 +119,25 @@ export interface FeedEvent {
   amount?: Amount
   merchant?: string
   reason?: string // "por qué" legible
+  delivery?: Delivery
+  payout?: Payout
 }
+
+/**
+ * Cómo cobra el comercio. Con wallet de Open Payments, directo. Sin wallet, por Puntored:
+ * el pago va a la wallet de Puntored y Puntored le acredita al tendero en su llave Bre-B.
+ */
+export type Payout = { via: 'wallet'; wallet: string } | { via: 'puntored'; llave: string }
 
 export interface Merchant {
   id: string
   name: string
+  /** Dirección de cobro: la que va en vales y en /pay. Nunca cambia (los vales la llevan firmada). */
   wallet: string
   category: Category
   isAgent?: boolean
+  /** A dónde llega el dinero. Sin payout: directo a `wallet`. */
+  payout?: Payout
 }
 
 export interface Payment {
@@ -118,6 +150,8 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed'
   outgoingPaymentId?: string
   createdAt: string
+  delivery?: Delivery
+  payout?: Payout
 }
 
 export type VoucherSettleStatus = 'settled' | 'rejected' | 'flagged'

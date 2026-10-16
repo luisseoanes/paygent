@@ -1,9 +1,19 @@
-import { randomId, type Amount, type Category, type PayRequest, type PayResponse, type Payment } from '@openroute/shared'
+import {
+  randomId,
+  type Amount,
+  type Category,
+  type Delivery,
+  type DeliveryRequest,
+  type PayRequest,
+  type PayResponse,
+  type Payment,
+} from '@openroute/shared'
 import { db, save } from '../db.ts'
 import { emit } from '../feed/bus.ts'
 import { settle, SettleError } from '../op/settle.ts'
 import { authorize } from './authorize.ts'
-import { applySpend, getMandate } from './mandates.ts'
+import { applySpend, chainOf, getMandate } from './mandates.ts'
+import { payoutFor } from './payout.ts'
 import { checkPin } from './pin.ts'
 
 const PENDING_TTL_MS = 10 * 60_000
@@ -13,6 +23,19 @@ const merchantName = (wallet: string) =>
   Object.values(db.merchants).find((m) => m.wallet === wallet)?.name ?? wallet
 
 const isAgentWallet = (wallet: string) => Object.values(db.merchants).some((m) => m.wallet === wallet && m.isAgent)
+
+/**
+ * La dirección sale SIEMPRE de lo que registró quien aprobó la raíz del mandato, nunca del agente:
+ * así un agente (o un LLM manipulado) no puede desviar un pedido a otra casa.
+ */
+export const resolveDelivery = (mandateId: string, req?: DeliveryRequest): Delivery | null | undefined => {
+  if (!req) return undefined
+  if (req.mode === 'pickup') return { mode: 'pickup', code: req.code }
+  const root = chainOf(mandateId).at(-1)
+  const address = root && db.addresses[root.id]
+  if (!address) return null
+  return { ...req, mode: 'delivery', recipientName: address.recipientName, address: address.address }
+}
 
 /**
  * Mueve el dinero de verdad (OP-04) y deja todo registrado: gasto en la cadena + feed.
@@ -25,6 +48,7 @@ export const executePayment = async (input: {
   category: Category
   reason: string
   kind?: 'payment' | 'voucher_settled'
+  delivery?: Delivery
 }): Promise<Payment> => {
   const mandate = getMandate(input.mandateId)
   const payment: Payment = {
@@ -36,17 +60,21 @@ export const executePayment = async (input: {
     reason: input.reason,
     status: 'pending',
     createdAt: new Date().toISOString(),
+    delivery: input.delivery,
   }
   db.payments[payment.id] = payment
   save()
 
   const actor = { type: mandate.holderType, name: mandate.holderName }
   const merchant = merchantName(input.merchantWallet)
+  // Con wallet: directo al comercio. Sin wallet: a Puntored, que le acredita al tendero.
+  const { destination, payout, metadata } = payoutFor(input.merchantWallet)
+  payment.payout = payout
   try {
     const result = await settle({
-      merchantWallet: input.merchantWallet,
+      merchantWallet: destination,
       amount: input.amount,
-      metadata: { openroute: payment.id, mandate: mandate.id, description: input.reason.slice(0, 100) },
+      metadata: { openroute: payment.id, mandate: mandate.id, description: input.reason.slice(0, 100), ...metadata },
     })
     payment.status = 'completed'
     payment.outgoingPaymentId = result.outgoingPaymentId
@@ -58,6 +86,8 @@ export const executePayment = async (input: {
       amount: input.amount,
       merchant,
       reason: input.reason,
+      delivery: input.delivery,
+      payout,
     })
   } catch (err) {
     payment.status = 'failed'
@@ -73,6 +103,7 @@ export const executePayment = async (input: {
 /** GW-05 + GW-06: autoriza → (PIN) → liquida. */
 export const pay = async (req: PayRequest): Promise<PayResponse> => {
   let { mandateId, merchantWallet, amount, category, reason } = req
+  let deliveryReq = req.delivery
   let pinOk = false
 
   if (req.pendingId) {
@@ -87,12 +118,17 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
       return { result: 'deny', reason: 'bad_pin', detail: `PIN incorrecto (${pending.attempts}/${MAX_PIN_ATTEMPTS})` }
     }
     ;({ merchantWallet, amount, category, reason } = pending)
+    deliveryReq = pending.delivery
     delete db.pendings[pending.id]
     pinOk = true
   } else if (req.pin) {
     if (!checkPin(mandateId, req.pin)) return { result: 'deny', reason: 'bad_pin', detail: 'PIN incorrecto' }
     pinOk = true
   }
+
+  const delivery = resolveDelivery(mandateId, deliveryReq)
+  if (delivery === null)
+    return { result: 'deny', reason: 'no_address', detail: 'No hay dirección de entrega registrada por Juan' }
 
   const decision = authorize({ mandateId, amount, category, pinOk })
 
@@ -119,6 +155,7 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
       amount,
       category,
       reason,
+      delivery: deliveryReq,
       attempts: 0,
       expiresAt: new Date(Date.now() + PENDING_TTL_MS).toISOString(),
     }
@@ -127,7 +164,7 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
   }
 
   try {
-    const payment = await executePayment({ mandateId, merchantWallet, amount, category, reason })
+    const payment = await executePayment({ mandateId, merchantWallet, amount, category, reason, delivery })
     return { result: 'allow', paymentId: payment.id }
   } catch (err) {
     return { result: 'deny', reason: 'payment_failed', detail: String((err as Error).message) }

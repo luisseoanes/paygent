@@ -1,5 +1,7 @@
 import { amount as A, type FeedEvent } from '@openroute/shared'
 
+export const maskKey = (llave: string) => (llave.length > 6 ? `${llave.slice(0, 3)}•••${llave.slice(-4)}` : llave)
+
 const STYLE: Record<FeedEvent['kind'], { icon: string; cls: string }> = {
   payment: { icon: '💸', cls: 'bg-white' },
   agent_to_agent: { icon: '🤖→🤖', cls: 'bg-violet-50 ring-violet-300' }, // INV-04: estilo propio
@@ -23,6 +25,20 @@ export const Feed = ({ events }: { events: FeedEvent[] }) => (
           <span className="shrink-0 text-slate-500">{e.amount ? A.format(e.amount) : ''}</span>
         </div>
         {e.reason && <p className="mt-1 text-slate-600">{e.reason}</p>}
+        {e.payout?.via === 'puntored' && (
+          <p className="mt-1 text-xs text-slate-600">
+            🏪 Sin wallet: cobra por Puntored → llave Bre-B {maskKey(e.payout.llave)} (acreditación final simulada)
+          </p>
+        )}
+        {e.delivery && (
+          <p className="mt-1 text-xs text-slate-600">
+            {e.delivery.mode === 'delivery'
+              ? `🛵 Domicilio a casa de ${e.delivery.recipientName} · ${e.delivery.address}`
+              : '🏪 Para recoger en el comercio'}
+            {' · código '}
+            {e.delivery.code}
+          </p>
+        )}
         <p className="mt-1 text-xs text-slate-400">{new Date(e.at).toLocaleTimeString('es-CO')}</p>
       </div>
     ))}

@@ -1,6 +1,7 @@
 """Textos SMS deterministas (≤160 caracteres, español simple)."""
 
 from common.config import SMS_MAX
+from common.money import fmt_cop
 
 
 def clip(text: str) -> str:
@@ -16,12 +17,21 @@ def search_result(r: dict, consulta: str) -> str | None:
     return None
 
 
+def choose(o: dict, recipient: str) -> str:
+    return clip(f"{o['merchant']} tiene {o['product']} a {fmt_cop(o['priceCOP'])}. Responda 1 para recogerlo "
+                f"o 2 para enviarlo a casa de {recipient} (+{fmt_cop(o['deliveryFeeCOP'])}).")
+
+
 def purchase(r: dict) -> str:
     estado = r.get("estado")
+    delivery = r.get("entrega") == "domicilio"
     if estado == "necesita_pin":
-        return clip(f"{r['comercio']} tiene {r['producto']} a {r['precio']}. Responda con su PIN para pagar o NO para cancelar.")
+        where = f"con envío a casa de {r['recibe']}" if delivery else "para recoger"
+        return clip(f"{r['comercio']}: {r['producto']} a {r['precio']} {where}. Responda con su PIN para pagar o NO para cancelar.")
+    if estado == "pagado" and delivery:
+        return clip(f"Listo, pagado. {r['comercio']} lleva {r['producto']} a casa de {r['recibe']}. Al recibir, dé el código {r['codigo']}.")
     if estado == "pagado":
-        return clip(f"Listo, pagado. Recoja {r['producto']} en {r['comercio']} con el código {r['codigo_retiro']}.")
+        return clip(f"Listo, pagado. Recoja {r['producto']} en {r['comercio']} con el código {r['codigo']}.")
     if estado == "sin_pendiente":
         return "No hay ninguna compra esperando PIN. ¿Qué necesita?"
     return clip(f"No se pudo pagar: {r.get('motivo') or r.get('error')}.")

@@ -40,6 +40,7 @@ class Offer:
     lat: float
     lng: float
     terms: list[str]
+    delivery_fee_cop: int = 0  # 0 = el comercio no hace domicilios
 
 
 def _load() -> list[Offer]:
@@ -51,11 +52,14 @@ def _load() -> list[Offer]:
             m = merchants[r["merchant_id"]]
             offers.append(Offer(
                 merchant_id=r["merchant_id"], merchant=m["name"],
-                wallet=os.getenv(m["wallet_env"], f"https://ilp.interledger-test.dev/{r['merchant_id']}"),
+                # "puntored:<id>" = comercio sin wallet que cobra por Puntored (la api decide a dónde va el dinero)
+                wallet=m["wallet_env"] if m["wallet_env"].startswith("puntored:")
+                else os.getenv(m["wallet_env"], f"https://ilp.interledger-test.dev/{r['merchant_id']}"),
                 product=r["product"], category=r["category"],
                 price_cop=int(r["price_cop"]), stock=int(r["stock"]),
                 lat=float(m["lat"]), lng=float(m["lng"]),
                 terms=[normalize(r["product"])] + [normalize(s) for s in r["synonyms"].split("|")],
+                delivery_fee_cop=int(m.get("delivery_fee_cop") or 0),
             ))
     return offers
 
@@ -97,7 +101,7 @@ def search(query: str, location: dict | None = None, limit: int = 3) -> list[dic
         rank = o.price_cop + d * 2 - min(o.stock, 10) * 50
         results.append((rank, {
             "merchant": o.merchant, "wallet": o.wallet, "product": o.product, "category": o.category,
-            "priceCOP": o.price_cop, "distanceM": d, "stock": o.stock,
+            "priceCOP": o.price_cop, "distanceM": d, "stock": o.stock, "deliveryFeeCOP": o.delivery_fee_cop,
         }))
     results.sort(key=lambda x: x[0])
     return [r for _, r in results[:limit]]

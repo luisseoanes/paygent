@@ -1,6 +1,17 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Amount, Category, DeviceCert, FeedEvent, Mandate, Merchant, Payment, Voucher } from '@openroute/shared'
+import type {
+  Amount,
+  Category,
+  DeliveryAddress,
+  DeliveryRequest,
+  DeviceCert,
+  FeedEvent,
+  Mandate,
+  Merchant,
+  Payment,
+  Voucher,
+} from '@openroute/shared'
 import { env } from './env.ts'
 
 // "Base de datos" en memoria con respaldo en .data/db.json.
@@ -35,6 +46,8 @@ export interface PhoneProfile {
   /** Mandato con el que el Asistente paga consultas al Agente de Inventario */
   dataMandateId: string
   location: { lat: number; lng: number }
+  /** Mandato raíz cuya dirección de entrega aplica (la que registró Juan) */
+  rootId: string
 }
 
 export interface Pending {
@@ -44,6 +57,7 @@ export interface Pending {
   amount: Amount
   category: Category
   reason: string
+  delivery?: DeliveryRequest
   attempts: number
   expiresAt: string
 }
@@ -82,6 +96,8 @@ export interface DB {
   certs: Record<string, DeviceCert>
   pins: Record<string, Pin>
   phones: Record<string, PhoneProfile>
+  /** Dirección de entrega por mandato raíz: solo quien aprueba la raíz la cambia, nunca un agente */
+  addresses: Record<string, DeliveryAddress>
   merchants: Record<string, Merchant>
   vouchers: Record<string, StoredVoucher> // clave: `${certId}:${counter}`
   payments: Record<string, Payment>
@@ -100,6 +116,7 @@ export const emptyDb = (): DB => ({
   certs: {},
   pins: {},
   phones: {},
+  addresses: {},
   merchants: {},
   vouchers: {},
   payments: {},

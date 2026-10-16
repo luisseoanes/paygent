@@ -30,7 +30,15 @@ export const seed = ({ keepGrant = true } = {}) => {
   }
 
   db.merchants = {
-    tienda: { id: 'tienda', name: 'Tienda Doña Rosa', wallet: env.WALLET_TIENDA, category: 'mercado' },
+    // Doña Rosa no tiene wallet de Open Payments: cobra por Puntored a su llave Bre-B (su celular).
+    tienda: {
+      id: 'tienda',
+      name: 'Tienda Doña Rosa',
+      wallet: 'puntored:tienda',
+      category: 'mercado',
+      payout: { via: 'puntored', llave: '3105550101' },
+    },
+    minimercado: { id: 'minimercado', name: 'Minimercado El Paisa', wallet: env.WALLET_TIENDA, category: 'mercado' },
     farmacia: { id: 'farmacia', name: 'Farmacia San José', wallet: env.WALLET_FARMACIA, category: 'farmacia' },
     puntored: { id: 'puntored', name: 'Puntored Efectivo', wallet: env.WALLET_PUNTORED, category: 'efectivo' },
     inventario: { id: 'inventario', name: 'Agente de Inventario', wallet: env.WALLET_INVENTARIO, category: 'datos', isAgent: true },
@@ -90,9 +98,8 @@ export const seed = ({ keepGrant = true } = {}) => {
     maxDebit: A.usd(40),
     interval: weekly(now),
     categories: ['farmacia', 'mercado', 'datos'],
-    // El documento dice "PIN si > $10", pero el losartán cuesta $12.000 COP ≈ $3 y el guion de la demo
-    // espera que pida PIN. Con $2 el paso 3 de la demo funciona. DECISIÓN DEL EQUIPO: ajustar aquí.
-    pinThreshold: A.usd(2),
+    // Decisión del equipo: PIN si > $10 (≈ 40.000 COP). Compras menores las paga el agente sin preguntar.
+    pinThreshold: A.usd(10),
   })
   delegate('asistente', {
     id: 'asistente-datos',
@@ -121,6 +128,12 @@ export const seed = ({ keepGrant = true } = {}) => {
       mandateId: 'asistente',
       dataMandateId: 'asistente-datos',
       location: { lat: 6.0, lng: -75.43 }, // municipio de Antioquia (sintético)
+      rootId: ROOT_ID,
     },
+  }
+
+  // Juan la puede cambiar en /juan. Todo lo que pida el Asistente con envío llega a casa de María.
+  db.addresses = {
+    [ROOT_ID]: { recipientName: 'María', address: 'Vereda La Palma, casa 12, junto a la escuela' },
   }
 }

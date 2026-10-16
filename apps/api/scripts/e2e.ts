@@ -30,16 +30,31 @@ const sms = async (text: string) => (await call<{ reply: string }>('/sms/inbound
 await call('/demo/reset', {})
 await fetch(`${env.AGENTS_URL}/assistant/reset`, { method: 'POST' }).catch(() => {})
 
-// 2–4. La mamá pide por SMS → micropago al Inventario → PIN → pago real
+// 1. Juan registra a dónde llegan los domicilios
+await call('/delivery-address/root', { recipientName: 'María', address: 'Vereda La Palma, casa 12' }, 'PUT')
+
+// 2–3. La mamá pide el losartán → micropago al Inventario → elige domicilio → producto + envío ($16.000 ≈ $4), sin PIN
 let reply = await sms('necesito la pastilla de la presión')
-step('Asistente propone compra y pide PIN', /PIN/.test(reply), reply)
+step('El Asistente pregunta si recoger o enviar a casa de María', /1 para recogerlo/.test(reply) && /casa de María/.test(reply), reply)
+reply = await sms('2')
+step('Losartán con domicilio se paga sin PIN', /lleva/.test(reply) && /código/.test(reply) && !/PIN/.test(reply), reply)
+
+// 4. "Tráigame la insulina" (≈ $21 + envío) supera el umbral → PIN, sin volver a preguntar la entrega
+reply = await sms('tráigame la insulina')
+step('Insulina con envío: el Asistente pide PIN', /PIN/.test(reply) && /casa de María/.test(reply), reply)
 reply = await sms('0000')
 step('PIN incorrecto se rechaza', /incorrecto/i.test(reply), reply)
 reply = await sms('1234')
-step('PIN correcto paga y da código de retiro', /código/.test(reply), reply)
+step('PIN correcto paga y da el código de entrega', /código/.test(reply), reply)
 const feed = await call<any[]>('/feed')
 step('Micropago agente → agente visible en el feed', feed.some((e) => e.kind === 'agent_to_agent'))
 step('Pago a la farmacia visible en el feed', feed.some((e) => e.kind === 'payment' && /Farmacia/.test(e.merchant)))
+const orders = await call<any[]>('/merchants/farmacia/orders')
+step(
+  'La farmacia ve los 2 pedidos con la dirección de María',
+  orders.length === 2 && orders.every((o) => o.delivery?.mode === 'delivery' && /Vereda La Palma/.test(o.delivery.address)),
+  orders.map((o) => `${o.reason} · código ${o.delivery?.code}`).join(' | '),
+)
 
 // 5. María en modo avión: vale firmado → liquidación
 const device = generateKeyPair()
@@ -62,6 +77,12 @@ const voucher: Voucher = signVoucher(
 )
 let settle = await call<any>('/vouchers/settle', { vouchers: [voucher] })
 step('Vale offline liquidado', settle.results[0].status === 'settled', JSON.stringify(settle.results[0]))
+const voucherPayment = await call<any>(`/payments/${settle.results[0].paymentId}`)
+step(
+  'Doña Rosa no tiene wallet: el vale se liquida por Puntored a su llave Bre-B',
+  voucherPayment.payout?.via === 'puntored',
+  JSON.stringify(voucherPayment.payout),
+)
 
 // 6. Fraude: reenviar el mismo vale
 settle = await call<any>('/vouchers/settle', { vouchers: [voucher] })

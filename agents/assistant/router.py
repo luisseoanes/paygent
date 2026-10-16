@@ -16,6 +16,8 @@ log = logging.getLogger("assistant")
 
 PIN = re.compile(r"^\s*(\d{4})\s*$")
 CANCEL = re.compile(r"^\s*(no|cancelar|cancele)\W*$", re.I)
+CHOOSE_PICKUP = re.compile(r"^\s*(1|recoger|recojo|lo recojo|yo lo recojo)\W*$", re.I)
+CHOOSE_DELIVERY = re.compile(r"^\s*(2|enviar|env[ií]o|domicilio|a la casa|tr[aá]igan\w*)\W*$", re.I)
 
 
 class MessageIn(BaseModel):
@@ -32,9 +34,19 @@ async def respond(phone: str, text: str) -> str:
     # Humano en el bucle (AG-03): el PIN se maneja de forma determinista, nunca pasa por el LLM.
     if m := PIN.match(text):
         return replies.purchase(await tools.confirmar_pin(s, m.group(1)))
-    if s.pending and CANCEL.match(text):
-        s.pending = None
+    if (s.pending or s.awaiting) and CANCEL.match(text):
+        s.pending = s.awaiting = None
         return replies.CANCELLED
+
+    # Respuesta a "1 recoger / 2 enviar a casa de María" (determinista, igual con o sin LLM).
+    if s.awaiting:
+        indice = s.awaiting["indice"]
+        s.awaiting = None
+        if CHOOSE_PICKUP.match(text):
+            return replies.purchase(await tools.proponer_compra(s, indice, tools.PICKUP))
+        if CHOOSE_DELIVERY.match(text):
+            return replies.purchase(await tools.proponer_compra(s, indice, tools.DELIVERY))
+        # cualquier otra cosa es una petición nueva
 
     if not MOCK_LLM:
         try:
