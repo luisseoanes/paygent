@@ -44,7 +44,7 @@ def test_dos_reglas_congelan():
 
 def test_score_sube_dentro_del_techo():
     r = score("maria-device", "María", cop(80_000), cop(200_000), False, [])
-    assert r["newCap"] == cop(140_000)
+    assert r["newCap"] == cop(130_000)  # +25 % del techo
     r = score("maria-device", "María", cop(180_000), cop(200_000), False, [])
     assert r["newCap"] == cop(200_000)  # nunca supera el techo de Juan
 
@@ -52,11 +52,20 @@ def test_score_sube_dentro_del_techo():
 def test_score_baja_con_alertas():
     r = score("maria-device", "María", cop(80_000), cop(200_000), False, [{"status": "rejected"}])
     assert r["newCap"] == cop(40_000)
+    r = score("maria-device", "María", cop(30_000), cop(200_000), False, [{"status": "rejected"}])
+    assert r["newCap"] == cop(20_000)  # nunca por debajo del 10 % del techo
+
+
+def test_score_proporcional_al_techo():
+    # Un beneficiario nuevo: techo 50.000, arranca en 40 % (20.000) y necesita 3 vales limpios
+    assert score("b1-cel", "Ana", cop(20_000), cop(50_000), False, [])["newCap"] == cop(20_000)
+    limpio = [{"status": "settled"}] * 3
+    assert score("b1-cel", "Ana", cop(20_000), cop(50_000), False, limpio)["newCap"] == cop(32_500)
 
 
 def test_score_en_la_moneda_del_tope():
     r = score("maria-device", "María", of(USD, 20), of(USD, 50), False, [])
-    assert r["newCap"] == of(USD, 35)
+    assert r["newCap"] == of(USD, 32.5)
 
 
 def test_tienda_de_siempre_con_su_direccion_actual_no_es_comercio_nuevo(monkeypatch):

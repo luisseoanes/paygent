@@ -65,6 +65,7 @@ export const vincularDispositivo = async ({
     fx,
     categories: mandato?.categories,
     remaining: mandato?.remaining,
+    topeMaximo: mandato?.offlineCapCeiling,
     remainingAt: mandato ? new Date().toISOString() : undefined,
     vales: previo?.mandateId === mandateId ? previo.vales : [],
   };

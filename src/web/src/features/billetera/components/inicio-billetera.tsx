@@ -1,5 +1,5 @@
 import { amount as A } from '@openroute/shared';
-import { MessageCircle, QrCode } from 'lucide-react';
+import { History, MessageCircle, QrCode } from 'lucide-react';
 import type * as React from 'react';
 
 import { ReglaDeConsumo } from '@/components/brand/regla-consumo';
@@ -17,12 +17,14 @@ export const InicioBilletera = ({
   dispositivo: d,
   onPagar,
   onAsistente,
+  onHistorial,
   formasDePagar,
   desvincular,
 }: {
   dispositivo: Dispositivo;
   onPagar: () => void;
   onAsistente?: () => void;
+  onHistorial?: () => void;
   // Slot: las formas de pagar que le habilitó su titular (las compone la ruta)
   formasDePagar?: React.ReactNode;
   // Slot: el control para desvincular (lo compone la ruta con su confirmación)
@@ -69,9 +71,20 @@ export const InicioBilletera = ({
             size="sm"
             label="Gastado sin señal"
           />
-          <p className="text-xs text-ink-2">
-            De {formatCop(topeCop)}. Se renueva cada vez que tienes señal.
-          </p>
+          {d.congelado ? (
+            <p className="text-xs font-medium text-grafito">
+              Pausado: no puedes pagar sin señal hasta que quien te da el dinero
+              lo reactive.
+            </p>
+          ) : (
+            <p className="text-xs text-ink-2">
+              De {formatCop(topeCop)}
+              {d.topeMaximo &&
+                A.cmp(d.topeMaximo, d.cert.offlineCap) > 0 &&
+                ` · máximo ${formatCop(A.toCop(d.topeMaximo, d.fx))}: el Guardián lo sube con buen uso`}
+              . Se renueva cada vez que tienes señal.
+            </p>
+          )}
         </div>
       </section>
 
@@ -93,6 +106,17 @@ export const InicioBilletera = ({
           onClick={onAsistente}
         >
           Hablar con el asistente
+        </Button>
+      )}
+      {onHistorial && (
+        <Button
+          size="lg"
+          variant="outline"
+          className="-mt-2 w-full rounded-full"
+          icon={<History aria-hidden="true" />}
+          onClick={onHistorial}
+        >
+          Mi historial
         </Button>
       )}
 

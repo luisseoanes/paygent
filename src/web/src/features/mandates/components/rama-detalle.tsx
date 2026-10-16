@@ -1,5 +1,6 @@
 import {
   GitBranchPlus,
+  History,
   Minus,
   Pause,
   Play,
@@ -36,8 +37,10 @@ import {
   toAmount,
 } from '../utils/mandate';
 
+import { HistorialRama } from './historial-rama';
 import { Libreta } from './libreta';
 import { ModosDeConsumo } from './modos-de-consumo';
+import { SmsRama } from './sms-rama';
 import { VincularCelular } from './vincular-celular';
 
 // Detalle de una rama: cuánto le queda, las acciones de Juan a un toque
@@ -163,6 +166,7 @@ export const RamaDetalle = ({
 }: RamaDetalleProps) => {
   const addNotification = useNotifications((s) => s.addNotification);
   const [topeAbierto, setTopeAbierto] = React.useState(false);
+  const [verHistorial, setVerHistorial] = React.useState(false);
   const restrict = useRestrictMandate();
   const unfreeze = useUnfreezeMandate({
     mutationConfig: {
@@ -197,11 +201,28 @@ export const RamaDetalle = ({
     : undefined;
   const parentRemaining = parent ? quedanDe(parent) : undefined;
   const renueva = nextRenewal(node.interval);
+  // El SMS lo usa una persona (o el celular de una persona), nunca un agente ni la raíz.
+  const puedeSms =
+    !!node.parentId &&
+    status !== 'revoked' &&
+    node.canSpend &&
+    node.holderType !== 'agent';
   const puedeDelegar =
     onDelegate &&
     status === 'active' &&
     node.canSpend &&
     node.holderType !== 'device';
+
+  // Todo el historial de esta persona, en el mismo panel (con "Volver").
+  if (verHistorial)
+    return (
+      <HistorialRama
+        mandateId={node.id}
+        rootId={root.id}
+        titulo={`Historial de ${node.holderName}`}
+        onVolver={() => setVerHistorial(false)}
+      />
+    );
 
   return (
     <div className="space-y-7">
@@ -361,6 +382,7 @@ export const RamaDetalle = ({
       {node.holderType === 'person' &&
         node.parentId &&
         status !== 'revoked' && <ModosDeConsumo personaId={node.id} />}
+      {puedeSms && <SmsRama mandateId={node.id} nombre={node.holderName} />}
 
       <dl className="divide-y divide-rule">
         {node.mode && (
@@ -414,6 +436,14 @@ export const RamaDetalle = ({
           limit={10}
           className="-mx-3"
         />
+        <Button
+          variant="outline"
+          className="w-full rounded-full"
+          icon={<History aria-hidden="true" />}
+          onClick={() => setVerHistorial(true)}
+        >
+          Ver todo su historial
+        </Button>
       </section>
     </div>
   );

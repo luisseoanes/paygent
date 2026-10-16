@@ -4,7 +4,6 @@ export const landingSections = [
   'como-funciona',
   'sin-senal',
   'agentes',
-  'que-es-real',
 ] as const;
 export type LandingSection = (typeof landingSections)[number];
 

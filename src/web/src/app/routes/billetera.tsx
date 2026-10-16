@@ -17,6 +17,7 @@ import { Vincular } from '@/features/billetera/components/vincular';
 import { useRefrescarDispositivo } from '@/features/billetera/hooks/use-refrescar-dispositivo';
 import { useDispositivoStore } from '@/features/billetera/stores/dispositivo-store';
 import { useModes } from '@/features/mandates/api/modes';
+import { HistorialRama } from '@/features/mandates/components/historial-rama';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { ProtectedRoute, useUser } from '@/lib/auth';
 
@@ -39,18 +40,24 @@ const BilleteraApp = () => {
   const [vista, setVista] = React.useState<Vista>({ tipo: 'inicio' });
   // ?vincular= de QR viejos o la rama con la que se registró la cuenta
   const codigo = searchParams.get('vincular') ?? user?.mandateId;
-  const [chatAbierto, setChatAbierto] = React.useState(false);
+  // Chat del asistente o historial: uno a la vez (en PC comparten la nube).
+  const [panel, setPanel] = React.useState<'chat' | 'historial' | null>(null);
   const escritorio = useMediaQuery('(min-width: 1024px)');
   const contexto = React.useMemo(
     () => (dispositivo ? { mandato: dispositivo.mandateId } : undefined),
     [dispositivo],
   );
   const chat = useChat({ contexto });
-  const modos = useModes({ mandateId: dispositivo?.mandateId }).data?.modes;
+  const modosQuery = useModes({ mandateId: dispositivo?.mandateId });
+  const modos = modosQuery.data?.modes;
   // Sin datos (p. ej. sin señal) no se esconde: el chat dirá si no está habilitado.
   const conAsistente = !modos || modos.some((m) => m.mode === 'asistente');
-  const cerrarChat = () => setChatAbierto(false);
-  const chatVisible = chatAbierto && !!dispositivo;
+  const cerrarPanel = () => setPanel(null);
+  const chatVisible = panel === 'chat' && !!dispositivo;
+  const historialVisible = panel === 'historial' && !!dispositivo;
+  // La rama de la persona: abarca su celular, su Asistente y su SMS.
+  const ramaHistorial =
+    modosQuery.data?.personaId ?? user?.mandateId ?? dispositivo?.mandateId;
   useRefrescarDispositivo();
 
   React.useEffect(() => {
@@ -73,12 +80,22 @@ const BilleteraApp = () => {
         'Eliges dónde pagas y cuánto, en pesos.',
         'Muestras el QR del vale: el tendero lo cobra al instante o cuando vuelva la señal.',
       ]}
+      escenaKey={panel ?? undefined}
       escena={
-        chatVisible && escritorio ? (
+        !escritorio ? undefined : chatVisible ? (
           <NubeChat>
             <ChatAsistente
               chat={chat}
-              onCerrar={cerrarChat}
+              onCerrar={cerrarPanel}
+              className="h-[min(68dvh,560px)]"
+            />
+          </NubeChat>
+        ) : historialVisible && ramaHistorial ? (
+          <NubeChat>
+            <HistorialRama
+              mandateId={ramaHistorial}
+              titulo="Mi historial"
+              onCerrar={cerrarPanel}
               className="h-[min(68dvh,560px)]"
             />
           </NubeChat>
@@ -98,8 +115,15 @@ const BilleteraApp = () => {
       ) : chatVisible && !escritorio ? (
         <ChatAsistente
           chat={chat}
-          onCerrar={cerrarChat}
+          onCerrar={cerrarPanel}
           className="h-[calc(100dvh-7rem)]"
+        />
+      ) : historialVisible && !escritorio && ramaHistorial ? (
+        <HistorialRama
+          mandateId={ramaHistorial}
+          titulo="Mi historial"
+          onVolver={cerrarPanel}
+          className="h-[calc(100dvh-7rem)] pt-2"
         />
       ) : vista.tipo === 'pagar' ? (
         <Pagar
@@ -120,7 +144,8 @@ const BilleteraApp = () => {
         <InicioBilletera
           dispositivo={dispositivo}
           onPagar={() => setVista({ tipo: 'pagar' })}
-          onAsistente={conAsistente ? () => setChatAbierto(true) : undefined}
+          onAsistente={conAsistente ? () => setPanel('chat') : undefined}
+          onHistorial={() => setPanel('historial')}
           formasDePagar={
             modos && (
               <FormasDePagar

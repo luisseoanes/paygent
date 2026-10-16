@@ -92,7 +92,7 @@ inicial: cuentas, beneficiarios, comercios y agentes como filas, y las rutas por
 
 | Método y ruta | Dueño | Entrada | Salida |
 |---|---|---|---|
-| `POST /assistant/message` | DS | `{ phone, text }` | `{ reply }` (≤ 160 caracteres) |
+| `POST /assistant/message` | DS | `{ phone, text }` | `{ reply }` (≤ `SMS_MAX_CHARS`, 306 por defecto; se recorta en una frase completa) |
 | `POST /inventory/query` | DS (búsqueda) + BE (verificación del pago) | `{ query, location, paymentId }` | `{ options: [{ merchant, wallet, product, priceCOP, distanceM, stock }] }` |
 | `POST /intent/compile` | DS | `{ text }` | `{ tree, summary }` |
 | `POST /guardian/evaluate` | LU | `{ vouchers, history }` | `{ decisions: [{ voucherId, action, rule, explanation }] }` |
@@ -178,13 +178,14 @@ paygent/
 | OFF-06 ✅ | Sincronización: al volver la conexión (evento `online`) enviar la cola a `/vouchers/settle` y mostrar el resultado | FE | P0 | 1.5h | OFF-03, OFF-05 | Al desactivar el modo avión, el vale pasa a "liquidado" solo → **Implementado en la web nueva; falta probarlo en un dispositivo** |
 | OFF-07 ✅ | Service worker y caché para que ambas PWAs abran en modo avión | FE | P0 | 1.5h | FE-01 | Probado en Android **y** iOS → **PWA con service worker; falta probarla en Android e iOS** |
 | OFF-08 🟡 | Botón de demo "reenviar vale" (replay) → rechazo visible + evento del Guardián | FE + LU | P1 | 0.5h | OFF-03 | El fraude aparece en el feed de Juan con su explicación → **Implementado en la web nueva; falta probarlo** |
+| OFF-09 ✅ | Tope sin señal administrado por el Guardián: el titular fija el **máximo** y el celular arranca en el 40 %; el Guardián lo sube un 25 % del máximo con compras limpias y lo baja a la mitad con alertas (mínimo 10 %), **solo, cada vez que se liquidan vales**. La PWA renueva el certificado si cambió el tope y deja de firmar vales si la rama está congelada | LU | P1 | 3h | OFF-03, GRD-02 | Hecho: `offline-cap.test.ts`, `test_guardian.py` y `pnpm --filter @openroute/api guardian:check` |
 
 ### ÉPICO AG — Agente Asistente + SMS (DS · BE)
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
 | AG-01 ✅ | Esqueleto FastAPI + cliente HTTP hacia `src/api` (con la firma o API key del agente) | DS | P0 | 1.5h | PRE-04 | `agents` llama a `/pay` de forma autenticada → **Hecho: verificado en Railway** |
-| AG-02 🟡 | Asistente con Claude *tool use*: `buscar_producto`, `proponer_compra`, `consultar_saldo`, `generar_codigo_retiro`; memoria de sesión por teléfono; español simple; respuestas ≤ 160 caracteres | DS | P0 | 4h | AG-01, INV-02 | "necesito la pastilla de la presión" → propuesta con comercio, precio y distancia → **Implementado; en Railway falta `ANTHROPIC_API_KEY`, así que solo se probó la rama de reglas** |
+| AG-02 🟡 | Asistente con Claude *tool use*: `buscar_producto`, `proponer_compra`, `consultar_saldo`, `generar_codigo_retiro`; memoria de sesión por teléfono; español simple; respuestas ≤ `SMS_MAX_CHARS` (306) | DS | P0 | 4h | AG-01, INV-02 | "necesito la pastilla de la presión" → propuesta con comercio, precio y distancia → **Implementado; en Railway falta `ANTHROPIC_API_KEY`, así que solo se probó la rama de reglas** |
 | AG-03 ✅ | Flujo de PIN: la compra propuesta pide PIN → el siguiente mensaje con el PIN confirma vía `/pay` con `pendingId` | DS | P0 | 1h | AG-02, GW-06 | PIN correcto → pago real + SMS con el código de retiro → **Hecho: PIN → pago real → código de retiro, verificado en Railway** |
 | AG-04 ✅ | Guardarraíles: ningún pago fuera de las herramientas; validación de montos; respuesta a "no entendí"; **alternativa determinista** si el LLM falla o tarda más de 8 s | DS | P0 | 1.5h | AG-02 | Con `MOCK_LLM=1` la demo sigue funcionando con reglas → **Hecho: la demo funciona con reglas (`MOCK_LLM`) en Railway** |
 | AG-05 ⛔ | Respuesta inmediata "Buscando…" + respuesta final asíncrona | DS + BE | P1 | 1h | SMS-01 | El usuario recibe un acuse en menos de 2 s → **Descartado con Twilio** |
@@ -220,19 +221,19 @@ paygent/
 
 ### ÉPICO EXT — La idea en grande: pagadores institucionales, voz e historial
 
-Ver §3.6–3.8 de [context.md](context.md). Nada de este épico pasa antes que H2 (pago real).
+Decisión del equipo: **Gobierno / ONG fuera de alcance** (EXT-01…03 ⛔); la voz también (VOZ ⛔). Ver §3.6–3.8 de [context.md](context.md). Nada de este épico pasa antes que H2 (pago real).
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
-| EXT-01 | Semilla "Gobierno — subsidio adulto mayor" en `/demo/reset`: otra wallet raíz del Test Wallet, árbol con categorías `mercado` + `farmacia`, beneficiaria con PIN SMS y tope offline, y **dirección de entrega propia** (`db.addresses[<raíz del Gobierno>]`) | LU | P1 | 1.5h | GW-01, PRE-01, DEL-01 | `POST /demo/reset` deja los dos árboles (Juan y Gobierno), ambos pagan por `/pay` y la beneficiaria puede **recoger o pedir domicilio** |
+| EXT-01 ⛔ | Semilla "Gobierno — subsidio adulto mayor" en `/demo/reset`: otra wallet raíz del Test Wallet, árbol con categorías `mercado` + `farmacia`, beneficiaria con PIN SMS y tope offline, y **dirección de entrega propia** (`db.addresses[<raíz del Gobierno>]`) | LU | P1 | 1.5h | GW-01, PRE-01, DEL-01 | `POST /demo/reset` deja los dos árboles (Juan y Gobierno), ambos pagan por `/pay` y la beneficiaria puede **recoger o pedir domicilio** |
 | DEL-01 ✅ | Entrega: dirección por mandato raíz (`PUT /delivery-address/:rootId`, solo Juan; un agente recibe 403). `/pay` acepta `delivery: { mode, code, fee }` y el gateway pone la dirección registrada, ignorando la del agente. Sin dirección → `deny: no_address` | LU | P1 | 2h | GW-05 | Hecho, con 4 tests en `gateway.test.ts` |
 | DEL-02 ✅ | Asistente: "1 recoger / 2 enviar a casa de María (+envío)" o lo detecta en el mensaje ("tráigamela"); producto + envío en un solo pago; el total cuenta para el umbral de PIN. Costo de envío por comercio en `merchants.csv` (0 = no hace domicilios) | DS | P1 | 2h | DEL-01, AG-02 | Hecho, con 6 tests en `test_assistant.py` y en `pnpm e2e` |
 | PAY-01 ✅ | Cobro del comercio: `payout` directo a su wallet o por Puntored a su llave Bre-B (`PUT /merchants/:id/payout`, solo el tendero; un agente recibe 403). La dirección de cobro no cambia, así los vales firmados siguen valiendo. Semilla: Doña Rosa sin wallet (`puntored:tienda`), Minimercado El Paisa con wallet | LU | P1 | 2h | GW-05 | Hecho, con 3 tests en `gateway.test.ts`, 1 en `test_inventory.py` y en `pnpm e2e` |
 | PAY-02 | Preguntarle a Puntored en el evento: cómo liquidan hoy al tendero (Bre-B, saldo en su punto), tiempos y comisiones, y si les interesa recibir por Open Payments. Ajustar §3.5b con sus respuestas | Todos | P1 | 0.5h | — | Respuestas anotadas en el documento del proyecto |
 | DEL-03 | Web (nuevo frontend `src/web`): formulario "¿A dónde llevan los pedidos?" en `/juan` (`GET|PUT /delivery-address/root`), línea de envío en el feed (`FeedEvent.delivery`) y "Pedidos ya pagados" para el tendero (`GET /merchants/:id/orders`: qué llevar, a quién, dirección y código). La API ya está lista; la versión para la web vieja quedó en el commit `1d050d4` como referencia | FE | P1 | 2h | DEL-01 | Juan guarda la dirección y el tendero ve los pedidos con su código |
 | PAY-03 | Web (nuevo frontend `src/web`): sección "¿Cómo cobras?" para el tendero (`PUT /merchants/:id/payout`: wallet o llave Bre-B) y marca "cobra por Puntored → llave 310•••0101" en el feed (`FeedEvent.payout`). Referencia en el commit `1d050d4` | FE | P1 | 1h | PAY-01 | El tendero cambia cómo cobra y el feed lo muestra |
-| EXT-02 | Selector de pagador en `/juan` ("Juan — familia" / "Gobierno — subsidio" / "ONG — ayuda") que cambia el árbol mostrado | FE | P1 | 1h | EXT-01 | El cambio se ve en menos de 1 s, con el mismo componente del árbol |
-| EXT-03 | Cifras con fuente: beneficiarios y modalidad de pago de subsidios (Prosperidad Social / Colombia Mayor), alfabetización rural (DANE), inclusión financiera (Banca de las Oportunidades) | LU | P1 | 1h | PRE-08 | Tabla con cifra + fuente + fecha |
+| EXT-02 ⛔ | Selector de pagador en `/juan` ("Juan — familia" / "Gobierno — subsidio" / "ONG — ayuda") que cambia el árbol mostrado | FE | P1 | 1h | EXT-01 | El cambio se ve en menos de 1 s, con el mismo componente del árbol |
+| EXT-03 ⛔ | Cifras con fuente: beneficiarios y modalidad de pago de subsidios (Prosperidad Social / Colombia Mayor), alfabetización rural (DANE), inclusión financiera (Banca de las Oportunidades) | LU | P1 | 1h | PRE-08 | Tabla con cifra + fuente + fecha |
 | VOZ-01 ⛔ | Número de Twilio Voice que pueda recibir llamadas desde Colombia; revisar restricciones de la cuenta | BE | P1 | 1h | PRE-06 | Una llamada desde un celular colombiano llega al webhook, o se decide quedarse con SMS → **Descartado con Twilio** |
 | VOZ-02 ⛔ | `POST /voice/inbound` + `/voice/gather`: voz → texto (`<Gather input="speech" language="es-MX">`, o `es-US`) → `agents /assistant/message` → respuesta con `<Say>`; el PIN se pide con `<Gather input="dtmf">` y **no** pasa por el reconocimiento de voz ni por el LLM | BE | P1 | 3h | VOZ-01, SMS-01 | Llamada completa: pedido por voz → propuesta hablada → PIN por teclado → pago real → SMS con código → **Descartado con Twilio** |
 | VOZ-03 ⛔ | Respuestas del Asistente aptas para voz: frases cortas, precios en palabras ("doce mil pesos"), sin abreviaturas | DS | P1 | 1h | AG-02 | 10 respuestas leídas en voz alta se entienden a la primera → **Descartado con Twilio** |

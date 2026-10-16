@@ -3,6 +3,8 @@ import { renderApp, screen, userEvent } from '@/testing/test-utils';
 import { ModosDeConsumo } from '../modos-de-consumo';
 
 test('the titular sees how each mode is used, changes its cap and can enable the missing ones', async () => {
+  // Cambiar topes lo decide el titular: va con su cuenta en x-user-id.
+  sessionStorage.setItem('paygent-session', 'juan');
   await renderApp(<ModosDeConsumo personaId="mnd_maria" />);
 
   expect(await screen.findByText('Celular (vale QR)')).toBeInTheDocument();

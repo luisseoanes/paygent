@@ -13,8 +13,9 @@ VELOCITY_WINDOW = timedelta(minutes=10)  # …en M minutos
 MAX_AGE = timedelta(hours=72)
 # Umbrales en pesos; se comparan contra el monto convertido a COP.
 NEW_MERCHANT_HIGH_COP = 60_000
-CAP_STEP_COP = 60_000
-MIN_CAP_COP = 20_000
+# Tope sin señal proporcional al techo que fijó el titular (un techo de 50.000 y uno de 2.000.000 se tratan igual):
+CAP_STEP_PCT = 0.25  # con buen uso sube un 25 % del techo
+MIN_CAP_PCT = 0.10  # con alertas baja a la mitad, nunca por debajo del 10 % del techo
 CLEAN_TO_RAISE = 3
 
 # GRD-03: historial simulado de 30 días (liquidaciones limpias) para que el puntaje tenga sentido en la demo.
@@ -69,10 +70,10 @@ def score(mandate_id: str, holder: str, offline_cap: dict, ceiling: dict, frozen
     cap, top = to_cop(offline_cap), to_cop(ceiling)
 
     if frozen or alerts:
-        new = max(MIN_CAP_COP, cap / 2)
+        new = max(round(top * MIN_CAP_PCT), round(cap / 2))
         why = f"bajé el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)} por {alerts} alerta(s)"
     elif clean >= CLEAN_TO_RAISE and cap < top:
-        new = min(top, cap + CAP_STEP_COP)
+        new = min(top, cap + round(top * CAP_STEP_PCT))
         why = f"subí el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)}: {clean} compras liquidadas sin problemas (techo de Juan: {fmt_cop(top)})"
     else:
         new = cap

@@ -2,6 +2,7 @@ import { amount as A, randomId, type Amount, type Mandate, type SpendMode } from
 import { insertProfile } from '../db.ts'
 import { env } from '../env.ts'
 import { sql, type Sql } from '../store/sql.ts'
+import { OFFLINE_START_PCT } from './devices.ts'
 import { chainOf, childrenOf, delegate, getMandate, putMandate, remainingOf } from './mandates.ts'
 
 /** Orden en que se reparten y se muestran. */
@@ -9,7 +10,7 @@ export const MODES: SpendMode[] = ['celular', 'asistente', 'sms']
 
 /** Parte del tope de la persona para cada modo al habilitarlo (%). El 20 % libre deja subir uno sin bajar otro. */
 const SHARE: Record<SpendMode, number> = { celular: 40, asistente: 20, sms: 20 }
-/** Tope sin señal si no lo dio el titular (altas anteriores a los modos), en pesos. */
+/** Techo sin señal si no lo dio el titular (altas anteriores a los modos), en pesos. */
 const OFFLINE_DEFAULT_COP = 50_000
 /** Lo que el Asistente puede pagar al Inventario por consultas, en pesos. */
 const DATOS_COP = 2_000
@@ -33,11 +34,15 @@ const free = async (persona: Mandate, conn: Sql) =>
 /** Un id libre: el de siempre o, si ya hubo uno (revocado), otro nuevo. */
 const freeId = async (base: string, conn: Sql) => ((await conn.query(`select 1 from mandates where id = $1`, [base])).length ? randomId(`${base}-`) : base)
 
-/** Las ramas de modo vivas de una persona. Una rama de celular de antes de los modos (sin `mode`) cuenta como celular. */
+/** El modo de una rama sin `mode`: un celular de antes de los modos, o la hoja que crea PUT /mandates/:id/sms. */
+const legacyMode = (c: Mandate): SpendMode | undefined =>
+  c.holderType === 'device' ? 'celular' : c.holderType === 'agent' && c.id.startsWith('sms_') ? 'sms' : undefined
+
+/** Las ramas de modo vivas de una persona. */
 export const modesOf = async (personaId: string, conn: Sql = sql()) => {
   const out = new Map<SpendMode, Mandate>()
   for (const c of await childrenOf(personaId, conn)) {
-    const mode = c.mode ?? (c.holderType === 'device' ? 'celular' : undefined)
+    const mode = c.mode ?? legacyMode(c)
     if (mode && !c.revoked && !out.has(mode)) out.set(mode, c)
   }
   return out
@@ -96,7 +101,8 @@ export const enableModes = async (personaId: string, opts: { offlineCap?: Amount
   // Alta anterior a los modos: el celular se quedó con todo el tope y no tiene `mode`.
   const legacy = have.get('celular')
   if (legacy && !legacy.mode) {
-    const floor = max(max(pct(M, SHARE.celular), legacy.offlineCap ?? A.zero(M)), legacy.spentInPeriod)
+    const ceiling = legacy.offlineCapCeiling ?? legacy.offlineCap ?? A.zero(M)
+    const floor = max(max(pct(M, SHARE.celular), ceiling), legacy.spentInPeriod)
     await putMandate({ ...legacy, mode: 'celular', maxDebit: min(legacy.maxDebit, floor) }, conn)
   }
 
@@ -104,8 +110,9 @@ export const enableModes = async (personaId: string, opts: { offlineCap?: Amount
     const left = await free(persona, conn)
     const id = await freeId(`${persona.id}-${SUFFIX[mode]}`, conn)
     if (mode === 'celular') {
-      const offlineCap = opts.offlineCap ?? cop(OFFLINE_DEFAULT_COP, M)
-      const share = min(max(pct(M, SHARE.celular), offlineCap), left)
+      // Lo que pone el titular es el techo; el celular arranca con el 40 % y el Guardián lo mueve con el uso.
+      const ceiling = min(opts.offlineCap ?? cop(OFFLINE_DEFAULT_COP, M), left)
+      const share = min(max(pct(M, SHARE.celular), ceiling), left)
       await delegate(
         persona.id,
         {
@@ -115,8 +122,8 @@ export const enableModes = async (personaId: string, opts: { offlineCap?: Amount
           holderId: id,
           holderName: `Celular de ${persona.holderName}`,
           maxDebit: share,
-          offlineCap: min(offlineCap, share),
-          offlineCapCeiling: min(offlineCap, share),
+          offlineCap: A.percent(ceiling, OFFLINE_START_PCT),
+          offlineCapCeiling: ceiling,
         },
         conn,
       )

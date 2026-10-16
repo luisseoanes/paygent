@@ -185,6 +185,8 @@ export const db = {
   rootGrant: true,
   // Vales ya cobrados (certId:counter) para detectar el doble cobro
   valesCobrados: new Set<string>(),
+  // SMS activo por rama: mandato → celular en E.164
+  sms: {} as Record<string, string>,
 };
 
 export const resetDb = () => {
@@ -192,6 +194,7 @@ export const resetDb = () => {
   db.feed = buildFeed();
   db.rootGrant = true;
   db.valesCobrados = new Set();
+  db.sms = {};
 };
 
 export const findInTree = (

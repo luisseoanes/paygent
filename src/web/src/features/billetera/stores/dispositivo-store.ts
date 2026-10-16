@@ -36,6 +36,10 @@ export type Dispositivo = {
   remaining?: Amount;
   remainingAt?: string;
   vales: ValeEmitido[];
+  // Techo del tope sin señal que fijó el titular (el Guardián mueve el tope hasta aquí)
+  topeMaximo?: Amount;
+  // El Guardián o el titular congelaron la rama (visto la última vez que hubo señal): no se firman vales.
+  congelado?: boolean;
 };
 
 const KEY = 'maria-dispositivo';

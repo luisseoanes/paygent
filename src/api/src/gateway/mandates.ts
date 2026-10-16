@@ -241,7 +241,7 @@ export const restrict = async (id: string, patch: { offlineCap?: Amount; frozen?
 
 /**
  * El titular cambia los topes de una rama (sube o baja) sin salirse de su padre: suma de hermanos ≤ padre y nunca por
- * debajo de lo que ya repartió a sus hijos. El tope sin señal queda como nuevo techo. La raíz la fija la billetera.
+ * debajo de lo que ya repartió a sus hijos. `offlineCap` es el techo sin señal. La raíz la fija la billetera.
  */
 export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineCap?: Amount }, conn?: Sql) => {
   const m = await getMandate(id, conn)
@@ -261,9 +261,11 @@ export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineC
     if (!A.lte(delegated, patch.maxDebit)) throw forbidden(`Ya repartió ${A.format(delegated)} entre sus propias ramas`)
     next.maxDebit = patch.maxDebit
   }
+  // El titular fija el techo sin señal; el tope vigente lo mueve el Guardián por debajo de él.
   if (patch.offlineCap) {
     if (!m.offlineCap) throw badRequest('Esta rama no paga sin señal')
-    next.offlineCap = next.offlineCapCeiling = patch.offlineCap
+    next.offlineCapCeiling = patch.offlineCap
+    if (!A.lte(next.offlineCap!, patch.offlineCap)) next.offlineCap = patch.offlineCap
   }
   // Un tope sin señal nunca supera el de la rama: si se baja la rama, baja con ella.
   for (const k of ['offlineCap', 'offlineCapCeiling'] as const) {

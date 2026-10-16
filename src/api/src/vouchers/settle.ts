@@ -11,6 +11,7 @@ import { gatewayKey } from '../gateway/keys.ts'
 import { getMandate, restrict } from '../gateway/mandates.ts'
 import { executePayment } from '../gateway/pay.ts'
 import { callAgents } from '../lib/agents.ts'
+import { reviewOfflineCaps } from './guardian.ts'
 
 const key = (v: Voucher) => `${v.deviceCert.certId}:${v.counter}`
 
@@ -100,5 +101,9 @@ export const settleVouchers = async (vouchers: Voucher[]): Promise<VoucherSettle
       results.push(await record(v, { voucherId: v.voucherId, status: 'rejected', reason: (err as Error).message }))
     }
   }
+
+  // Con lo que se acaba de liquidar (o rechazar), el Guardián ajusta solo el tope sin señal de esos celulares.
+  // El celular recibe el tope nuevo en su próximo certificado, cuando tenga señal.
+  await reviewOfflineCaps([...new Set(vouchers.map((v) => v.deviceCert.mandateId))])
   return results
 }

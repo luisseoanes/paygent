@@ -16,11 +16,12 @@ import {
 } from '../db.ts'
 import { emit } from '../feed/bus.ts'
 import { revokeRootGrant } from '../op/grants.ts'
-import { assertHolder, requireAgent } from './auth.ts'
-import { issueDeviceCert } from './devices.ts'
+import { assertHolder, requireAgent, requireTitularOf } from './auth.ts'
+import { issueDeviceCert, OFFLINE_START_PCT } from './devices.ts'
 import { badRequest, forbidden, HttpError, notFound } from './errors.ts'
 import { gatewayKey } from './keys.ts'
 import {
+  chainOf,
   delegate,
   getMandate,
   remainingOf,
@@ -37,6 +38,7 @@ import { pay } from './pay.ts'
 import { setPin } from './pin.ts'
 import { sql } from '../store/sql.ts'
 import { describePayout } from './payout.ts'
+import { activarSms, desactivarSms, enmascarar, estadoSms } from './sms-canal.ts'
 
 const CATEGORIES: Category[] = ['mercado', 'farmacia', 'efectivo', 'datos']
 const isWallet = (w?: string) => /^https:\/\/\S+$/.test(w ?? '')
@@ -205,7 +207,8 @@ export default async function gatewayRoutes(app: FastifyInstance) {
       const code = modes.find((m) => m.mode === 'celular')!.mandateId
       await emit({ mandateId: id, actor: { type: 'person', name: root.holderName }, kind: 'grant', amount: maxDebit, reason: `${root.holderName} registró a ${alias}` })
       reply.status(201)
-      return { code, mandateId: id, deviceMandateId: code, modes }
+      const celular = modes.find((m) => m.mode === 'celular')!
+      return { code, mandateId: id, deviceMandateId: code, modes, offlineCap: celular.offlineCap, offlineCapCeiling: offlineCap }
     },
   )
 
@@ -214,7 +217,7 @@ export default async function gatewayRoutes(app: FastifyInstance) {
 
   // El titular vuelve a habilitar los modos que falten (revocados o altas anteriores a los modos).
   app.post<{ Params: { id: string } }>('/mandates/:id/modes', async (req) => {
-    if (req.headers['x-api-key']) throw forbidden('Un agente no puede habilitar modos')
+    await requireTitularOf(req, req.params.id)
     const persona = await getMandate(req.params.id)
     if (persona.holderType !== 'person' || !persona.parentId) throw badRequest('Los modos se habilitan en la rama de una persona')
     if (persona.revoked) throw forbidden('La rama está revocada')
@@ -231,7 +234,7 @@ export default async function gatewayRoutes(app: FastifyInstance) {
 
   // El titular cambia el tope de una rama (sube o baja dentro de su padre). Un agente nunca: el Guardián solo restringe.
   app.patch<{ Params: { id: string }; Body: { maxDebit?: Amount; offlineCap?: Amount } }>('/mandates/:id/limits', async (req) => {
-    if (req.headers['x-api-key']) throw forbidden('Un agente no puede cambiar topes')
+    await requireTitularOf(req, req.params.id)
     const { maxDebit, offlineCap } = req.body ?? {}
     if (!maxDebit && !offlineCap) throw badRequest('Falta el tope nuevo (maxDebit u offlineCap)')
     const m = await setLimits(req.params.id, { maxDebit, offlineCap })
@@ -243,6 +246,29 @@ export default async function gatewayRoutes(app: FastifyInstance) {
       reason: `Nuevo tope de ${m.holderName}: ${A.format(m.maxDebit)}${m.offlineCap ? `, sin señal ${A.format(m.offlineCap)}` : ''}`,
     })
     return m
+  })
+
+  // Canal SMS de una rama: el titular registra el celular y el PIN con los que su beneficiario habla con el Asistente.
+  app.get<{ Params: { id: string } }>('/mandates/:id/sms', async (req) => {
+    await requireTitularOf(req, req.params.id)
+    return estadoSms(req.params.id)
+  })
+
+  app.put<{ Params: { id: string }; Body: { phone?: string; pin?: string } }>('/mandates/:id/sms', async (req) => {
+    await requireTitularOf(req, req.params.id)
+    const { rama, estado } = await activarSms(req.params.id, req.body ?? {})
+    const titular = (await chainOf(rama.id)).at(-1)!.holderName
+    await emit({ mandateId: rama.id, actor: { type: 'person', name: titular }, kind: 'grant', reason: `${titular} activó el SMS de ${rama.holderName} (${estado.phone})` })
+    return estado
+  })
+
+  app.delete<{ Params: { id: string } }>('/mandates/:id/sms', async (req) => {
+    await requireTitularOf(req, req.params.id)
+    const { phone, mandateId } = await desactivarSms(req.params.id)
+    const chain = await chainOf(req.params.id)
+    const titular = chain.at(-1)!.holderName
+    await emit({ mandateId, actor: { type: 'person', name: titular }, kind: 'revoked', reason: `${titular} apagó el SMS de ${chain[0].holderName} (${enmascarar(phone)})` })
+    return { active: false }
   })
 
   app.post<{ Body: PayRequest }>('/pay', async (req) => {
