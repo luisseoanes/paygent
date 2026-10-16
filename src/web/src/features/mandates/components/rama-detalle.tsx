@@ -4,6 +4,7 @@ import {
   Pause,
   Play,
   Plus,
+  QrCode,
   Scissors,
   WifiOff,
 } from 'lucide-react';
@@ -35,6 +36,7 @@ import {
 } from '../utils/mandate';
 
 import { Libreta } from './libreta';
+import { VincularCelular } from './vincular-celular';
 
 // Detalle de una rama: cuánto le queda, las acciones de Juan a un toque
 // (congelar, tope sin señal, delegar, revocar), sus reglas y sus últimos
@@ -275,6 +277,13 @@ export const RamaDetalle = ({
               aria-controls="tope-sin-senal"
               tone={topeAbierto ? 'activo' : 'default'}
               onClick={() => setTopeAbierto((v) => !v)}
+            />
+          )}
+          {node.holderType === 'device' && node.offlineCap && (
+            <VincularCelular
+              mandateId={node.id}
+              nombre={node.holderName}
+              trigger={<AccionRapida icon={<QrCode />} label="Vincular" />}
             />
           )}
           {puedeDelegar && (

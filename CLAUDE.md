@@ -31,6 +31,7 @@ Two rules follow:
 ## Commands
 
 ```bash
+fnm use                           # Node 22 (.node-version); web tests fail on Node 24 (jsdom AbortSignal)
 cp .env.example .env              # defaults run everything in mock mode, no keys needed
 pnpm setup                        # pnpm install + uv sync in src/agents
 pnpm dev                          # api :3001 · web :5173 · agents :8000
@@ -67,7 +68,8 @@ TypeScript: strict `tsc`. Python: type hints, Pydantic v2. Modular, loosely coup
 KISS and YAGNI by default; SOLID reserved for complex business logic (the gateway, mandate
 authorization), favouring single responsibility and injected dependencies. Comments explain *why*.
 Code comments and user-facing text are in Spanish, matching the existing code.
-`TODO <ID>` markers point at backlog task IDs.
+`TODO <ID>` markers point at backlog task IDs. Separate config files from code. Avoid verbose documentation
+inside the code, all comments must be short one-liners and extensive documentation must sit outside the code using Zensical. 
 
 ## Layout
 

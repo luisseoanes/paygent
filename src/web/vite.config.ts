@@ -4,6 +4,7 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // .env de la raíz del monorepo (el mismo de api y agents).
 const rootEnv = loadEnv('development', '../..', '');
@@ -24,7 +25,40 @@ const proxy = {
 };
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // OFF-07: service worker para que /maria y /tendero abran en modo avión.
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: false,
+      includeAssets: ['favicon.svg'],
+      manifest: {
+        name: 'Paygent',
+        short_name: 'Paygent',
+        description: 'Paga con un permiso delegado, incluso sin señal.',
+        lang: 'es-CO',
+        theme_color: '#1f3fae',
+        background_color: '#f3f2ee',
+        display: 'standalone',
+        start_url: '/maria',
+        icons: [
+          {
+            src: 'favicon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
+        ],
+      },
+      workbox: {
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/agents/, /mockServiceWorker/],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

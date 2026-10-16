@@ -28,4 +28,14 @@ export const paths = {
     path: '/juan',
     getHref: () => '/juan',
   },
+  // PWA de María. Con ?vincular=<id> se vincula a esa rama al abrir.
+  maria: {
+    path: '/maria',
+    getHref: (vincular?: string) =>
+      vincular ? `/maria?vincular=${encodeURIComponent(vincular)}` : '/maria',
+  },
+  tendero: {
+    path: '/tendero',
+    getHref: () => '/tendero',
+  },
 } as const;

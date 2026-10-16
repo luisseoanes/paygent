@@ -10,8 +10,6 @@ import { delegate, getMandate, restrict, revoke } from '../src/gateway/mandates.
 import { verifyMandate } from '@openroute/shared'
 import { gatewayKey } from '../src/gateway/keys.ts'
 
-process.env.MOCK_OP = '1'
-
 const app = await buildApp({ logger: false })
 const assistantKey = { 'x-api-key': 'dev-assistant-key' }
 const farmacia = 'https://ilp.interledger-test.dev/farmacia-san-jose'

@@ -10,7 +10,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   resetDb();
-  sessionStorage.clear();
+  globalThis.sessionStorage?.clear();
 });
 afterAll(() => server.close());
 

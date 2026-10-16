@@ -15,7 +15,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    // @openroute/shared se consume como fuente TS e importa con extensión .ts
+    "allowImportingTsExtensions": true,
+    "types": [
+      "vite/client",
+      "vite-plugin-pwa/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ],
     "paths": {
       "@/*": ["./src/*"]
     }

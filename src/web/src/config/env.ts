@@ -3,7 +3,8 @@ import * as z from 'zod';
 // Every env variable must be declared and validated here.
 // Vite only exposes variables prefixed with VITE_APP_ (the prefix is stripped).
 const EnvSchema = z.object({
-  API_URL: z.string().min(1),
+  // /api goes through the Vite proxy to src/api, so a fresh clone works without a web .env.
+  API_URL: z.string().min(1).default('/api'),
   ENABLE_API_MOCKING: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')

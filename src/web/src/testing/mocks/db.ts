@@ -179,12 +179,15 @@ export const db = {
   feed: buildFeed(),
   // ¿Juan ya aprobó el grant raíz en su billetera? (GET /demo/status)
   rootGrant: true,
+  // Vales ya cobrados (certId:counter) para detectar el doble cobro
+  valesCobrados: new Set<string>(),
 };
 
 export const resetDb = () => {
   db.tree = buildTree();
   db.feed = buildFeed();
   db.rootGrant = true;
+  db.valesCobrados = new Set();
 };
 
 export const findInTree = (

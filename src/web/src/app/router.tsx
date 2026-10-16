@@ -57,6 +57,25 @@ export const createAppRouter = (queryClient: QueryClient) =>
         },
       ],
     },
+    // Apps de rol a pantalla completa (sin el menú de la portada).
+    {
+      errorElement: <RouteError />,
+      HydrateFallback: () => (
+        <div className="flex h-dvh w-full items-center justify-center">
+          <Spinner size="xl" />
+        </div>
+      ),
+      children: [
+        {
+          path: paths.maria.path,
+          lazy: () => import('./routes/maria').then(convert(queryClient)),
+        },
+        {
+          path: paths.tendero.path,
+          lazy: () => import('./routes/tendero').then(convert(queryClient)),
+        },
+      ],
+    },
   ]);
 
 export const AppRouter = () => {

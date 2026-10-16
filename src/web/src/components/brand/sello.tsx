@@ -17,6 +17,8 @@ const selloVariants = cva(
         rechazado: 'border-anulado text-anulado',
         congelado: 'border-anulado text-anulado',
         anulado: 'border-anulado text-anulado',
+        // Vale guardado sin señal: borde discontinuo (código de conectividad)
+        pendiente: 'border-dashed border-pendiente-borde text-pendiente',
       },
       size: {
         sm: 'size-14 text-[0.4375rem] tracking-[0.04em]',
@@ -35,6 +37,7 @@ const labels = {
   rechazado: 'Rechazado',
   congelado: 'Congelado',
   anulado: 'Anulado',
+  pendiente: 'Por cobrar',
 } as const;
 
 // Rotación determinista por id, entre −6° y 4°.

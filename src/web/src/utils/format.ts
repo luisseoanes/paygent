@@ -34,3 +34,8 @@ export const formatTime = (date: number | string | Date) =>
     second: '2-digit',
     hour12: false,
   }).format(new Date(date));
+
+// Pesos colombianos sin decimales: "$ 48.000". Los montos viajan en USD y se
+// muestran en COP con una tasa de referencia (OP-10).
+export const formatCop = (cop: number) =>
+  formatCurrency(Math.round(cop), 'COP', { maximumFractionDigits: 0 });
