@@ -3,6 +3,7 @@ import { HttpResponse, http } from 'msw';
 import { apiUrl, networkDelay } from '../utils';
 
 // One handlers file per feature: handlers/<feature>.ts exporting <feature>Handlers.
+import { asistenteHandlers } from './asistente';
 import { mandatesHandlers } from './mandates';
 import { offlineHandlers } from './offline';
 // HANDLERS:IMPORT
@@ -10,6 +11,7 @@ import { offlineHandlers } from './offline';
 export const handlers = [
   ...mandatesHandlers,
   ...offlineHandlers,
+  ...asistenteHandlers,
   // HANDLERS:SPREAD
   http.get(apiUrl('/healthcheck'), async () => {
     await networkDelay();

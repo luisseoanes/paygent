@@ -2,6 +2,8 @@ import { Menu, X } from 'lucide-react';
 import * as React from 'react';
 import { useLocation } from 'react-router';
 
+import { LogoPaygent } from '@/components/brand/logo-paygent';
+import { NubePixel } from '@/components/brand/nube-pixel';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/components/ui/link';
 import { landingSections, paths } from '@/config/paths';
@@ -47,40 +49,10 @@ const NavItems = ({
   </ul>
 );
 
-// Wordmark: sello circular + "Paygent" en Fraunces.
+// Wordmark: la nube con las flechas en X + "Paygent".
 export const Wordmark = () => (
   <span className="inline-flex items-center gap-2">
-    <svg
-      viewBox="0 0 32 32"
-      className="size-7 -rotate-6 text-firma"
-      aria-hidden="true"
-    >
-      <circle
-        cx="16"
-        cy="16"
-        r="12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-      />
-      <circle
-        cx="16"
-        cy="16"
-        r="8.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1"
-        strokeDasharray="1.5 1.5"
-      />
-      <path
-        d="M11 16.5l3.4 3.4L21.5 12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <LogoPaygent className="size-8" />
     <span className="font-heading text-xl font-semibold tracking-[-0.01em] [font-variation-settings:'opsz'_72]">
       {siteConfig.name}
     </span>
@@ -97,6 +69,9 @@ export const SiteHeader = ({ actions }: SiteHeaderProps) => {
   const location = useLocation();
   // En la portada el header flota sobre el paisaje del hero (estilo Cofounder).
   const sobreHero = location.pathname === paths.home.getHref();
+  const enLogin = location.pathname === paths.auth.login.path;
+  // El menú flota sobre el paisaje en la portada y en iniciar sesión.
+  const sobreImagen = sobreHero || enLogin;
   const closeMobileMenu = mobileMenu.close;
   const activeSection = useActiveSection(landingSections, sobreHero);
   useScrollToHash();
@@ -110,25 +85,39 @@ export const SiteHeader = ({ actions }: SiteHeaderProps) => {
     <header
       className={cn(
         'top-0 z-40',
-        sobreHero
+        sobreImagen
           ? 'absolute inset-x-0'
           : 'sticky bg-paper/85 backdrop-blur-md',
       )}
     >
-      <Container className="flex h-16 items-center justify-between gap-4">
+      <Container
+        className={cn(
+          'flex h-16 items-center justify-between gap-4',
+          // En iniciar sesión el logo va casi al borde, en su nube
+          // Sobre el paisaje el logo va casi al borde izquierdo
+          sobreImagen && 'max-w-none px-3 sm:px-4 lg:px-5',
+          enLogin && 'h-20',
+        )}
+      >
         <Link
           to={paths.home.getHref()}
           variant="unstyled"
           aria-label={`${siteConfig.name}, ir a la portada`}
         >
-          <Wordmark />
+          {enLogin ? (
+            <NubePixel tamano="sm" className="mt-6">
+              <Wordmark />
+            </NubePixel>
+          ) : (
+            <Wordmark />
+          )}
         </Link>
 
         <nav
           aria-label="Principal"
           className={cn(
             'hidden rounded-xl border p-1 lg:block',
-            sobreHero
+            sobreImagen
               ? 'border-vidrio-borde bg-vidrio backdrop-blur-md'
               : 'border-rule bg-paper-raised',
           )}
