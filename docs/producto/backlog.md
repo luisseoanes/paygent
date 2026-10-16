@@ -83,26 +83,10 @@ interface FeedEvent {
 }
 ```
 
-### 2.2 Endpoints de `src/api` (Node, puerto 3001)
+### 2.2 Endpoints de `src/api`
 
-✅ existe en `src/api` y se usa · ⏳ sin implementar.
-
-| Método y ruta | Dueño | Entrada | Salida |
-|---|---|---|---|
-| `POST /mandates/root` ✅ | BE | `{ walletAddress, maxDebit, interval }` | `{ redirectUrl }` |
-| `GET /callback` ✅ | BE | `interact_ref`, `hash` | redirect a `/juan?ok=1` |
-| `GET /mandates/:id/tree` ✅ | LU | — | árbol de `Mandate` con gasto |
-| `POST /mandates/:id/delegate` ✅ | LU | `Partial<Mandate>` del hijo | `Mandate` firmado |
-| `POST /mandates/:id/revoke` ✅ | LU | — | `{ revoked: string[] }` |
-| `PATCH /mandates/:id/restrict` ✅ | LU | `{ offlineCap?, frozen? }` (solo restringe) | `Mandate` |
-| `POST /mandates/:id/device-key` ✅ | LU | `{ publicKey }` | `{ deviceKeyId, cert, offlineCap, gatewayPublicKey }` |
-| `POST /agents/register` ⏳ | LU | `{ name, role, walletAddress, publicKey }` | `{ agentId }` → **Sin implementar: los agentes se dan de alta en la semilla con su API key (BE-AUTH)** |
-| `POST /pay` ✅ | LU (autorización) + BE (settle) | `{ mandateId, merchantWallet, amount, category, pin?, pendingId?, reason }` + firma del actor | `AuthDecision & { paymentId? }` |
-| `POST /vouchers/settle` ✅ | LU | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason? }[] }` |
-| `POST /sms/inbound` ✅ | BE | webhook Twilio (`From`, `Body`) o mock | TwiML / `{ reply }` → **Hecho con el celular simulado (`/celular`); Twilio descartado** |
-| `POST /asistente/chat` ✅ | BE | `{ mensajes: { rol, texto }[], contexto: { mandato } }` | `{ texto }` → **Chat de María con su Asistente (AG-07)** |
-| `GET /feed/stream` ✅ | BE | SSE | `FeedEvent` en vivo |
-| `POST /demo/reset` ✅ | LU | — | restaura las semillas |
+La referencia al día está en [../api/endpoints.md](../api/endpoints.md) (incluye los que no estaban en el contrato
+inicial: cuentas, beneficiarios, comercios y agentes como filas, y las rutas por titular).
 
 ### 2.3 Endpoints de `src/agents/` (Python FastAPI, puerto 8000)
 
@@ -117,14 +101,14 @@ interface FeedEvent {
 
 ```
 paygent/
-├── src/api/          (TypeScript: Fastify + @interledger/open-payments + better-sqlite3)
-│   └── src/{op,gateway,vouchers,sms,feed,demo}/
-├── src/web/          (React + Vite + vite-plugin-pwa + Tailwind)
-│   └── src/routes/{juan,maria,tendero,celular,demo}/
-├── src/shared/       (tipos + tweetnacl: firmar/verificar vales y certificados)
-├── src/agents/       (Python: FastAPI + anthropic + rapidfuzz + pydantic)
-│   └── {assistant,inventory,intent,guardian}/
-├── bruno/             (colección de pruebas de Open Payments)
+├── src/api/      (Fastify + @interledger/open-payments + Postgres/PGlite)
+│   └── src/{op,gateway,store,auth,chat,vouchers,sms,sms-bridge,feed,demo}/
+├── src/web/      (React + Vite + vite-plugin-pwa + Tailwind, Bulletproof React)
+│   └── src/{app/routes,features,components,lib,testing}/
+├── src/shared/   (tipos + tweetnacl: firmar/verificar mandatos, vales y certificados)
+├── src/agents/   (FastAPI + anthropic + rapidfuzz + pydantic)
+│   └── {assistant,inventory,intent,guardian,common}/
+├── docs/         (producto, api, operación, open-payments)
 └── .env.example
 ```
 

@@ -2,8 +2,10 @@
 
 Poder de pago delegable para personas y sus agentes, incluso sin internet y sin smartphone. Sobre [Open Payments](https://openpayments.dev).
 
-- Qué es y por qué: [docs/context.md](docs/context.md)
-- Tareas, responsables y contratos: [docs/backlog.md](docs/backlog.md)
+- Qué es y por qué: [docs/producto/context.md](docs/producto/context.md)
+- Endpoints (api y agentes): [docs/api/endpoints.md](docs/api/endpoints.md) · modelo de datos: [docs/api/modelo-de-datos.md](docs/api/modelo-de-datos.md)
+- Despliegue en Railway: [docs/operacion/despliegue.md](docs/operacion/despliegue.md) · Open Payments en la práctica: [docs/open-payments/test-wallet.md](docs/open-payments/test-wallet.md)
+- Producción: https://paygent.up.railway.app
 
 ## Arranque en 3 comandos
 
@@ -15,7 +17,7 @@ pnpm setup               # instala Node + Python
 pnpm dev                 # api :3001 · web :5173 · agents :8000
 ```
 
-Abre http://localhost:5173. Hay 5 vistas: `/juan`, `/maria`, `/tendero`, `/celular`, `/demo`.
+Abre http://localhost:5173. Vistas: `/cuenta` (titular), `/billetera` (beneficiario), `/enlazar` (enlazar con el código del titular), `/tendero`, `/celular` (celular de teclas simulado). `/juan` y `/maria` redirigen.
 
 | Comando | Qué hace |
 |---|---|
@@ -31,7 +33,7 @@ Abre http://localhost:5173. Hay 5 vistas: `/juan`, `/maria`, `/tendero`, `/celul
 
 ```
 src/api/      TypeScript · Fastify    Open Payments, Mandate Gateway, /pay, vales, SMS, feed
-src/web/      React + Vite + PWA      /juan /maria /tendero /celular /demo
+src/web/      React + Vite + PWA      /cuenta /billetera /enlazar /tendero /celular
 src/shared/   TypeScript              contratos (types.ts), montos, firma ed25519 de vales
 src/agents/   Python · FastAPI        Asistente (Claude), Inventario, Intención, Guardián
 ```
@@ -54,7 +56,7 @@ La web llama a todo por el proxy de Vite (`/api/*` → api, `/agents/*` → agen
 | **BE** | [src/api/src/op/](src/api/src/op/), [sms/](src/api/src/sms/), [feed/](src/api/src/feed/) | `pnpm op:smoke` con las llaves reales → `settle.ts` |
 | **LU** | [src/api/src/gateway/](src/api/src/gateway/), [vouchers/](src/api/src/vouchers/), [src/shared/](src/shared/), [src/agents/guardian/](src/agents/guardian/) | `authorize.ts`, `mandates.ts` y sus tests |
 | **DS** | [src/agents/](src/agents/) | `assistant/llm.py`, `inventory/catalog.csv`, `tests/` |
-| **FE** | [src/web/src/routes/](src/web/src/routes/) | Diseño de las vistas; la lógica ya funciona |
+| **FE** | [src/web/src/app/routes/](src/web/src/app/routes/), [features/](src/web/src/features/) | Ver [src/web/CLAUDE.md](src/web/CLAUDE.md) |
 
 Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "TODO "`).
 
@@ -64,16 +66,16 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 |---|---|---|
 | `MOCK_OP` | `1` (Open Payments simulado) | **`0` siempre.** El dinero es real |
 | `MOCK_LLM` | `1` (reglas deterministas) | `0` si hay `ANTHROPIC_API_KEY`; si el LLM falla o tarda, cae solo a reglas |
-| `MOCK_SMS` | `1` (vista `/celular`) | `0` si Twilio funciona |
+| `MOCK_SMS` | `1` (vista `/celular`) | `1`: Twilio está descartado; el SMS real va por `pnpm sms:bridge` |
 | `MOCK_INVENTORY_PAYMENT` | `0` (el pago al Inventario se verifica) | `0` |
 
 ## Pasar a Open Payments real (PRE-01, PRE-02, H2)
 
-1. En el [Test Wallet](https://wallet.interledger-test.dev) crea las wallets (Juan en COP, Paygent, Tienda, Farmacia, Puntored, Inventario; una distinta por comercio) y pon sus URLs en `.env`.
+1. En el [Test Wallet](https://wallet.interledger-test.dev) crea las wallets (Juan, Paygent, Tienda, Farmacia, Puntored, Inventario; una distinta por comercio). Las de la demo van en [src/api/src/demo/wallets.ts](src/api/src/demo/wallets.ts); otros comercios se dan de alta con `POST /merchants`. Antes, lee [docs/open-payments/test-wallet.md](docs/open-payments/test-wallet.md).
 2. En la wallet de Paygent genera una llave de desarrollador: `OP_KEY_ID` y el archivo `private.key` en la raíz (está en `.gitignore`).
 3. `MOCK_OP=0` y `pnpm op:smoke`: abre la URL, aprueba como Juan, pega la URL de vuelta. Debe aparecer un pago de 40 COP en la Tienda.
-4. Levanta un túnel (`cloudflared tunnel --url http://localhost:5173` o ngrok) y pon `PUBLIC_API_URL=<túnel>/api` y `WEB_URL=<túnel>`. El túnel también da HTTPS, que la cámara y el service worker necesitan en los celulares.
-5. `pnpm dev`, abre `/juan` y pulsa **Aprobar en mi billetera**.
+4. Producción corre en Railway ([docs/operacion/despliegue.md](docs/operacion/despliegue.md)). Para probar celulares en local, un túnel (`cloudflared tunnel --url http://localhost:5173`) con `PUBLIC_API_URL=<túnel>/api` y `WEB_URL=<túnel>` (la cámara y el service worker necesitan HTTPS).
+5. Entra como `juan@paygent.dev` en `/cuenta` y firma el mandato en tu billetera.
 
 ## SMS real con tu celular (`pnpm sms:bridge`)
 
@@ -97,10 +99,16 @@ Sin Twilio: un Android conectado por USB hace de gateway SMS. El puente lee la b
 - Estado en **Postgres** (`DATABASE_URL`; en Railway, el servicio Postgres). Sin `DATABASE_URL` se usa PGlite en `src/api/.data/pglite` (borrarlo = empezar de cero). El esquema está en `src/api/src/store/migrations.ts`. El reset no borra el grant de Juan (`root_grants`) ni la llave del gateway (`gateway_keys`), para no invalidar los certificados de los celulares.
 - Cuentas de demo (contraseña `paygent123`): `juan@paygent.dev` (delega), `maria@paygent.dev` (recibe la delegación), `tendero@paygent.dev` (cobra). Doña Carmen no tiene correo: entra por SMS. Login: `POST /auth/login`.
 
+## Titulares y beneficiarios
+
+- Cualquier titular se registra en `/registrarse` con su wallet: queda con **su propio mandato raíz** y firma su grant desde `/cuenta`.
+- Para dar de alta a un beneficiario, el titular pulsa **Delegar** (nombre, tope por periodo, PIN y tope sin señal) y recibe un código. El beneficiario lo escribe en `/enlazar` y crea su cuenta.
+- Cada titular ve solo su árbol y su feed. Detalle en [docs/api/modelo-de-datos.md](docs/api/modelo-de-datos.md).
+
 ## Decisiones pendientes del equipo
 
 - **Sesión:** `POST /auth/login` valida la cuenta, pero todavía no emite token; los endpoints del panel siguen abiertos.
 
 ## Endpoints
 
-Ver [docs/backlog.md §2](docs/backlog.md). Además de los del contrato, existen: `GET /mandates/:id` (con `remaining`), `GET /merchants`, `GET /merchants/:id/orders`, `GET|PUT /delivery-address/:rootId` (solo Juan; un agente recibe 403), `PUT /merchants/:id/payout` (solo el tendero), `GET /gateway/public-key`, `GET /payments/:id`, `GET /sms/profile`, `POST /mandates/:id/unfreeze`, `POST /guardian/review`, `GET /feed`, `GET /vouchers`, `GET /demo/status`. En agents: `POST /guardian/score`, `POST /assistant/reset`.
+Ver [docs/api/endpoints.md](docs/api/endpoints.md).

@@ -17,11 +17,12 @@ Vite + React 19 + TypeScript estricto · Tailwind CSS v4 (design tokens) · Reac
 ## Comandos
 
 ```bash
-npm run dev          # servidor de desarrollo (http://localhost:5173)
-npm run validate     # tipos + lint + formato + tests  ← debe pasar antes de dar algo por terminado
-npm run lint:fix     # autocorrige lint (ESLint con caché) + formato (Prettier)
-npx eslint --fix --cache --cache-location node_modules/.cache/eslint/ <archivos>  # lint rápido solo de lo tocado
-npm run build        # build de producción
+# Siempre pnpm (nunca npm: rompe pnpm-lock.yaml y el deploy). Tests con Node 22 (`fnm use`).
+pnpm --filter @paygent/web dev        # servidor de desarrollo (http://localhost:5173)
+pnpm --filter @paygent/web validate   # tipos + lint + formato + tests  ← debe pasar antes de dar algo por terminado
+pnpm --filter @paygent/web lint:fix   # autocorrige lint + formato
+pnpm --filter @paygent/web exec eslint --fix --cache --cache-location node_modules/.cache/eslint/ <archivos>
+pnpm --filter @paygent/web build      # build de producción
 ```
 
 ## Estructura

@@ -34,7 +34,7 @@ Ficheros: `client.ts`, `grants.ts`, `settle.ts`, `routes.ts` y el script `src/ap
 ### 5. Documentación
 
 * `AI_USAGE.md`: estructura y redacción con Claude Code, a partir de la plantilla de la organización del hackatón. Revisado y completado por el equipo.
-* [COMPLETAR: `README.md`, `docs/backlog.md`, `docs/context.md`: con qué herramienta y cuánto se editó a mano].
+* [COMPLETAR: `README.md`, `docs/producto/backlog.md`, `docs/producto/context.md`, `docs/api/`, `docs/operacion/`, `docs/open-payments/test-wallet.md`: con qué herramienta y cuánto se editó a mano].
 
 ## IA dentro del producto (no como herramienta de desarrollo)
 

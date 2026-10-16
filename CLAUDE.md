@@ -8,8 +8,8 @@ and people, devices and AI agents spend inside signed **sub-mandates** carved fr
 no signal (signed offline vouchers), or from a feature phone (SMS + PIN, talking to an agent).
 
 The pitch is always **one mandate → people and agents spending inside it → at any connectivity
-level**, never "several features". Read **`docs/context.md`** (the why and the demo script) and
-**`docs/backlog.md`** (contracts, endpoints, task IDs) before changing behaviour.
+level**, never "several features". Read **`docs/producto/context.md`** (the why and the demo script) and
+**`docs/api/endpoints.md`** (the api contract) before changing behaviour.
 
 **Stack:** TypeScript (Node ≥ 22, Fastify, `@interledger/open-payments`) · React + Vite PWA ·
 Python ≥ 3.11 (FastAPI, Anthropic SDK, uv) · pnpm workspaces. LangGraph is under consideration for
@@ -42,12 +42,14 @@ pnpm e2e                          # full demo script against running services (r
 pnpm reset                        # POST /demo/reset
 
 cd src/agents && uv run pytest -q # agents only
+npx --yes pnpm@11.18.0 <cmd>      # if pnpm is not installed globally (or `corepack enable`)
+MOCK_OP=1 pnpm --filter @openroute/api test   # api tests on in-memory PGlite, even with a real .env
 ```
 
 ## Architecture rules
 
-- **The root currency is Juan's wallet currency** (COP for the hackathon; USD supported). Every
-  mandate and payment in the tree uses it. Write amounts in pesos and convert with
+- **Each tree's currency is its payer's wallet currency** (COP for the hackathon; USD supported;
+  stored in `payers`). Every mandate and payment in that tree uses it. Write amounts in pesos and convert with
   `amount.fromCop` / `pesos()` (agents: `from_cop`); never hardcode an asset code.
 - **The 5 agent rules are invariants, not prompts.** An agent is a leaf of the tree and never spends
   beyond its sub-mandate; permissions only narrow down the tree (monotonicity); above the threshold
@@ -65,6 +67,17 @@ cd src/agents && uv run pytest -q # agents only
 - **New logic ships with a test** (TDD), and a bugfix ships a regression test that fails before
   the fix.
 
+## Gotchas (learned the hard way)
+
+- **Lockfile only with pnpm** — `npm install` in `src/web` breaks Railway's `--frozen-lockfile`. See `docs/operacion/despliegue.md`.
+- **Schema changes = new migration**; bump `SEED_VERSION` when the seed changes. See `docs/api/modelo-de-datos.md`.
+- **`db.ts` and `emit()` are async** — always `await` them.
+- **Open Payments:** token expires as 403 `Inactive Token`; `create` ≠ money arrived; incoming payments must be
+  completed. See `docs/open-payments/test-wallet.md` before touching `op/`.
+- **Multi-payer:** one root per payer (`root_<userId>`, demo `root`); pass `rootMandateId` / `?root=`.
+- **Agents auth:** one `AGENT_SERVICE_KEY` (`x-api-key`) + `x-agent-id`; agents are rows.
+- **Verify prod without creating data** (validation paths, reads). A push during the demo restarts the api.
+
 ## Code Style
 
 TypeScript: strict `tsc`. Python: type hints, Pydantic v2. Modular, loosely coupled components;
@@ -78,13 +91,14 @@ inside the code, all comments must be short one-liners and extensive documentati
 
 | Path | What it is |
 |---|---|
-| `src/api/` | Fastify API: Open Payments client (`op/`), Mandate Gateway + `/pay` (`gateway/`), offline vouchers (`vouchers/`), SMS webhook (`sms/`), SSE feed (`feed/`), demo seed (`demo/`) |
-| `src/web/` | React PWA: `/juan`, `/maria`, `/tendero`, `/celular` (simulated phone), `/demo` |
+| `src/api/` | Fastify API: Open Payments (`op/`), gateway + `/pay` (`gateway/`), Postgres (`store/`, `db.ts`), accounts (`auth/`), app chat (`chat/`), vouchers (`vouchers/`), SMS (`sms/`, `sms-bridge/`), SSE feed (`feed/`), demo seed (`demo/`) |
+| `src/web/` | React PWA: `/cuenta` (payer), `/billetera` (beneficiary), `/enlazar` (link with code), `/tendero`, `/celular` (simulated phone); `/juan` and `/maria` redirect |
 | `src/shared/` | Shared TS types, amounts, intervals, ed25519 voucher crypto |
 | `src/agents/` | FastAPI service: `assistant/`, `inventory/`, `intent/`, `guardian/`, `common/` |
-| `docs/context.md` | The idea, demo flow and judge Q&A |
-| `docs/backlog.md` | Contracts, endpoints and tasks by ID |
-| `docs/openpayments-guide.md` | Open Payments primer |
+| `docs/producto/` | `context.md` (idea, demo, judge Q&A) · `backlog.md` (original plan and task IDs, no longer tracked) |
+| `docs/api/` | `endpoints.md` (api + agents contract) · `modelo-de-datos.md` (Postgres schema, payers, seed rules) |
+| `docs/operacion/despliegue.md` | Railway services, variables, watch paths, verifying prod |
+| `docs/open-payments/` | `test-wallet.md` (verified behaviour and gotchas) · `openpayments-guide.md` (primer; 845 KB with embedded images — avoid reading it whole) |
 | `AI_USAGE.md`, `prompts/` | Hackathon AI-usage declaration and prompt log |
 
 One `.env` at the repo root feeds api, web (Vite proxy) and agents. API state lives in Postgres
