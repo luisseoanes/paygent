@@ -100,6 +100,7 @@ interface FeedEvent {
 | `POST /pay` ✅ | LU (autorización) + BE (settle) | `{ mandateId, merchantWallet, amount, category, pin?, pendingId?, reason }` + firma del actor | `AuthDecision & { paymentId? }` |
 | `POST /vouchers/settle` ✅ | LU | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason? }[] }` |
 | `POST /sms/inbound` ✅ | BE | webhook Twilio (`From`, `Body`) o mock | TwiML / `{ reply }` → **Hecho con el celular simulado (`/celular`); Twilio descartado** |
+| `GET/PUT/DELETE /mandates/:id/sms` ✅ | LU | header `x-user-id` (titular de la raíz); PUT `{ phone, pin }` (PIN de 4 números, no obvio) | `{ active, phone? (enmascarado), mandateId? }` → **El titular activa el SMS de una rama persona/celular: hoja "Asistente de …" con el cupo libre, PIN en cada compra y perfil del número (E.164)** |
 | `POST /asistente/chat` ✅ | BE | `{ mensajes: { rol, texto }[], contexto: { mandato } }` | `{ texto }` → **Chat de María con su Asistente (AG-07)** |
 | `GET /feed/stream` ✅ | BE | SSE | `FeedEvent` en vivo |
 | `POST /demo/reset` ✅ | LU | — | restaura las semillas |
