@@ -66,7 +66,14 @@ export default defineConfig({
   },
   // 5173 es el WEB_URL al que src/api redirige tras firmar el mandato.
   server: { host: true, port: 5173, proxy, allowedHosts: true },
-  preview: { host: true, port: 4173, proxy, allowedHosts: true },
+  // Producción (Railway) sirve el build con `vite preview` en el PORT de la plataforma.
+  preview: {
+    host: true,
+    port: Number(process.env.PORT) || 4173,
+    strictPort: true,
+    proxy,
+    allowedHosts: true,
+  },
   test: {
     globals: true,
     environment: 'jsdom',

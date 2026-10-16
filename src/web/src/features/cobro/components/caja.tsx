@@ -1,15 +1,17 @@
 import { amount as A } from '@openroute/shared';
-import { RefreshCw, ScanLine } from 'lucide-react';
+import { MessageSquare, RefreshCw, ScanLine } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { useNotifications } from '@/components/ui/notifications';
+import { env } from '@/config/env';
 import { cn } from '@/utils/cn';
 import { formatCop, formatDate, formatTime } from '@/utils/format';
 
 import { cobrarVales } from '../api/cobrar-vales';
 import { type ValeRecibido, useCobroStore } from '../stores/cobro-store';
+import { enlaceCobroSms } from '../utils/cobro-sms';
 import { estadoVale } from '../utils/estado';
 import { motivoLegible } from '../utils/verificar';
 
@@ -41,6 +43,10 @@ const DetalleVale = ({
 }) => {
   const addNotification = useNotifications((s) => s.addNotification);
   const [reenviando, setReenviando] = React.useState(false);
+  const cobroSms =
+    vale.status === 'pending'
+      ? enlaceCobroSms(env.SMS_GATEWAY_NUMBER, vale.voucher)
+      : undefined;
 
   // OFF-08: demo de doble cobro. El gateway lo rechaza y el Guardián lo
   // anota en la libreta de Juan; aquí el vale original no cambia.
@@ -95,6 +101,19 @@ const DetalleVale = ({
           </div>
         ))}
       </dl>
+      {cobroSms && (
+        <div className="space-y-2">
+          <Button asChild variant="outline" className="w-full rounded-full">
+            <a href={cobroSms}>
+              <MessageSquare aria-hidden="true" />
+              Cobrar por SMS
+            </a>
+          </Button>
+          <p className="text-xs text-ink-2">
+            Sin datos pero con señal: el vale viaja en un mensaje de texto.
+          </p>
+        </div>
+      )}
       {(vale.status === 'settled' || vale.status === 'flagged') && (
         <div className="space-y-2 rounded-2xl border-2 border-dashed border-anulado/40 p-4">
           <p className="text-sm text-grafito">
