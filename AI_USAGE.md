@@ -9,24 +9,24 @@
 
 ## Dónde y cómo usamos la IA
 
-### 1. Backend – Flujo de Open Payments (`apps/api/src/op/`)
+### 1. Backend – Flujo de Open Payments (`src/api/src/op/`)
 
-Ficheros: `client.ts`, `grants.ts`, `settle.ts`, `routes.ts` y el script `apps/api/scripts/op-smoke.ts`.
+Ficheros: `client.ts`, `grants.ts`, `settle.ts`, `routes.ts` y el script `src/api/scripts/op-smoke.ts`.
 
 * [COMPLETAR: herramienta] para [COMPLETAR: qué generó, p. ej. el andamiaje del grant interactivo, el incoming payment, el quote y el outgoing payment].
 * [COMPLETAR: qué revisamos o reescribimos a mano y por qué]. Cada llamada al SDK se comprobó contra `@interledger/open-payments` 7.4.0 y se probó con `pnpm op:smoke` contra el Test Wallet (`MOCK_OP=0`).
 
-### 2. Backend – Mandate Gateway y vales offline (`apps/api/src/gateway/`, `apps/api/src/vouchers/`, `packages/shared/`)
+### 2. Backend – Mandate Gateway y vales offline (`src/api/src/gateway/`, `src/api/src/vouchers/`, `src/shared/`)
 
 * [COMPLETAR: herramienta] para [COMPLETAR: p. ej. la verificación de límites de los sub-mandatos, la firma ed25519 de vales y sus tests].
 * [COMPLETAR: qué se revisó o reescribió a mano].
 
-### 3. Agentes (`agents/`)
+### 3. Agentes (`src/agents/`)
 
-* [COMPLETAR: herramienta] para [COMPLETAR: p. ej. el servicio FastAPI, el Asistente con *tool use*, el Inventario, el Guardián, el compilador de intención y los tests de `agents/tests/`].
+* [COMPLETAR: herramienta] para [COMPLETAR: p. ej. el servicio FastAPI, el Asistente con *tool use*, el Inventario, el Guardián, el compilador de intención y los tests de `src/agents/tests/`].
 * [COMPLETAR: qué se revisó o reescribió a mano].
 
-### 4. Frontend – PWA (`apps/web/src/`)
+### 4. Frontend – PWA (`src/web/src/`)
 
 * [COMPLETAR: herramienta] para [COMPLETAR: p. ej. las vistas `/juan`, `/maria`, `/tendero`, `/celular` y `/demo`, y los componentes].
 * [COMPLETAR: qué se ajustó a mano].
@@ -40,8 +40,8 @@ Ficheros: `client.ts`, `grants.ts`, `settle.ts`, `routes.ts` y el script `apps/a
 
 Paygent llama a la API de Claude en tiempo de ejecución. Esto es parte de la solución, no código generado:
 
-* `agents/assistant/llm.py`: el Agente Asistente usa Claude con *tool use* para entender el SMS y proponer la compra. Todas sus acciones pasan por `/pay`, que aplica el sub-mandato y el PIN.
-* `agents/intent/compiler.py`: convierte la intención de Juan en texto libre en el árbol de mandatos que él aprueba.
+* `src/agents/assistant/llm.py`: el Agente Asistente usa Claude con *tool use* para entender el SMS y proponer la compra. Todas sus acciones pasan por `/pay`, que aplica el sub-mandato y el PIN.
+* `src/agents/intent/compiler.py`: convierte la intención de Juan en texto libre en el árbol de mandatos que él aprueba.
 * Si no hay `ANTHROPIC_API_KEY` o el modelo falla, ambos usan reglas deterministas (`MOCK_LLM=1`).
 
 ## Lo que hicimos nosotros

@@ -1,4 +1,4 @@
-"""Cliente HTTP hacia apps/api (AG-01). El agente se autentica con su API key."""
+"""Cliente HTTP hacia src/api (AG-01). El agente se autentica con su API key."""
 
 import httpx
 

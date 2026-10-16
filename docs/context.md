@@ -150,10 +150,10 @@ Un punto Puntored "vende efectivo": retirar es una compra más en la categoría 
 ## 7. Arquitectura
 
 ```
-apps/web     (React + Vite, PWA)   → /juan  /maria  /tendero  /celular (simulado)
-apps/api     (Node + TypeScript)   → Open Payments SDK, Mandate Gateway, /pay, vales, SMS webhook
-agents/      (Python + FastAPI)    → Asistente (Claude tool use), Inventario, Guardián, Intención
-packages/shared (TypeScript)       → tipos, verificación ed25519 de vales (la usan web y api)
+src/web/     (React + Vite, PWA)   → /juan  /maria  /tendero  /celular (simulado)
+src/api/     (Node + TypeScript)   → Open Payments SDK, Mandate Gateway, /pay, vales, SMS webhook
+src/agents/  (Python + FastAPI)    → Asistente (Claude tool use), Inventario, Guardián, Intención
+src/shared/  (TypeScript)          → tipos, verificación ed25519 de vales (la usan web y api)
 ```
 
 La especificación de entidades, endpoints y tareas está en [backlog.md](backlog.md).

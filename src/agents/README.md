@@ -1,4 +1,4 @@
-# agents/
+# src/agents/
 
 Servicio FastAPI con los cuatro agentes. `uv run python main.py` (o `pnpm dev` desde la raíz). Docs interactivas en `/docs`.
 

@@ -8,10 +8,10 @@ Documento de ejecución de [context.md](context.md). Cada tarea tiene responsabl
 
 | Código | Persona | Rol principal | Es dueño de |
 |---|---|---|---|
-| **BE** | Backend | Integración Open Payments | `apps/api` → módulo `op/`, `/pay` a nivel de dinero, SMS, feed |
-| **LU** | Luis (DS + backend) | Mandate Gateway + Guardián | `apps/api` → módulo `gateway/`, `packages/shared` (criptografía), reglas de riesgo |
-| **DS** | Data science | Agentes de IA + datos | `agents/` (Python): Asistente, Inventario, Intención; cifras del pitch |
-| **FE** | Frontend | PWAs y panel | `apps/web`: `/juan`, `/maria`, `/tendero`, `/demo` |
+| **BE** | Backend | Integración Open Payments | `src/api` → módulo `op/`, `/pay` a nivel de dinero, SMS, feed |
+| **LU** | Luis (DS + backend) | Mandate Gateway + Guardián | `src/api` → módulo `gateway/`, `src/shared` (criptografía), reglas de riesgo |
+| **DS** | Data science | Agentes de IA + datos | `src/agents/` (Python): Asistente, Inventario, Intención; cifras del pitch |
+| **FE** | Frontend | PWAs y panel | `src/web`: `/juan`, `/maria`, `/tendero`, `/demo` |
 
 **Prioridades:**
 - **P0:** sin esto no hay demo.
@@ -43,7 +43,7 @@ Documento de ejecución de [context.md](context.md). Cada tarea tiene responsabl
 
 ## 2. Contratos (congelar en H1)
 
-### 2.1 Tipos compartidos (`packages/shared/src/types.ts`)
+### 2.1 Tipos compartidos (`src/shared/src/types.ts`)
 
 ```ts
 type Amount = { value: string; assetCode: string; assetScale: number }
@@ -83,7 +83,7 @@ interface FeedEvent {
 }
 ```
 
-### 2.2 Endpoints de `apps/api` (Node, puerto 3001)
+### 2.2 Endpoints de `src/api` (Node, puerto 3001)
 
 | Método y ruta | Dueño | Entrada | Salida |
 |---|---|---|---|
@@ -101,7 +101,7 @@ interface FeedEvent {
 | `GET /feed/stream` | BE | SSE | `FeedEvent` en vivo |
 | `POST /demo/reset` | LU | — | restaura las semillas |
 
-### 2.3 Endpoints de `agents/` (Python FastAPI, puerto 8000)
+### 2.3 Endpoints de `src/agents/` (Python FastAPI, puerto 8000)
 
 | Método y ruta | Dueño | Entrada | Salida |
 |---|---|---|---|
@@ -114,12 +114,12 @@ interface FeedEvent {
 
 ```
 paygent/
-├── apps/api/          (TypeScript: Fastify + @interledger/open-payments + better-sqlite3)
+├── src/api/          (TypeScript: Fastify + @interledger/open-payments + better-sqlite3)
 │   └── src/{op,gateway,vouchers,sms,feed,demo}/
-├── apps/web/          (React + Vite + vite-plugin-pwa + Tailwind)
+├── src/web/          (React + Vite + vite-plugin-pwa + Tailwind)
 │   └── src/routes/{juan,maria,tendero,celular,demo}/
-├── packages/shared/   (tipos + tweetnacl: firmar/verificar vales y certificados)
-├── agents/            (Python: FastAPI + anthropic + rapidfuzz + pydantic)
+├── src/shared/       (tipos + tweetnacl: firmar/verificar vales y certificados)
+├── src/agents/       (Python: FastAPI + anthropic + rapidfuzz + pydantic)
 │   └── {assistant,inventory,intent,guardian}/
 ├── bruno/             (colección de pruebas de Open Payments)
 └── .env.example
@@ -178,7 +178,7 @@ paygent/
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
-| OFF-01 | `packages/shared`: formato de vale, canonicalización, `signVoucher`/`verifyVoucher`, `verifyDeviceCert` (tweetnacl) | LU | P0 | 2h | PRE-04 | Test vectors compartidos pasan igual en el navegador y en Node |
+| OFF-01 | `src/shared`: formato de vale, canonicalización, `signVoucher`/`verifyVoucher`, `verifyDeviceCert` (tweetnacl) | LU | P0 | 2h | PRE-04 | Test vectors compartidos pasan igual en el navegador y en Node |
 | OFF-02 | `POST /mandates/:id/device-key`: recibe la llave pública y devuelve un certificado con `offlineCap` y la llave pública del gateway | LU | P0 | 1h | OFF-01, GW-02 | El certificado se verifica offline en la PWA del tendero |
 | OFF-03 | `POST /vouchers/settle`: firma + certificado + contador único + acumulado consistente + mandato vigente en `createdAt` → Guardián → `settle` de cada vale | LU | P0 | 2.5h | OFF-01, GW-05, GRD-01 | Lote de 3 vales: 2 liquidados y 1 rechazado por replay, con su razón |
 | OFF-04 | PWA María: generar el par de llaves, guardarlo en IndexedDB, firmar el vale sin conexión y mostrarlo como QR | FE | P0 | 3h | OFF-01, OFF-02 | En modo avión se genera un QR válido |
@@ -191,13 +191,13 @@ paygent/
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
-| AG-01 | Esqueleto FastAPI + cliente HTTP hacia `apps/api` (con la firma o API key del agente) | DS | P0 | 1.5h | PRE-04 | `agents` llama a `/pay` de forma autenticada |
+| AG-01 | Esqueleto FastAPI + cliente HTTP hacia `src/api` (con la firma o API key del agente) | DS | P0 | 1.5h | PRE-04 | `agents` llama a `/pay` de forma autenticada |
 | AG-02 | Asistente con Claude *tool use*: `buscar_producto`, `proponer_compra`, `consultar_saldo`, `generar_codigo_retiro`; memoria de sesión por teléfono; español simple; respuestas ≤ 160 caracteres | DS | P0 | 4h | AG-01, INV-02 | "necesito la pastilla de la presión" → propuesta con comercio, precio y distancia |
 | AG-03 | Flujo de PIN: la compra propuesta pide PIN → el siguiente mensaje con el PIN confirma vía `/pay` con `pendingId` | DS | P0 | 1h | AG-02, GW-06 | PIN correcto → pago real + SMS con el código de retiro |
 | AG-04 | Guardarraíles: ningún pago fuera de las herramientas; validación de montos; respuesta a "no entendí"; **alternativa determinista** si el LLM falla o tarda más de 8 s | DS | P0 | 1.5h | AG-02 | Con `MOCK_LLM=1` la demo sigue funcionando con reglas |
 | AG-05 | Respuesta inmediata "Buscando…" + respuesta final asíncrona | DS + BE | P1 | 1h | SMS-01 | El usuario recibe un acuse en menos de 2 s |
 | AG-06 | Set de evaluación: 25 mensajes reales (errores ortográficos, "la pasta de la presión", "cuánto me queda", montos en pesos) con su resultado esperado; reportar la tasa de acierto | DS | P1 | 1.5h | AG-02 | ≥ 90% de acierto; la cifra se usa en el pitch |
-| SMS-01 | `POST /sms/inbound`: Twilio → `agents/assistant/message` → respuesta. Con `MOCK_SMS=1` usa la vista del celular simulado | BE | P0 | 1.5h | AG-01 | Un SMS real o simulado llega al agente y vuelve |
+| SMS-01 | `POST /sms/inbound`: Twilio → `src/agents/assistant/message` → respuesta. Con `MOCK_SMS=1` usa la vista del celular simulado | BE | P0 | 1.5h | AG-01 | Un SMS real o simulado llega al agente y vuelve |
 | SMS-02 | Vista `/celular`: UI de celular de teclas (pantalla pequeña, fuente monoespaciada) que usa el mismo endpoint. Es la alternativa si falla Twilio y la vista para el proyector | BE | P0 | 1.5h | SMS-01 | Conversación completa visible en el proyector |
 
 ### ÉPICO INV — Agente de Inventario (DS · BE)
