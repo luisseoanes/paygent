@@ -7,13 +7,12 @@ import { GatewayDecide } from '@/features/marketing/components/gateway-decide';
 import { HeroPaisaje } from '@/features/marketing/components/hero-paisaje';
 import { Problema } from '@/features/marketing/components/problema';
 import { QueEs } from '@/features/marketing/components/que-es';
-import { QueEsReal } from '@/features/marketing/components/que-es-real';
 import { SinSenal } from '@/features/marketing/components/sin-senal';
 
 // Portada con la estructura de Cofounder (Mobbin). Cada sección responde una
 // pregunta del jurado, en orden: qué es → por qué hace falta → cómo funciona
 // el mandato → cómo paga quien no tiene señal → por qué los agentes no se
-// descontrolan → qué es real. El hero recibe el celular (feature celular).
+// descontrolan. El hero recibe el celular (feature celular).
 // Los id son las anclas del menú (landingSections en src/config/paths.ts).
 const LandingRoute = () => {
   return (
@@ -43,11 +42,6 @@ const LandingRoute = () => {
       <div id="agentes" className="scroll-mt-16">
         <Revelar desde="derecha">
           <GatewayDecide />
-        </Revelar>
-      </div>
-      <div id="que-es-real" className="scroll-mt-16">
-        <Revelar desde="izquierda">
-          <QueEsReal />
         </Revelar>
       </div>
       <Revelar desde="escala">

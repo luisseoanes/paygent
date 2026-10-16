@@ -99,7 +99,7 @@ export const SiteHeader = ({ actions, menuActions }: SiteHeaderProps) => {
           'flex h-16 items-center justify-between gap-4',
           // En iniciar sesión el logo va casi al borde, en su nube
           // Sobre el paisaje el logo va casi al borde izquierdo
-          sobreImagen && 'max-w-none px-3 sm:px-4 lg:px-5',
+          sobreImagen && 'max-w-none! px-3 sm:px-4 lg:px-5',
           enLogin && 'h-20',
         )}
       >
