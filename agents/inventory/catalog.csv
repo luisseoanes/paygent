@@ -1,0 +1,42 @@
+merchant_id,product,synonyms,category,price_cop,stock
+farmacia-san-jose,Losartán 50 mg x30,pastilla de la presion|pasta de la presion|presion alta|tension|losartan|pastillas presion,farmacia,12000,8
+drogueria-esperanza,Losartán 50 mg x30,pastilla de la presion|pasta de la presion|presion alta|tension|losartan|pastillas presion,farmacia,11500,2
+drogas-popular,Losartán 50 mg x30,pastilla de la presion|pasta de la presion|presion alta|tension|losartan|pastillas presion,farmacia,10900,0
+farmacia-san-jose,Metformina 850 mg x30,pastilla del azucar|azucar|diabetes|metformina,farmacia,9000,5
+drogueria-esperanza,Metformina 850 mg x30,pastilla del azucar|azucar|diabetes|metformina,farmacia,9500,6
+farmacia-san-jose,Acetaminofén 500 mg x10,dolor de cabeza|fiebre|dolor|acetaminofen|paracetamol|dolex,farmacia,3000,20
+drogueria-esperanza,Acetaminofén 500 mg x10,dolor de cabeza|fiebre|dolor|acetaminofen|paracetamol|dolex,farmacia,2800,15
+drogas-popular,Acetaminofén 500 mg x10,dolor de cabeza|fiebre|dolor|acetaminofen|paracetamol|dolex,farmacia,2500,30
+farmacia-san-jose,Ibuprofeno 400 mg x10,inflamacion|dolor de rodilla|dolor muscular|ibuprofeno|advil,farmacia,4500,10
+drogas-popular,Ibuprofeno 400 mg x10,inflamacion|dolor de rodilla|dolor muscular|ibuprofeno|advil,farmacia,4200,12
+farmacia-san-jose,Omeprazol 20 mg x14,gastritis|acidez|ardor de estomago|omeprazol,farmacia,6000,7
+drogueria-esperanza,Omeprazol 20 mg x14,gastritis|acidez|ardor de estomago|omeprazol,farmacia,5800,3
+farmacia-san-jose,Atorvastatina 20 mg x30,colesterol|grasa en la sangre|atorvastatina,farmacia,15000,4
+drogas-popular,Atorvastatina 20 mg x30,colesterol|grasa en la sangre|atorvastatina,farmacia,14000,2
+farmacia-san-jose,Loratadina 10 mg x10,alergia|rinitis|estornudos|loratadina,farmacia,3500,9
+drogueria-esperanza,Suero oral x1,suero|deshidratacion|diarrea|suero oral,farmacia,4000,10
+farmacia-san-jose,Insulina glargina (pluma),insulina|inyeccion del azucar,farmacia,85000,1
+tienda-dona-rosa,Arroz 1 kg,arroz,mercado,4500,30
+minimercado-paisa,Arroz 1 kg,arroz,mercado,4300,20
+tienda-dona-rosa,Panela 500 g,panela|dulce,mercado,3000,25
+minimercado-paisa,Panela 500 g,panela|dulce,mercado,2900,15
+tienda-dona-rosa,Huevos x12,huevos|docena de huevos,mercado,9000,10
+minimercado-paisa,Huevos x12,huevos|docena de huevos,mercado,8800,12
+tienda-dona-rosa,Leche 1 L,leche,mercado,4200,18
+minimercado-paisa,Leche 1 L,leche,mercado,4000,10
+tienda-dona-rosa,Aceite 1 L,aceite,mercado,11000,8
+minimercado-paisa,Aceite 1 L,aceite,mercado,10500,6
+tienda-dona-rosa,Fríjol 500 g,frijol|frijoles|frisoles,mercado,6000,12
+minimercado-paisa,Fríjol 500 g,frijol|frijoles|frisoles,mercado,5800,9
+tienda-dona-rosa,Café 250 g,cafe|tinto,mercado,8000,10
+minimercado-paisa,Café 250 g,cafe|tinto,mercado,7600,7
+tienda-dona-rosa,Pan tajado,pan,mercado,5500,6
+tienda-dona-rosa,Jabón de barra,jabon|jabon de ropa,mercado,2500,20
+minimercado-paisa,Papel higiénico x4,papel|papel higienico|papel de bano,mercado,7000,14
+tienda-dona-rosa,Azúcar 1 kg,azucar blanca|azucar de mesa,mercado,4800,15
+minimercado-paisa,Sal 500 g,sal,mercado,1500,20
+tienda-dona-rosa,Chocolate de mesa 250 g,chocolate,mercado,6500,8
+minimercado-paisa,Atún en lata,atun|lata de atun,mercado,5500,10
+puntored-centro,Retiro de efectivo $50.000,efectivo|plata|retirar|retiro|sacar plata|50 mil|cincuenta mil,efectivo,50000,99
+puntored-centro,Retiro de efectivo $100.000,efectivo|plata|retirar|retiro|sacar plata|100 mil|cien mil,efectivo,100000,99
+puntored-centro,Retiro de efectivo $20.000,efectivo|plata|retirar|retiro|sacar plata|20 mil|veinte mil,efectivo,20000,99

@@ -1,0 +1,119 @@
+"""Las únicas acciones que puede hacer el Asistente. Las usan tanto el LLM como las reglas de respaldo.
+
+Guardarraíl (AG-04): ningún pago ocurre fuera de estas funciones, y todas pasan por /pay del gateway,
+que aplica topes, categorías y PIN. El modelo propone; el gateway decide.
+"""
+
+import random
+
+from common.api_client import api
+from common.config import WALLET_INVENTARIO
+from common.money import cop_to_usd, fmt_cop, usd, usd_to_cop
+from inventory.router import PRICE_PER_QUERY_USD, QueryIn, query
+
+from .session import Session
+
+
+async def buscar_producto(s: Session, consulta: str) -> dict:
+    """Paga $0.01 al Agente de Inventario (agente → agente) y consulta quién tiene el producto."""
+    pay = await api.pay(
+        mandateId=s.profile["dataMandateId"], merchantWallet=WALLET_INVENTARIO, amount=usd(PRICE_PER_QUERY_USD),
+        category="datos", reason=f"Consulta de inventario: \"{consulta[:40]}\"",
+    )
+    if pay.get("result") != "allow":
+        return {"error": f"No pude pagar la consulta: {pay.get('detail') or pay.get('reason')}"}
+    result = await query(QueryIn(query=consulta, location=s.profile.get("location"), paymentId=pay["paymentId"]))
+    s.options = result["options"]
+    return {"opciones": [
+        {"indice": i, "comercio": o["merchant"], "producto": o["product"], "precio": fmt_cop(o["priceCOP"]),
+         "distancia_m": o["distanceM"]}
+        for i, o in enumerate(s.options)
+    ]}
+
+
+def _pickup_code() -> str:
+    return f"{random.randint(1000, 9999)}"
+
+
+async def proponer_compra(s: Session, indice: int = 0) -> dict:
+    """Intenta pagar la opción elegida. Si supera el umbral, el gateway responde needs_pin."""
+    if not s.options or not (0 <= indice < len(s.options)):
+        return {"error": "Primero hay que buscar el producto"}
+    o = s.options[indice]
+    pay = await api.pay(
+        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=cop_to_usd(o["priceCOP"]),
+        category=o["category"], reason=f"{o['product']} en {o['merchant']} para {s.profile['name']}",
+    )
+    if pay["result"] == "needs_pin":
+        s.pending = {"pendingId": pay["pendingId"], "option": o}
+        return {"estado": "necesita_pin", "comercio": o["merchant"], "producto": o["product"], "precio": fmt_cop(o["priceCOP"])}
+    if pay["result"] == "allow":
+        return {"estado": "pagado", "codigo_retiro": _pickup_code(), "comercio": o["merchant"], "producto": o["product"]}
+    return {"estado": "rechazado", "motivo": pay.get("detail") or pay.get("reason")}
+
+
+async def confirmar_pin(s: Session, pin: str) -> dict:
+    """Determinista: el PIN NUNCA pasa por el LLM."""
+    if not s.pending:
+        return {"estado": "sin_pendiente"}
+    p = s.pending
+    o = p["option"]
+    pay = await api.pay(
+        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=cop_to_usd(o["priceCOP"]),
+        category=o["category"], reason=o["product"], pendingId=p["pendingId"], pin=pin,
+    )
+    if pay["result"] == "allow":
+        s.pending = None
+        return {"estado": "pagado", "codigo_retiro": _pickup_code(), "comercio": o["merchant"], "producto": o["product"]}
+    if pay.get("reason") != "bad_pin" or "3/3" in (pay.get("detail") or ""):
+        s.pending = None
+    return {"estado": "rechazado", "motivo": pay.get("detail") or pay.get("reason")}
+
+
+async def consultar_saldo(s: Session) -> dict:
+    m = await api.mandate(s.profile["mandateId"])
+    return {"disponible": fmt_cop(usd_to_cop(m["remaining"])), "estado": "revocado" if m["revoked"] else "activo"}
+
+
+TOOL_SCHEMAS = [
+    {
+        "name": "buscar_producto",
+        "description": "Busca qué tienda cercana tiene un producto (medicamento, mercado o efectivo) y a qué precio. "
+                       "Cuesta $0.01 por consulta. Úsala cuando la persona pida algo para comprar.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"consulta": {"type": "string", "description": "Lo que pidió la persona, en sus palabras"}},
+            "required": ["consulta"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
+        "name": "proponer_compra",
+        "description": "Inicia el pago de una de las opciones de la última búsqueda. Si requiere PIN, "
+                       "la persona debe responder con su PIN de 4 dígitos.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"indice": {"type": "integer", "description": "Índice de la opción (0 = la mejor)"}},
+            "required": ["indice"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
+        "name": "consultar_saldo",
+        "description": "Consulta cuánto le queda disponible a la persona en este periodo.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "strict": True,
+    },
+]
+
+
+async def run_tool(s: Session, name: str, args: dict) -> dict:
+    if name == "buscar_producto":
+        return await buscar_producto(s, str(args.get("consulta", "")))
+    if name == "proponer_compra":
+        return await proponer_compra(s, int(args.get("indice", 0)))
+    if name == "consultar_saldo":
+        return await consultar_saldo(s)
+    return {"error": f"Herramienta desconocida: {name}"}

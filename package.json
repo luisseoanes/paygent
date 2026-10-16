@@ -1,0 +1,20 @@
+{
+  "name": "openroute",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "setup": "pnpm install && cd agents && uv sync",
+    "dev": "concurrently -k -n api,web,agents -c blue,magenta,green \"pnpm --filter @openroute/api dev\" \"pnpm --filter @openroute/web dev\" \"pnpm dev:agents\"",
+    "dev:api": "pnpm --filter @openroute/api dev",
+    "dev:web": "pnpm --filter @openroute/web dev",
+    "dev:agents": "cd agents && uv run python main.py",
+    "test": "pnpm -r test && cd agents && uv run pytest -q",
+    "typecheck": "pnpm -r typecheck",
+    "reset": "curl -s -X POST http://localhost:3001/demo/reset",
+    "op:smoke": "pnpm --filter @openroute/api op:smoke",
+    "e2e": "pnpm --filter @openroute/api e2e"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
