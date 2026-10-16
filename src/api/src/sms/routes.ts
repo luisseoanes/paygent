@@ -1,6 +1,11 @@
+import { isVoucherSms } from '@openroute/shared'
 import type { FastifyInstance } from 'fastify'
+import { getProfile } from '../db.ts'
 import { env } from '../env.ts'
 import { smsReply } from './dispatch.ts'
+import { logSender } from './sender.ts'
+import smsGateRoutes from './smsgate-routes.ts'
+import { loadSmsGateConfig, smsGateSender } from './smsgate.ts'
 import telnyxRoutes from './telnyx-routes.ts'
 import { loadTelnyxConfig, selectSmsSender } from './telnyx.ts'
 
@@ -15,7 +20,7 @@ const twiml = (msg: string) =>
 
 /**
  * SMS-01: TwiML (form-urlencoded), el celular simulado o el puente adb (JSON) → despacho → respuesta.
- * Con SMS_PROVIDER=telnyx además existe POST /sms/telnyx (webhook firmado, respuesta asíncrona).
+ * Con SMS_PROVIDER=telnyx o smsgate además existe su webhook firmado con respuesta asíncrona.
  */
 export default async function smsRoutes(app: FastifyInstance) {
   app.post<{ Body: { From?: string; Body?: string } }>('/sms/inbound', async (req, reply) => {
@@ -31,6 +36,17 @@ export default async function smsRoutes(app: FastifyInstance) {
       publicKey: cfg.publicKey,
       sender: selectSmsSender({ mock: env.MOCK_SMS, cfg }),
       reply: (phone, text) => smsReply(phone, text, ASYNC_REPLY_TIMEOUT_MS),
+    })
+  }
+
+  if (env.SMS_PROVIDER === 'smsgate') {
+    const cfg = loadSmsGateConfig(process.env)
+    await app.register(smsGateRoutes, {
+      signingKey: cfg.signingKey,
+      sender: env.MOCK_SMS ? logSender() : smsGateSender(cfg),
+      reply: (phone, text) => smsReply(phone, text, ASYNC_REPLY_TIMEOUT_MS),
+      // Solo celulares con canal SMS o vales de un tendero; el resto del SMS personal se ignora.
+      accept: async (from, text) => isVoucherSms(text) || Boolean(await getProfile(from)),
     })
   }
 }
