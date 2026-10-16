@@ -7,9 +7,23 @@ import { rotateRootToken } from './grants.ts'
 
 export interface SettleInput {
   merchantWallet: string
-  /** Monto a debitar de la wallet de Juan (moneda de Juan) */
+  /** Monto a debitar de la wallet de Juan (moneda de Juan). Con `price`, es solo el estimado. */
   amount: Amount
+  /**
+   * Precio que cobra el comercio en SU moneda. Si coincide con la moneda de su wallet, el comercio recibe
+   * exactamente eso y Open Payments cotiza cuánto le cuesta a Juan con el cambio real.
+   */
+  price?: Amount
+  /** Se llama con el débito real cotizado ANTES de mover el dinero; si lanza, no se paga. */
+  confirmDebit?: (debit: Amount) => void
   metadata?: Record<string, string>
+}
+
+/** 12.000 COP con escala 0 → misma cifra en la escala de la wallet del comercio (el Test Wallet usa 2). */
+const rescale = (a: Amount, assetScale: number): Amount => {
+  const diff = assetScale - a.assetScale
+  const value = diff >= 0 ? BigInt(a.value) * 10n ** BigInt(diff) : BigInt(a.value) / 10n ** BigInt(-diff)
+  return { value: value.toString(), assetCode: a.assetCode, assetScale }
 }
 
 export interface SettleResult {
@@ -105,7 +119,8 @@ export const waitForPayment = async (
 export const settle = async (input: SettleInput, retried = false): Promise<SettleResult> => {
   if (env.MOCK_OP) {
     await new Promise((r) => setTimeout(r, 250))
-    return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.amount }
+    input.confirmDebit?.(input.amount) // en mock el débito real es el estimado
+    return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.price ?? input.amount }
   }
   const root = db.rootGrant
   if (!root) throw new SettleError('Juan todavía no aprobó el mandato raíz en su billetera')
@@ -114,15 +129,29 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
   try {
     const [sender, receiver] = await Promise.all([getWallet(root.walletAddress), getWallet(input.merchantWallet)])
 
+    // Compra con precio en la moneda del comercio: se fija lo que RECIBE (12.000 COP) y Open Payments cotiza
+    // el débito real en la moneda de Juan. Sin precio (o en otra moneda), se fija lo que se debita.
+    const price = input.price?.assetCode === receiver.assetCode ? rescale(input.price, receiver.assetScale) : undefined
+    const incomingToken = await nonInteractiveToken(receiver.authServer, 'incoming-payment')
     const incoming = await client.incomingPayment.create(
-      { url: receiver.resourceServer, accessToken: await nonInteractiveToken(receiver.authServer, 'incoming-payment') },
-      { walletAddress: receiver.id, metadata: input.metadata },
+      { url: receiver.resourceServer, accessToken: incomingToken },
+      { walletAddress: receiver.id, metadata: input.metadata, ...(price ? { incomingAmount: price } : {}) },
     )
 
     const quote = await client.quote.create(
       { url: sender.resourceServer, accessToken: await nonInteractiveToken(sender.authServer, 'quote') },
-      { walletAddress: sender.id, receiver: incoming.id, method: 'ilp', debitAmount: input.amount },
+      price
+        ? { walletAddress: sender.id, receiver: incoming.id, method: 'ilp' }
+        : { walletAddress: sender.id, receiver: incoming.id, method: 'ilp', debitAmount: input.amount },
     )
+
+    try {
+      input.confirmDebit?.(quote.debitAmount)
+    } catch (err) {
+      // No se paga: el cobro no debe quedar abierto en el comercio.
+      await client.incomingPayment.complete({ url: incoming.id, accessToken: incomingToken }).catch(() => {})
+      throw err
+    }
 
     const outgoing = await client.outgoingPayment.create(
       { url: sender.resourceServer, accessToken: root.accessToken },
@@ -131,7 +160,6 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
 
     // OP-06: crear el outgoing no significa que el dinero llegó. Esperamos al comercio y cerramos su
     // incoming payment: el Test Wallet solo abona el saldo cuando el incoming se completa (o caduca, a los 30 días).
-    const incomingToken = await nonInteractiveToken(receiver.authServer, 'incoming-payment')
     const check = async () => {
       const [out, inc] = await Promise.all([
         client.outgoingPayment.get({ url: outgoing.id, accessToken: db.rootGrant?.accessToken ?? root.accessToken }).catch(() => null),
@@ -155,6 +183,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
 
     return { outgoingPaymentId: outgoing.id, debitAmount: quote.debitAmount, receiveAmount: quote.receiveAmount }
   } catch (err) {
+    if (err instanceof SettleError) throw err
     if (!retried && isExpiredToken(err)) {
       await rotateRootToken()
       return settle(input, true)

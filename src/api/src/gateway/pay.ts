@@ -18,6 +18,8 @@ import { checkPin } from './pin.ts'
 
 const PENDING_TTL_MS = 10 * 60_000
 const MAX_PIN_ATTEMPTS = 3
+/** Cuánto puede alejarse el débito real (cambio de Open Payments) del estimado con la tasa de referencia. */
+const MAX_FX_DRIFT = 0.1
 
 const merchantName = (wallet: string) =>
   Object.values(db.merchants).find((m) => m.wallet === wallet)?.name ?? wallet
@@ -49,6 +51,7 @@ export const executePayment = async (input: {
   reason: string
   kind?: 'payment' | 'voucher_settled'
   delivery?: Delivery
+  price?: Amount
 }): Promise<Payment> => {
   const mandate = getMandate(input.mandateId)
   const payment: Payment = {
@@ -61,6 +64,7 @@ export const executePayment = async (input: {
     status: 'pending',
     createdAt: new Date().toISOString(),
     delivery: input.delivery,
+    price: input.price,
   }
   db.payments[payment.id] = payment
   save()
@@ -74,16 +78,31 @@ export const executePayment = async (input: {
     const result = await settle({
       merchantWallet: destination,
       amount: input.amount,
+      price: input.price,
+      // Con precio en pesos, el débito real lo fija Open Payments: se vuelve a autorizar con él antes de pagar.
+      confirmDebit: (debit) => {
+        if (debit.assetCode !== input.amount.assetCode)
+          throw new SettleError(`La cotización vino en ${debit.assetCode} y el mandato está en ${input.amount.assetCode}`)
+        // Margen: 10 % del estimado, y al menos 5 unidades mínimas para montos de centavos (redondeo de la cotización).
+        const estimate = Number(input.amount.value)
+        if (Math.abs(Number(debit.value) - estimate) > Math.max(estimate * MAX_FX_DRIFT, 5))
+          throw new SettleError('El precio en la moneda de Juan cambió más de 10 % frente al estimado; vuelve a cotizar')
+        // El PIN ya se decidió con el estimado; aquí se vuelven a validar topes, categoría y vigencia.
+        const decision = authorize({ mandateId: input.mandateId, amount: debit, category: input.category, pinOk: true })
+        if (decision.result === 'deny') throw new SettleError(decision.detail ?? decision.reason)
+      },
       metadata: { openroute: payment.id, mandate: mandate.id, description: input.reason.slice(0, 100), ...metadata },
     })
     payment.status = 'completed'
     payment.outgoingPaymentId = result.outgoingPaymentId
-    applySpend(input.mandateId, input.amount)
+    payment.amount = result.debitAmount // lo que de verdad se le debitó a Juan
+    payment.receiveAmount = result.receiveAmount
+    applySpend(input.mandateId, result.debitAmount)
     emit({
       mandateId: mandate.id,
       actor,
       kind: input.kind ?? (isAgentWallet(input.merchantWallet) ? 'agent_to_agent' : 'payment'),
-      amount: input.amount,
+      amount: result.debitAmount,
       merchant,
       reason: input.reason,
       delivery: input.delivery,
@@ -102,7 +121,7 @@ export const executePayment = async (input: {
 
 /** GW-05 + GW-06: autoriza → (PIN) → liquida. */
 export const pay = async (req: PayRequest): Promise<PayResponse> => {
-  let { mandateId, merchantWallet, amount, category, reason } = req
+  let { mandateId, merchantWallet, amount, category, reason, price } = req
   let deliveryReq = req.delivery
   let pinOk = false
 
@@ -117,7 +136,7 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
       save()
       return { result: 'deny', reason: 'bad_pin', detail: `PIN incorrecto (${pending.attempts}/${MAX_PIN_ATTEMPTS})` }
     }
-    ;({ merchantWallet, amount, category, reason } = pending)
+    ;({ merchantWallet, amount, category, reason, price } = pending)
     deliveryReq = pending.delivery
     delete db.pendings[pending.id]
     pinOk = true
@@ -156,6 +175,7 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
       category,
       reason,
       delivery: deliveryReq,
+      price,
       attempts: 0,
       expiresAt: new Date(Date.now() + PENDING_TTL_MS).toISOString(),
     }
@@ -164,7 +184,7 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
   }
 
   try {
-    const payment = await executePayment({ mandateId, merchantWallet, amount, category, reason, delivery })
+    const payment = await executePayment({ mandateId, merchantWallet, amount, category, reason, delivery, price })
     return { result: 'allow', paymentId: payment.id }
   } catch (err) {
     return { result: 'deny', reason: 'payment_failed', detail: String((err as Error).message) }

@@ -8,12 +8,19 @@ import { pesos } from '../op/asset.ts'
 // GW-01 / DEMO-01: estado inicial de la demo (el árbol de la sección 3.1 del documento del proyecto).
 // Montos en pesos; pesos() los pasa a la moneda de la wallet de Juan.
 
+/**
+ * Súbela cada vez que cambie la semilla (topes, umbral de PIN, comercios, direcciones…). Al desplegar, una base
+ * guardada con otra versión se vuelve a sembrar conservando el grant de Juan; si no, el volumen de Railway
+ * conserva la semilla vieja para siempre (así se quedó el umbral de PIN en $2).
+ */
+export const SEED_VERSION = '2026-10-16.pin10-cop-entrega-puntored'
+
 export const PHONE_MAMA = '+573001112233'
 export const PIN_DEMO = '1234'
 
 export const seed = ({ keepGrant = true } = {}) => {
   const previousGrant = keepGrant ? db.rootGrant : null
-  const fresh: DB = { ...emptyDb(), rootGrant: previousGrant }
+  const fresh: DB = { ...emptyDb(), rootGrant: previousGrant, seedVersion: SEED_VERSION }
   replaceDb(fresh)
 
   const now = new Date()

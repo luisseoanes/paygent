@@ -8,7 +8,7 @@ import random
 
 from common.api_client import api
 from common.config import WALLET_INVENTARIO
-from common.money import fmt_cop, from_cop, to_cop
+from common.money import COP, fmt_cop, from_cop, of, to_cop
 from inventory import web
 from inventory.router import PRICE_PER_QUERY_COP, QueryIn, query
 
@@ -30,7 +30,7 @@ async def buscar_producto(s: Session, consulta: str) -> dict:
     """Paga 40 COP (≈ $0.01) al Agente de Inventario (agente → agente) y consulta quién tiene el producto."""
     pay = await api.pay(
         mandateId=s.profile["dataMandateId"], merchantWallet=WALLET_INVENTARIO,
-        amount=from_cop(PRICE_PER_QUERY_COP, await api.root_asset()),
+        amount=from_cop(PRICE_PER_QUERY_COP, await api.root_asset()), price=of(COP, PRICE_PER_QUERY_COP),
         category="datos", reason=f"Consulta de inventario: \"{consulta[:40]}\"",
     )
     if pay.get("result") != "allow":
@@ -87,7 +87,9 @@ async def proponer_compra(s: Session, indice: int = 0, entrega: str = PICKUP) ->
         delivery["fee"] = from_cop(fee, await api.root_asset())
     where = f"con envío a casa de {recipient(s)}" if entrega == DELIVERY else "para recoger"
     pay = await api.pay(
+        # price: el comercio recibe exactamente sus pesos; amount es el estimado en la moneda de Juan
         mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(total, await api.root_asset()),
+        price=of(COP, total),
         category=o["category"], reason=f"{o['product']} en {o['merchant']} para {s.profile['name']}, {where}",
         delivery=delivery,
     )

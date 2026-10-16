@@ -58,6 +58,7 @@ export interface Pending {
   category: Category
   reason: string
   delivery?: DeliveryRequest
+  price?: Amount
   attempts: number
   expiresAt: string
 }
@@ -105,6 +106,8 @@ export interface DB {
   feed: FeedEvent[]
   rootGrant: RootGrant | null
   pendingGrant: PendingGrant | null
+  /** Versión de la semilla con la que se armó esta base (ver SEED_VERSION en demo/seed.ts) */
+  seedVersion?: string
 }
 
 const FILE = join(env.DATA_DIR, 'db.json')

@@ -87,6 +87,12 @@ export interface PayRequest {
   pin?: string
   pendingId?: string
   delivery?: DeliveryRequest
+  /**
+   * Lo que cobra el comercio, en su moneda (p. ej. 12.000 COP). Si viene, el comercio recibe exactamente eso
+   * y a Juan se le debita lo que cueste con el cambio real del momento (no con la tasa de referencia).
+   * `amount` queda como estimado en la moneda de Juan para autorizar.
+   */
+  price?: Amount
 }
 
 /** Dirección de entrega que registra quien aprueba el mandato raíz (Juan, el Gobierno…). */
@@ -152,6 +158,10 @@ export interface Payment {
   createdAt: string
   delivery?: Delivery
   payout?: Payout
+  /** Lo que cobró el comercio, en su moneda (si la compra lo fijó) */
+  price?: Amount
+  /** Lo que de verdad recibió el comercio según Open Payments */
+  receiveAmount?: Amount
 }
 
 export type VoucherSettleStatus = 'settled' | 'rejected' | 'flagged'
