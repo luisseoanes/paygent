@@ -54,6 +54,12 @@ export const prewarm = async (merchantWallets: string[]) => {
   )
 }
 
+// El token del grant raíz caduca a los pocos minutos (expires_in). Vencido, el Test Wallet responde
+// 403 "Inactive Token", no 401; en ambos casos se rota con access_token.manage y se reintenta.
+export const isExpiredToken = (err: unknown) =>
+  err instanceof OpenPaymentsClientError &&
+  (err.status === 401 || (err.status === 403 && /inactive token/i.test(err.description ?? '')))
+
 // ─── OP-08: errores de Open Payments → razones legibles ───
 export const explainOpError = (err: unknown): string => {
   if (err instanceof OpenPaymentsClientError) {
@@ -100,7 +106,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
 
     return { outgoingPaymentId: outgoing.id, debitAmount: quote.debitAmount, receiveAmount: quote.receiveAmount }
   } catch (err) {
-    if (!retried && err instanceof OpenPaymentsClientError && err.status === 401) {
+    if (!retried && isExpiredToken(err)) {
       await rotateRootToken()
       return settle(input, true)
     }
