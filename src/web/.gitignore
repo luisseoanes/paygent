@@ -1,0 +1,22 @@
+# dependencies
+node_modules
+
+# builds
+dist
+dist-ssr
+coverage
+*.local
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# editor
+.DS_Store
+.idea
+*.swp

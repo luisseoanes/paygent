@@ -4,9 +4,9 @@
   "packageManager": "pnpm@11.18.0",
   "scripts": {
     "setup": "pnpm install && cd src/agents && uv sync",
-    "dev": "concurrently -k -n api,web,agents -c blue,magenta,green \"pnpm --filter @openroute/api dev\" \"pnpm --filter @openroute/web dev\" \"pnpm dev:agents\"",
+    "dev": "concurrently -k -n api,web,agents -c blue,magenta,green \"pnpm --filter @openroute/api dev\" \"pnpm --filter @paygent/web dev\" \"pnpm dev:agents\"",
     "dev:api": "pnpm --filter @openroute/api dev",
-    "dev:web": "pnpm --filter @openroute/web dev",
+    "dev:web": "pnpm --filter @paygent/web dev",
     "dev:agents": "cd src/agents && uv run python main.py",
     "test": "pnpm -r test && cd src/agents && uv run pytest -q",
     "typecheck": "pnpm -r typecheck",

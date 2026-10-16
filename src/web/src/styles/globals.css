@@ -1,0 +1,228 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/fraunces/full.css';
+@import '@fontsource-variable/fraunces/full-italic.css';
+@import '@fontsource-variable/public-sans';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+@import '@fontsource/vt323';
+@import '@fontsource-variable/geist';
+@import '@fontsource/pixelify-sans/400.css';
+@import '@fontsource/pixelify-sans/500.css';
+@import './theme.css';
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth;
+    font-size: var(--font-size-base);
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'tnum' 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-balance;
+  }
+
+  /* Foco: anillo de 3px firma con offset 2px (BRAND.md §12) */
+  :focus-visible {
+    outline: 3px solid var(--firma);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--firma-tint);
+    color: var(--ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Montos, folios e IDs: siempre mono tabular */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Montos en pantallas de app: Geist con cifras tabulares. */
+  .cifra {
+    font-family: var(--font-geist);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Etiqueta / folio: Plex Mono MAYÚS 12px +0.08em */
+  .folio {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* Textura de papel: ruido al 3% (desactivada en pantallas pequeñas) */
+  .textura-papel {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.11 0 0 0 0 0.13 0 0 0 0 0.19 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+  }
+  @media (max-width: 767px) {
+    .textura-papel {
+      background-image: none;
+    }
+  }
+
+  /* Perforación: puntos de 4px cada 10px en el borde indicado */
+  .perforacion-top {
+    mask: radial-gradient(circle 2px at 5px 0, #0000 98%, #000) 0 0 / 10px 100%
+      repeat-x;
+  }
+  .perforacion-left {
+    mask: radial-gradient(circle 2px at 0 5px, #0000 98%, #000) 0 0 / 100% 10px
+      repeat-y;
+  }
+
+  /* Renglones de libreta (28px) */
+  .renglones {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0 27px,
+      var(--rule) 27px 28px
+    );
+  }
+
+  /* Barrido de resaltador */
+  .resaltado {
+    background: linear-gradient(var(--resaltador), var(--resaltador)) no-repeat
+      0 0 / 0% 100%;
+    animation: barrido-resaltador 4.6s var(--ease-salida) forwards;
+  }
+  @keyframes barrido-resaltador {
+    0% {
+      background-size: 0% 100%;
+    }
+    13% {
+      background-size: 100% 100%;
+      opacity: 1;
+    }
+    85% {
+      background-size: 100% 100%;
+    }
+    100% {
+      background-size: 100% 100%;
+      background-color: transparent;
+      background-image: none;
+    }
+  }
+
+  /* Vibración del celular: 6 × 40ms, ±2px */
+  .vibrar {
+    animation: vibrar 240ms linear;
+  }
+  @keyframes vibrar {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    16%,
+    50%,
+    83% {
+      transform: translateX(-2px);
+    }
+    33%,
+    66% {
+      transform: translateX(2px);
+    }
+  }
+
+  /* Pulso "en vivo" */
+  .pulso {
+    animation: pulso 1.6s ease-in-out infinite;
+  }
+  @keyframes pulso {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+}
+
+/* Perforación decorativa (columna de puntos, sin recortar sombras) */
+@utility perforado-y {
+  background-image: radial-gradient(
+    circle,
+    var(--rule-strong) 1.5px,
+    transparent 2px
+  );
+  background-size: 4px 10px;
+}
+@utility perforado-x {
+  background-image: radial-gradient(
+    circle,
+    var(--rule-strong) 1.5px,
+    transparent 2px
+  );
+  background-size: 10px 4px;
+}
+
+/* Escenario en proyector: ningún texto por debajo de ~16px a 1920 */
+@media (min-width: 1600px) {
+  html.modo-escenario {
+    font-size: 118.75%;
+  }
+}
+
+/* Imágenes pixel art: escalar sin suavizado */
+@utility pixelado {
+  image-rendering: pixelated;
+}
+
+/* Paneo lento del paisaje del hero */
+@keyframes paneo {
+  0% {
+    transform: scale(1.08) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.14) translate3d(-1.5%, -1%, 0);
+  }
+}
+@utility animate-paneo {
+  animation: paneo 28s ease-in-out infinite alternate;
+}
+
+/* Nubes de píxeles que cruzan despacio */
+@keyframes nube {
+  from {
+    transform: translateX(-20vw);
+  }
+  to {
+    transform: translateX(120vw);
+  }
+}
+@utility animate-nube {
+  animation: nube 90s linear infinite;
+}
