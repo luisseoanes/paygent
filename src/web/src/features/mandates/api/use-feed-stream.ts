@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { env } from '@/config/env';
+import { currentRootMandateId } from '@/lib/auth';
 import { type FeedEvent } from '@/types/api';
 
 // GET /feed/stream (SSE) — la libreta en vivo. Cada mensaje es un FeedEvent
@@ -23,7 +24,11 @@ export const useFeedStream = ({
   React.useEffect(() => {
     if (!enabled || typeof EventSource === 'undefined') return;
 
-    const source = new EventSource(`${env.API_URL}/feed/stream`);
+    // Cada titular ve solo los eventos de su árbol.
+    const root = currentRootMandateId();
+    const source = new EventSource(
+      `${env.API_URL}/feed/stream${root ? `?root=${encodeURIComponent(root)}` : ''}`,
+    );
     source.onopen = () => setStatus('open');
     source.onerror = () =>
       setStatus(

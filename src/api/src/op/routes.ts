@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { amount as A, monthly, type Amount } from '@openroute/shared'
 import { getActiveGrant, payerOfRoot } from '../db.ts'
 import { env } from '../env.ts'
@@ -8,48 +8,57 @@ import { getMandate, putMandate, ROOT_ID } from '../gateway/mandates.ts'
 import { getWallet } from './client.ts'
 import { continueRootGrant, requestRootGrant } from './grants.ts'
 
+type CallbackQuery = { interact_ref?: string; hash?: string; result?: string }
+
 export default async function opRoutes(app: FastifyInstance) {
   // OP-01
-  app.get('/health/op', async () => {
-    const rootGrant = !!(await getActiveGrant(ROOT_ID))
+  app.get<{ Querystring: { root?: string } }>('/health/op', async (req) => {
+    const rootId = req.query.root ?? ROOT_ID
+    const rootGrant = !!(await getActiveGrant(rootId))
     if (env.MOCK_OP) return { mock: true, rootGrant }
-    const payer = await payerOfRoot(ROOT_ID)
+    const payer = await payerOfRoot(rootId)
     return { mock: false, rootGrant, juan: payer ? await getWallet(payer.walletAddress) : null }
   })
 
-  // OP-02
-  app.post<{ Body: { walletAddress?: string; maxDebit?: Amount; interval?: string } }>('/mandates/root', async (req) => {
-    const body = req.body ?? {}
-    // La wallet es la de quien delega (tabla payers); el cuerpo puede indicarla, pero no hace falta.
-    const walletAddress = body.walletAddress ?? (await payerOfRoot(ROOT_ID))?.walletAddress
-    if (!walletAddress) throw badRequest('No hay una wallet registrada para quien delega')
-    return requestRootGrant({
-      walletAddress,
-      maxDebit: body.maxDebit ?? (await getMandate(ROOT_ID)).maxDebit,
-      interval: body.interval ?? monthly(),
-    })
-  })
+  // OP-02: el grant del titular dueño de esa raíz (por defecto, la de la demo).
+  app.post<{ Body: { rootMandateId?: string; walletAddress?: string; maxDebit?: Amount; interval?: string } }>(
+    '/mandates/root',
+    async (req) => {
+      const body = req.body ?? {}
+      const rootId = body.rootMandateId ?? ROOT_ID
+      const root = await getMandate(rootId)
+      if (root.parentId) throw badRequest('Ese mandato no es una raíz')
+      // La wallet es la de quien delega (tabla payers); el cuerpo puede indicarla, pero no hace falta.
+      const walletAddress = body.walletAddress ?? (await payerOfRoot(rootId))?.walletAddress
+      if (!walletAddress) throw badRequest('No hay una wallet registrada para quien delega')
+      return requestRootGrant({ rootId, walletAddress, maxDebit: body.maxDebit ?? root.maxDebit, interval: body.interval ?? monthly() })
+    },
+  )
 
-  // OP-03
-  app.get<{ Querystring: { interact_ref?: string; hash?: string; result?: string } }>('/callback', async (req, reply) => {
+  // OP-03: la billetera vuelve aquí. /callback es la raíz de la demo; /callback/:rootId, la de cada titular.
+  const callback = async (rootId: string, req: FastifyRequest<{ Querystring: CallbackQuery }>, reply: FastifyReply) => {
     const { interact_ref, hash, result } = req.query
     if (result === 'grant_rejected' || !interact_ref || !hash) return reply.redirect(`${env.WEB_URL}/juan?ok=0`)
     try {
-      const pending = await continueRootGrant(interact_ref, hash)
-      // El mandato raíz refleja exactamente lo que Juan aprobó en su billetera.
-      const root = await getMandate(ROOT_ID)
+      const pending = await continueRootGrant(interact_ref, hash, rootId)
+      // El mandato raíz refleja exactamente lo que el titular aprobó en su billetera.
+      const root = await getMandate(rootId)
       await putMandate({ ...root, maxDebit: pending.maxDebit, interval: pending.interval, revoked: false, frozen: false })
       await emit({
-        mandateId: ROOT_ID,
-        actor: { type: 'person', name: 'Juan' },
+        mandateId: rootId,
+        actor: { type: 'person', name: root.holderName },
         kind: 'grant',
         amount: pending.maxDebit,
-        reason: `Juan aprobó el mandato raíz en su billetera: máx. ${A.format(pending.maxDebit)} por periodo`,
+        reason: `${root.holderName} aprobó el mandato raíz en su billetera: máx. ${A.format(pending.maxDebit)} por periodo`,
       })
       return reply.redirect(`${env.WEB_URL}/juan?ok=1`)
     } catch (err) {
       req.log.error(err)
       return reply.redirect(`${env.WEB_URL}/juan?ok=0&error=${encodeURIComponent(String(err))}`)
     }
-  })
+  }
+  app.get<{ Querystring: CallbackQuery }>('/callback', (req, reply) => callback(ROOT_ID, req, reply))
+  app.get<{ Params: { rootId: string }; Querystring: CallbackQuery }>('/callback/:rootId', (req, reply) =>
+    callback(req.params.rootId, req, reply),
+  )
 }

@@ -73,6 +73,7 @@ export const executePayment = async (input: {
   pinOk?: boolean
 }): Promise<Payment> => {
   const mandate = await getMandate(input.mandateId)
+  const rootId = (await chainOf(input.mandateId)).at(-1)!.id
   const actor = { type: mandate.holderType, name: mandate.holderName }
   const merchant = await merchantName(input.merchantWallet)
   // Con wallet: directo al comercio. Sin wallet: a Puntored, que le acredita al tendero.
@@ -94,6 +95,7 @@ export const executePayment = async (input: {
 
   try {
     const result = await settle({
+      rootId,
       merchantWallet: destination,
       amount: input.amount,
       price: input.price,

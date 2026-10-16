@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import * as z from 'zod';
 
 import { api } from '@/lib/api-client';
+import { currentRootMandateId } from '@/lib/auth';
 import { type MutationConfig } from '@/lib/react-query';
 import { type Amount } from '@/types/api';
 
@@ -54,7 +55,12 @@ export const toRootMandateBody = (
 
 export const createRootMandate = (
   data: CreateRootMandateBody,
-): Promise<{ redirectUrl: string }> => api.post('/mandates/root', data);
+): Promise<{ redirectUrl: string }> =>
+  // El grant es de la raíz del titular con sesión (cada titular firma el suyo).
+  api.post('/mandates/root', {
+    ...data,
+    rootMandateId: currentRootMandateId() ?? undefined,
+  });
 
 type UseCreateRootMandateOptions = {
   mutationConfig?: MutationConfig<typeof createRootMandate>;

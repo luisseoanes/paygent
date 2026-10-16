@@ -87,7 +87,10 @@ test('a new titular registers with their wallet and can sign in again', async ()
     expect(router.state.location.pathname).toBe(paths.cuenta.path),
   );
   // La contraseña no queda en claro en el navegador.
-  expect(localStorage.getItem('paygent-cuentas')).not.toContain('clave-segura');
+  // La cuenta vive en la api: en el navegador no queda la contraseña.
+  expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain(
+    'clave-segura',
+  );
 
   // Otra visita (sin sesión): entra con lo que registró.
   cleanup();

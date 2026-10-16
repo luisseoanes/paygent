@@ -4,12 +4,14 @@ import { apiUrl, networkDelay } from '../utils';
 
 // One handlers file per feature: handlers/<feature>.ts exporting <feature>Handlers.
 import { asistenteHandlers } from './asistente';
+import { authHandlers } from './auth';
 import { celularHandlers } from './celular';
 import { mandatesHandlers } from './mandates';
 import { offlineHandlers } from './offline';
 // HANDLERS:IMPORT
 
 export const handlers = [
+  ...authHandlers,
   ...celularHandlers,
   ...mandatesHandlers,
   ...offlineHandlers,

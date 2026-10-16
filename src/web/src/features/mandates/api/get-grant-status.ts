@@ -1,6 +1,7 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
+import { currentRootMandateId } from '@/lib/auth';
 import { type QueryConfig } from '@/lib/react-query';
 import { type Amount } from '@/types/api';
 
@@ -18,8 +19,11 @@ export type GrantStatus = {
   asset?: Asset;
 };
 
-export const getGrantStatus = (): Promise<GrantStatus> =>
-  api.get('/demo/status');
+// Con sesión de titular, el estado de SU raíz (?root=); sin sesión, el de la demo.
+export const getGrantStatus = (): Promise<GrantStatus> => {
+  const root = currentRootMandateId();
+  return api.get('/demo/status', { params: root ? { root } : undefined });
+};
 
 // Bajo ['mandates'] para que revocar, firmar o un evento del feed lo refresquen.
 export const getGrantStatusQueryOptions = () =>

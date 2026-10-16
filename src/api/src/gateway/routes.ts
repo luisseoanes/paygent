@@ -126,7 +126,7 @@ export default async function gatewayRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>('/mandates/:id/revoke', async (req) => {
     const m = await getMandate(req.params.id)
-    if (m.id === ROOT_ID) await revokeRootGrant()
+    if (!m.parentId) await revokeRootGrant(m.id)
     const revoked = await revoke(m.id)
     await emit({
       mandateId: m.id,

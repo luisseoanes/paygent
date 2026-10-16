@@ -1,0 +1,112 @@
+import { describe, expect, it } from 'vitest'
+import { amount as A } from '@openroute/shared'
+import { buildApp } from '../src/app.ts'
+import { getActiveGrant } from '../src/db.ts'
+import { seed } from '../src/demo/seed.ts'
+import { DEMO_WALLETS } from '../src/demo/wallets.ts'
+import { getMandate } from '../src/gateway/mandates.ts'
+
+// Cuantos titulares se quiera, cada uno con su raíz, su grant, su feed y sus beneficiarios.
+const app = await buildApp({ logger: false })
+await seed({ keepGrant: false })
+const service = { 'x-api-key': 'dev-agents-key', 'x-agent-id': 'asistente' }
+
+const post = (url: string, payload: object, headers = {}) => app.inject({ method: 'POST', url, payload, headers })
+const titular = (n: number) =>
+  post('/auth/register/titular', {
+    documento: `9000000${n}`,
+    nombre: `Titular${n}`,
+    apellido: 'Prueba',
+    email: `titular${n}@correo.co`,
+    telefono: `+5730000000${n}`,
+    password: 'clave-segura',
+    walletAddress: `$ilp.interledger-test.dev/titular-${n}`,
+  })
+
+const ana = (await titular(1)).json()
+const beto = (await titular(2)).json()
+
+describe('Alta de titulares', () => {
+  it('cada titular tiene su cuenta, su wallet y SU mandato raíz', async () => {
+    expect(ana).toMatchObject({ role: 'titular', name: 'Titular1', walletAddress: 'https://ilp.interledger-test.dev/titular-1' })
+    expect(ana.rootMandateId).not.toBe(beto.rootMandateId)
+    expect(ana.rootMandateId).not.toBe('root')
+    const root = await getMandate(ana.rootMandateId)
+    expect(root).toMatchObject({ parentId: null, holderType: 'person', holderName: 'Titular1' })
+    expect((await post('/auth/login', { email: 'TITULAR1@correo.co', password: 'clave-segura' })).json().rootMandateId).toBe(ana.rootMandateId)
+  })
+
+  it('correo, documento, celular o wallet repetidos → 409', async () => {
+    expect((await titular(1)).statusCode).toBe(409)
+    const otraWallet = await post('/auth/register/titular', {
+      documento: '1', nombre: 'X', apellido: 'Y', email: 'x@correo.co', telefono: '+571', password: 'clave-segura',
+      walletAddress: 'https://ilp.interledger-test.dev/titular-1',
+    })
+    expect(otraWallet.statusCode).toBe(409)
+  })
+})
+
+describe('Beneficiarios de cada titular', () => {
+  it('se enlazan con el código de la rama que les dio su titular', async () => {
+    const rama = (
+      await post(`/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'hija-ana', holderName: 'Hija de Ana', maxDebit: A.cop(100_000) })
+    ).json()
+    const res = await post('/auth/register/beneficiario', {
+      documento: '80000001', nombre: 'Hija de Ana', email: 'hija@correo.co', telefono: '+573110000001', password: 'clave-segura', mandateId: rama.id,
+    })
+    expect(res.statusCode).toBe(201)
+    expect(res.json()).toMatchObject({ role: 'beneficiario', mandateId: rama.id, rootMandateId: null })
+
+    const otraVez = await post('/auth/register/beneficiario', {
+      documento: '80000002', nombre: 'Otra', email: 'otra@correo.co', telefono: '+573110000002', password: 'clave-segura', mandateId: rama.id,
+    })
+    expect(otraVez.statusCode).toBe(409)
+    const sinRama = await post('/auth/register/beneficiario', {
+      documento: '80000003', nombre: 'Otra', email: 'otra3@correo.co', telefono: '+573110000003', password: 'clave-segura', mandateId: 'no-existe',
+    })
+    expect(sinRama.statusCode).toBe(400)
+  })
+})
+
+describe('Grant, pagos y feed por titular', () => {
+  it('cada titular firma su propio grant; el de los demás no cambia', async () => {
+    const { redirectUrl } = (await post('/mandates/root', { rootMandateId: ana.rootMandateId })).json()
+    expect(redirectUrl).toContain(`/callback/${ana.rootMandateId}`)
+    const back = await app.inject({ method: 'GET', url: new URL(redirectUrl).pathname + new URL(redirectUrl).search })
+    expect(back.headers.location).toMatch(/ok=1/)
+
+    expect(await getActiveGrant(ana.rootMandateId)).not.toBeNull()
+    expect(await getActiveGrant(beto.rootMandateId)).toBeNull()
+    expect((await app.inject({ method: 'GET', url: `/demo/status?root=${ana.rootMandateId}` })).json().rootGrant).toBe(true)
+    expect((await app.inject({ method: 'GET', url: `/demo/status?root=${beto.rootMandateId}` })).json().rootGrant).toBe(false)
+  })
+
+  it('un pago en el árbol de Ana solo gasta del tope de Ana, y solo Ana lo ve en su feed', async () => {
+    const agente = (
+      await post(`/mandates/${ana.rootMandateId}/delegate`, {
+        holderType: 'agent', holderId: 'asistente', holderName: 'Asistente de Ana', maxDebit: A.cop(50_000), categories: ['farmacia'],
+      })
+    ).json()
+    const pay = await post(
+      '/pay',
+      { mandateId: agente.id, merchantWallet: DEMO_WALLETS.farmacia, amount: A.cop(12_000), category: 'farmacia', reason: 'losartán para Ana' },
+      service,
+    )
+    expect(pay.json().result).toBe('allow')
+    expect((await getMandate(ana.rootMandateId)).spentInPeriod).toEqual(A.cop(12_000))
+    expect((await getMandate(beto.rootMandateId)).spentInPeriod).toEqual(A.cop(0))
+    expect((await getMandate('root')).spentInPeriod).toEqual(A.cop(0))
+
+    const feedAna = (await app.inject({ method: 'GET', url: `/feed?root=${ana.rootMandateId}` })).json()
+    const feedBeto = (await app.inject({ method: 'GET', url: `/feed?root=${beto.rootMandateId}` })).json()
+    expect(feedAna.some((e: { reason?: string }) => e.reason === 'losartán para Ana')).toBe(true)
+    expect(feedBeto).toHaveLength(0)
+  })
+
+  it('resetear la demo no borra a los titulares registrados ni su grant', async () => {
+    await post('/demo/reset', { full: true })
+    expect((await post('/auth/login', { email: 'titular1@correo.co', password: 'clave-segura' })).statusCode).toBe(200)
+    expect(await getActiveGrant(ana.rootMandateId)).not.toBeNull()
+    expect((await getMandate(ana.rootMandateId)).spentInPeriod).toEqual(A.cop(12_000))
+  })
+})

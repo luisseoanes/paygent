@@ -210,6 +210,13 @@ const MIGRATIONS: { version: string; sql: string }[] = [
       );
     `,
   },
+  {
+    version: '002_apellido_y_feed_por_raiz',
+    sql: `
+      alter table users add column last_name text;
+      create index feed_events_mandate on feed_events(mandate_id);
+    `,
+  },
 ]
 
 export const migrate = async (sql: Sql) => {
