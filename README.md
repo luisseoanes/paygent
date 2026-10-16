@@ -66,7 +66,7 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 |---|---|---|
 | `MOCK_OP` | `1` (Open Payments simulado) | **`0` siempre.** El dinero es real |
 | `MOCK_LLM` | `1` (reglas deterministas) | `0` si hay `ANTHROPIC_API_KEY`; si el LLM falla o tarda, cae solo a reglas |
-| `MOCK_SMS` | `1` (vista `/celular`) | `1`: Twilio está descartado; el SMS real va por `pnpm sms:bridge` |
+| `MOCK_SMS` | `1` (vista `/celular`; Telnyx solo registra en el log) | `1` con `pnpm sms:bridge`; `0` con un proveedor configurado |
 | `MOCK_INVENTORY_PAYMENT` | `0` (el pago al Inventario se verifica) | `0` |
 
 ## Pasar a Open Payments real (PRE-01, PRE-02, H2)
@@ -84,6 +84,14 @@ Sin Twilio: un Android conectado por USB hace de gateway SMS. El puente lee la b
 1. Activa la depuración USB y comprueba `adb devices`.
 2. En `.env` (o en la línea de comandos): `SMS_BRIDGE_ALLOW` con los números que pueden escribir (el celular es personal: **todo lo demás se ignora sin leer el cuerpo**, y los códigos cortos nunca pasan), `SMS_BRIDGE_ALIAS=<tu número>=+573001112233` para hablar como Doña Carmen, `SMS_BRIDGE_API` (local o `https://paygent.up.railway.app/api`), `ADB_SERIAL` y `SMS_BRIDGE_SUB_ID` (la SIM de SMS: `defaultSmsSubId` en `adb shell dumpsys isub`).
 3. `pnpm sms:bridge`. Solo atiende mensajes que lleguen después de arrancar.
+
+## SMS real por Telnyx (sin celular conectado)
+
+`POST /sms/telnyx` recibe el webhook de Telnyx, verifica la firma ed25519 (`telnyx-signature-ed25519` + `telnyx-timestamp`, ventana de 5 min), responde 200 de inmediato y envía la respuesta por `POST https://api.telnyx.com/v2/messages`. Usa el mismo despacho que `/sms/inbound`: un `VALE …` se liquida en el gateway y lo demás va al Asistente. Los reintentos de Telnyx (mismo id) se atienden una sola vez.
+
+1. Portal de Telnyx: compra un número con SMS y asígnalo a un perfil de mensajería; en el perfil pon el webhook `https://paygent.up.railway.app/api/sms/telnyx` (API v2) y permite el país de destino (CO).
+2. Variables (Railway o `.env`): `SMS_PROVIDER=telnyx`, `MOCK_SMS=0`, `TELNYX_API_KEY`, `TELNYX_PUBLIC_KEY` (Portal → Keys & Credentials → Public Key), `TELNYX_FROM_NUMBER` (E.164) y `TELNYX_MESSAGING_PROFILE_ID`.
+3. Con `MOCK_SMS=1` el webhook funciona igual pero la respuesta solo queda en el log.
 
 **Vales por SMS:** sin datos pero con señal, el tendero toca **Cobrar por SMS** en un vale pendiente (`VITE_APP_SMS_GATEWAY_NUMBER` = número del celular-puente). El vale viaja como `VALE <base64url>` (≈140 caracteres, un solo SMS): el certificado se busca por `certId` y el comercio por una huella de su wallet. `/sms/inbound` lo liquida por el mismo camino que `POST /vouchers/settle` (firma, replay, Guardián) y nunca lo pasa al LLM.
 
