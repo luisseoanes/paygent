@@ -5,7 +5,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+# En local la raíz del repo es parents[3]. En Railway el servicio se construye desde src/agents
+# (/app/common/config.py): ese nivel no existe y las variables llegan del entorno, no de un .env.
+_parents = Path(__file__).resolve().parents
+if len(_parents) > 3:
+    load_dotenv(_parents[3] / ".env")
 
 
 def _flag(name: str, default: bool) -> bool:

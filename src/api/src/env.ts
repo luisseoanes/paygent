@@ -26,6 +26,8 @@ export const env = {
   OP_CLIENT_WALLET: str('OP_CLIENT_WALLET'),
   OP_KEY_ID: str('OP_KEY_ID'),
   OP_PRIVATE_KEY_PATH: resolve(import.meta.dirname, '../../..', str('OP_PRIVATE_KEY_PATH', './private.key')),
+  /** Contenido de private.key (PEM o PEM en base64). Si está, tiene prioridad sobre OP_PRIVATE_KEY_PATH. Para Railway. */
+  OP_PRIVATE_KEY: str('OP_PRIVATE_KEY'),
 
   WALLET_JUAN: str('WALLET_JUAN', 'https://ilp.interledger-test.dev/juan'),
   WALLET_TIENDA: str('WALLET_TIENDA', 'https://ilp.interledger-test.dev/dona-rosa'),
