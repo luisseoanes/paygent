@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { amount as A, generateKeyPair, randomId, signVoucher, type Voucher } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
-import { getMerchant, getPayment, recentEvents } from '../src/db.ts'
+import { getMerchant, getPayment, recentEvents, vouchersOfMandate } from '../src/db.ts'
 import { seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { payoutFor } from '../src/gateway/payout.ts'
@@ -219,6 +219,12 @@ describe('OFF-03 liquidación de vales', () => {
     const second = await app.inject({ method: 'POST', url: '/vouchers/settle', payload: { vouchers: [replay] } })
     expect(second.json().results[0]).toMatchObject({ status: 'rejected', reason: 'replay' })
     expect((await getMandate('maria-device')).frozen).toBe(true)
+
+    // El intento queda en el historial como alerta (sin tocar el vale original ya liquidado): si no, tras
+    // descongelar el celular el Guardián veía un historial limpio y le subía el tope.
+    const history = (await vouchersOfMandate('maria-device')).filter((h) => h.voucher.voucherId === v1.voucherId)
+    expect(history.map((h) => h.status).sort()).toEqual(['rejected', 'settled'])
+    expect(history.find((h) => h.status === 'rejected')?.reason).toBe('replay')
   })
 })
 

@@ -19,16 +19,18 @@ CLEAN_TO_RAISE = 3
 
 # GRD-03: historial simulado de 30 días (liquidaciones limpias) para que el puntaje tenga sentido en la demo.
 SIMULATED_CLEAN_SETTLEMENTS = {"maria-device": 12}
-SIMULATED_KNOWN_MERCHANTS = {
-    "maria-device": {"https://ilp.interledger-test.dev/dona-rosa", "https://ilp.interledger-test.dev/farmacia-san-jose"},
-}
+# Comercios donde María ya compra (por id: la dirección de cobro sale de la api, ver guardian/router.py).
+# Antes eran URLs fijas que quedaron viejas: un vale alto en la tienda de siempre salía como "comercio nuevo".
+SIMULATED_KNOWN_MERCHANT_IDS = {"maria-device": {"tienda", "farmacia"}}
 
 
 def _dt(s: str) -> datetime:
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
-def evaluate(vouchers: list[dict], history: list[dict], now: datetime | None = None) -> list[dict]:
+def evaluate(vouchers: list[dict], history: list[dict], now: datetime | None = None,
+             known_merchants: dict[str, set[str]] | None = None) -> list[dict]:
+    """known_merchants: por mandato, direcciones de cobro donde ya compra (historial simulado de la demo)."""
     now = now or datetime.now(timezone.utc)
     decisions = []
     for v in vouchers:
@@ -44,7 +46,7 @@ def evaluate(vouchers: list[dict], history: list[dict], now: datetime | None = N
         if now - created > MAX_AGE:
             flags.append(("vale_antiguo", "el vale tiene más de 3 días"))
         known = {h["merchantWallet"] for h in history if h["deviceKeyId"] == device}
-        known |= SIMULATED_KNOWN_MERCHANTS.get(mandate, set())
+        known |= (known_merchants or {}).get(mandate, set())
         if v["merchantWallet"] not in known and to_cop(v["amount"]) > NEW_MERCHANT_HIGH_COP:
             flags.append(("comercio_nuevo_monto_alto", f"comercio nuevo y monto alto ({fmt_cop(to_cop(v['amount']))})"))
 

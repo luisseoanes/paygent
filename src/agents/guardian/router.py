@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from common import merchants
+
 from . import rules
 
 router = APIRouter(prefix="/guardian", tags=["guardian"])
@@ -25,7 +27,9 @@ class ScoreIn(BaseModel):
 # TODO GRD-04: reescribir `explanation` con el LLM (alternativa: la plantilla actual).
 @router.post("/evaluate")
 async def evaluate(body: EvaluateIn):
-    return {"decisions": rules.evaluate(body.vouchers, body.history)}
+    await merchants.refresh()
+    known = {mandate: {merchants.wallet_of(m) for m in ids} for mandate, ids in rules.SIMULATED_KNOWN_MERCHANT_IDS.items()}
+    return {"decisions": rules.evaluate(body.vouchers, body.history, known_merchants=known)}
 
 
 @router.post("/score")

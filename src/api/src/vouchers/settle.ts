@@ -17,9 +17,11 @@ const key = (v: Voucher) => `${v.deviceCert.certId}:${v.counter}`
 type GuardianDecision = { voucherId: string; action: 'approve' | 'flag' | 'freeze'; rule: string; explanation: string }
 
 const record = async (v: Voucher, r: VoucherSettleResult) => {
-  // Un replay NO sobreescribe el vale original ya liquidado.
-  if (r.reason !== 'replay' || !(await getVoucher(key(v))))
-    await putVoucher(key(v), { voucher: v, status: r.status, reason: r.reason, paymentId: r.paymentId, receivedAt: new Date().toISOString() })
+  const stored = { voucher: v, status: r.status, reason: r.reason, paymentId: r.paymentId, receivedAt: new Date().toISOString() }
+  // Un replay NO sobreescribe el vale original ya liquidado, pero el intento sí queda en el historial como
+  // alerta: si no, tras descongelar el celular el Guardián veía un historial limpio y le SUBÍA el tope.
+  if (r.reason === 'replay' && (await getVoucher(key(v)))) await putVoucher(`${key(v)}:replay:${Date.now()}`, stored)
+  else await putVoucher(key(v), stored)
   return r
 }
 

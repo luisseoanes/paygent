@@ -57,3 +57,22 @@ def test_score_baja_con_alertas():
 def test_score_en_la_moneda_del_tope():
     r = score("maria-device", "María", of(USD, 20), of(USD, 50), False, [])
     assert r["newCap"] == of(USD, 35)
+
+
+def test_tienda_de_siempre_con_su_direccion_actual_no_es_comercio_nuevo(monkeypatch):
+    """Regresión: las direcciones conocidas eran URLs viejas; un vale alto en Doña Rosa salía como "comercio nuevo"."""
+    import asyncio
+
+    from common import merchants
+    from guardian import router
+
+    async def no_api(force=False):
+        merchants._wallets.update({"tienda": "puntored:tienda", "farmacia": "https://ilp.interledger-test.dev/farmacia-san-jose-wallet"})
+
+    monkeypatch.setattr(merchants, "refresh", no_api)
+    now = datetime.now(timezone.utc)
+    vale = lambda merchant: {"voucherId": "v1", "deviceKeyId": "d1", "deviceCert": {"mandateId": "maria-device"},  # noqa: E731
+                             "merchantWallet": merchant, "amount": cop(72_000), "createdAt": now.isoformat()}
+    body = lambda merchant: router.EvaluateIn(vouchers=[vale(merchant)], history=[])  # noqa: E731
+    assert asyncio.run(router.evaluate(body("puntored:tienda")))["decisions"][0]["action"] == "approve"
+    assert asyncio.run(router.evaluate(body("https://otra-tienda")))["decisions"][0]["rule"] == "comercio_nuevo_monto_alto"
