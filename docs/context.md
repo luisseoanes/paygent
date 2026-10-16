@@ -1,11 +1,11 @@
-# OpenRoute — Poder de pago delegable para personas y sus agentes, incluso sin internet y sin smartphone
+# Paygent — Poder de pago delegable para personas y sus agentes, incluso sin internet y sin smartphone
 
 **Tagline:** *Juan autoriza una vez. María y sus agentes pagan donde sea — con datos, sin señal o con un celular de teclas.*
 **Categorías objetivo:** Innovación (Find EAFIT) · Impacto (RutaN) · Inclusión (Puntored)
 **Tecnología base:** Open Payments API (Interledger Foundation) — GNAP, Quotes, Incoming/Outgoing Payments
 **Backlog de ejecución:** ver [backlog.md](backlog.md)
 
-> **La tesis en una frase:** Open Payments asume que quien paga tiene internet, un smartphone y una billetera propia. OpenRoute elimina los tres supuestos con **una sola primitiva — el mandato delegable —**, y trata a los **agentes de IA como delegados de primera clase** dentro de ese mismo árbol: el agente se convierte en **el smartphone de quien no lo tiene**.
+> **La tesis en una frase:** Open Payments asume que quien paga tiene internet, un smartphone y una billetera propia. Paygent elimina los tres supuestos con **una sola primitiva — el mandato delegable —**, y trata a los **agentes de IA como delegados de primera clase** dentro de ese mismo árbol: el agente se convierte en **el smartphone de quien no lo tiene**.
 
 > **Regla de oro del pitch:** nunca se presenta como "varias features". Siempre es **un mandato → personas y agentes que gastan dentro de él → en cualquier nivel de conectividad**.
 
@@ -13,7 +13,7 @@
 
 ## 1. Elevator pitch (30 segundos)
 
-> Los agentes de IA ya pueden comprar por nosotros, pero solo si tienes smartphone, internet y tarjeta, y en ecosistemas cerrados de Visa, Mastercard o Google. OpenRoute lleva los pagos agénticos a quien más los necesita, sobre Open Payments, un estándar abierto. Juan, en Texas, aprueba **un solo mandato** en su billetera. Desde ahí su mamá, en una vereda de Antioquia y con un celular de teclas, le escribe por SMS a su agente: *"necesito la pastilla de la presión"*. El agente encuentra la farmacia, le pregunta su PIN y paga directo desde la wallet de Juan. Si no hay señal, el celular de María firma vales que se cobran al volver la conexión. Y un agente guardián vigila cada peso. Nadie retiene el dinero: va una sola vez, de Juan a la tienda.
+> Los agentes de IA ya pueden comprar por nosotros, pero solo si tienes smartphone, internet y tarjeta, y en ecosistemas cerrados de Visa, Mastercard o Google. Paygent lleva los pagos agénticos a quien más los necesita, sobre Open Payments, un estándar abierto. Juan, en Texas, aprueba **un solo mandato** en su billetera. Desde ahí su mamá, en una vereda de Antioquia y con un celular de teclas, le escribe por SMS a su agente: *"necesito la pastilla de la presión"*. El agente encuentra la farmacia, le pregunta su PIN y paga directo desde la wallet de Juan. Si no hay señal, el celular de María firma vales que se cobran al volver la conexión. Y un agente guardián vigila cada peso. Nadie retiene el dinero: va una sola vez, de Juan a la tienda.
 
 ---
 
