@@ -109,8 +109,8 @@ def search(query: str, location: dict | None = None, limit: int = 3) -> list[dic
     results = []
     for o in hits:
         d = distance_m(location, o.lat, o.lng)
-        # Ranking: precio normalizado + distancia (1 km ≈ $2.000 COP de "costo" de caminar) - bono por stock alto
-        rank = o.price_cop + d * 2 - min(o.stock, 10) * 50
+        # Lo más cercano a la persona primero; a igual distancia, el más barato.
+        rank = (d, o.price_cop)
         results.append((rank, {
             "merchant": o.merchant, "wallet": o.wallet, "product": o.product, "category": o.category,
             "priceCOP": o.price_cop, "distanceM": d, "stock": o.stock, "deliveryFeeCOP": o.delivery_fee_cop,

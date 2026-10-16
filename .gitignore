@@ -6,6 +6,7 @@ dist/
 .data/
 .venv/
 __pycache__/
+src/agents/inventory/.cache/
 .pytest_cache/
 *.log
 dev-dist/

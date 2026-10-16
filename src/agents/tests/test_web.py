@@ -93,3 +93,45 @@ def test_una_tienda_lenta_se_omite_sin_frenar_la_busqueda(monkeypatch):
     monkeypatch.setattr(web, "_fetch_store", slow)
     r = run("losartan")
     assert "Olímpica" in r["storesFailed"] and r["offers"]
+
+
+from inventory import nearby  # noqa: E402
+
+HOME = {"lat": 6.0, "lng": -75.43}
+PLACES = [  # como los devuelve OpenStreetMap alrededor de la mamá
+    {"name": "Drogas La Rebaja", "brand": None, "lat": 6.10, "lng": -75.43, "kind": "farmacia"},
+    {"name": "Farmacia Pasteur", "brand": "Pasteur", "lat": 6.15, "lng": -75.43, "kind": "farmacia"},
+    {"name": "Farmacia Pasteur Centro", "brand": "Pasteur", "lat": 6.30, "lng": -75.43, "kind": "farmacia"},
+    {"name": "Droguería Profamiliar Parque", "brand": None, "lat": 6.03, "lng": -75.43, "kind": "farmacia"},
+    {"name": "Tiendas D1", "brand": "D1", "lat": 6.01, "lng": -75.43, "kind": "mercado"},
+]
+
+
+def test_sucursal_mas_cercana_de_cada_cadena():
+    b = nearby.nearest_branches(PLACES, HOME)
+    assert set(b) == {"La Rebaja", "Pasteur"}
+    assert b["Pasteur"]["name"] == "Farmacia Pasteur"  # la de 16 km, no la de 33 km
+    assert 11_000 < b["La Rebaja"]["distanceM"] < 11_200
+    assert [p["name"] for p in nearby.nearest_places(PLACES, HOME, "farmacia", 2)] == \
+        ["Droguería Profamiliar Parque", "Drogas La Rebaja"]
+
+
+def test_con_ubicacion_ordena_por_la_sucursal_mas_cercana(monkeypatch):
+    async def places_near(location, wait_s=0):
+        return PLACES
+
+    monkeypatch.setattr(nearby, "places_near", places_near)
+    CATALOGS["La Rebaja"]["losartan"] = [vtex("LOSARTAN POTASICO 50 MG (GENFAR)", 14100, "/DROGUERIA/MEDICAMENTOS/")]
+    r = asyncio.run(web.search_web("losartan", limit=10, location=HOME))
+    # Pasteur es más barato, pero La Rebaja queda más cerca de la persona; Olímpica (agotado) no aparece
+    assert [o["store"] for o in r["offers"]] == ["La Rebaja", "Pasteur"]
+    assert r["offers"][0]["branch"]["name"] == "Drogas La Rebaja" and r["located"] is True
+
+
+def test_si_la_zona_no_esta_lista_no_hace_esperar_al_sms(monkeypatch):
+    async def places_near(location, wait_s=0):
+        return None  # descargando en segundo plano
+
+    monkeypatch.setattr(nearby, "places_near", places_near)
+    r = asyncio.run(web.search_web("losartan", limit=10, location=HOME))
+    assert r["located"] is False and [o["store"] for o in r["offers"]] == ["Pasteur", "La Rebaja"]

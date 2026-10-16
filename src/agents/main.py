@@ -4,6 +4,8 @@ import logging
 import os
 from urllib.parse import urlparse
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,7 +17,17 @@ from inventory.router import router as inventory_router
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="Paygent agents")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # OpenStreetMap tarda ~50 s por zona: se precalienta la de la demo para que el primer SMS ya tenga distancias.
+    from inventory import nearby
+    await nearby.places_near(DEMO_LOCATION)
+    yield
+
+
+DEMO_LOCATION = {"lat": 6.0, "lng": -75.43}  # la mamá en la demo (semilla de la api)
+app = FastAPI(title="Paygent agents", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(assistant_router)
 app.include_router(inventory_router)

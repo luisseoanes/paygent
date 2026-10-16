@@ -7,7 +7,8 @@ from common.api_client import api
 from common.config import MOCK_INVENTORY_PAYMENT, WALLET_INVENTARIO
 
 from .search import search
-from .web import search_web
+from . import nearby
+from .web import NEARBY_WAIT_S, search_web
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -52,9 +53,24 @@ async def query_route(q: QueryIn):
 class WebQueryIn(BaseModel):
     query: str
     limit: int = 5
+    location: Location | None = None
 
 
 @router.post("/web")
 async def web_route(q: WebQueryIn):
-    """Búsqueda real en tiendas en línea de Colombia (precio, disponibilidad y enlace). No compra ni paga."""
-    return await search_web(q.query, limit=max(1, min(q.limit, 10)))
+    """Búsqueda real en cadenas de Colombia (precio, disponibilidad y enlace); con `location`, ordenada por la
+    sucursal física más cercana (OpenStreetMap). No compra ni paga."""
+    return await search_web(q.query, limit=max(1, min(q.limit, 10)),
+                            location=q.location.model_dump() if q.location else None)
+
+
+@router.get("/nearby")
+async def nearby_route(lat: float, lng: float):
+    """Droguerías y supermercados reales más cercanos y la sucursal más cercana de cada cadena."""
+    loc = {"lat": lat, "lng": lng}
+    places = await nearby.places_near(loc, wait_s=NEARBY_WAIT_S)
+    if places is None:
+        return {"ready": False, "detail": "Descargando la zona de OpenStreetMap; intente en un minuto"}
+    return {"ready": True, "branches": nearby.nearest_branches(places, loc),
+            "pharmacies": nearby.nearest_places(places, loc, "farmacia", 5),
+            "markets": nearby.nearest_places(places, loc, "mercado", 5)}
