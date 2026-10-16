@@ -4,6 +4,7 @@ import {
   type FeedEvent,
   type HolderType,
   type MandateTree,
+  type SpendMode,
 } from '@/types/api';
 
 // Datos semilla de la demo (backlog GW-01) para los handlers MSW, con los
@@ -31,6 +32,7 @@ type Seed = {
   pin?: number;
   offline?: number;
   canSpend?: boolean;
+  mode?: SpendMode;
 };
 
 const SEEDS: Seed[] = [
@@ -64,6 +66,7 @@ const SEEDS: Seed[] = [
     spent: 12,
     categories: ['mercado', 'farmacia'],
     offline: 20,
+    mode: 'celular',
   },
   {
     id: 'mnd_rosa',
@@ -117,6 +120,7 @@ const toTree = (seed: Seed): MandateTree => ({
   revoked: false,
   frozen: false,
   signature: `sig_${seed.id}`,
+  ...(seed.mode && { mode: seed.mode }),
   children: [],
 });
 

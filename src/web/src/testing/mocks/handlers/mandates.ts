@@ -7,6 +7,7 @@ import {
   type FeedEvent,
   type HolderType,
   type MandateTree,
+  type ModeView,
 } from '@/types/api';
 
 import { db, findInTree, usdAmount } from '../db';
@@ -46,6 +47,37 @@ const notFound = () => fail('Ese mandato no existe.', 404);
 
 const withoutChildren = ({ children: _children, ...mandate }: MandateTree) =>
   mandate;
+
+const pct = (a: Amount, p: number): Amount => ({
+  ...a,
+  value: String(Math.floor((Number(a.value) * p) / 100)),
+});
+
+// Como la api: los modos vivos de la persona dueña de la rama.
+const modesOf = (id: string): { personaId: string; modes: ModeView[] } => {
+  const node = findInTree(db.tree, id);
+  const persona =
+    node?.holderType === 'person'
+      ? node
+      : findInTree(db.tree, node?.parentId ?? '');
+  const order = ['celular', 'asistente', 'sms'];
+  const modes = (persona?.children ?? [])
+    .filter((c) => c.mode && !c.revoked)
+    .sort((a, b) => order.indexOf(a.mode!) - order.indexOf(b.mode!))
+    .map((c) => ({
+      mode: c.mode!,
+      mandateId: c.id,
+      maxDebit: c.maxDebit,
+      remaining: {
+        ...c.maxDebit,
+        value: String(Number(c.maxDebit.value) - Number(c.spentInPeriod.value)),
+      },
+      offlineCap: c.offlineCap,
+      pinThreshold: c.pinThreshold,
+      frozen: c.frozen,
+    }));
+  return { personaId: persona?.id ?? id, modes };
+};
 
 const emit = (event: Omit<FeedEvent, 'id' | 'at'>) =>
   db.feed.unshift({
@@ -220,6 +252,10 @@ export const mandatesHandlers = [
         frozen: false,
         signature: `sig_${Date.now()}`,
       };
+      const offline =
+        toNumber(body.offlineCap) > toNumber(pct(body.maxDebit, 40))
+          ? body.offlineCap
+          : pct(body.maxDebit, 40);
       const celular: MandateTree = {
         ...base,
         id: `${id}-cel`,
@@ -227,10 +263,23 @@ export const mandatesHandlers = [
         holderType: 'device',
         holderId: `${id}-cel`,
         holderName: `Celular de ${body.alias}`,
-        maxDebit: body.maxDebit,
+        mode: 'celular',
+        maxDebit: offline,
         offlineCap: body.offlineCap,
         children: [],
       };
+      const agente = (mode: 'asistente' | 'sms', suffix: string) => ({
+        ...base,
+        id: `${id}-${suffix}`,
+        parentId: id,
+        holderType: 'agent' as const,
+        holderId: 'asistente',
+        holderName: `${mode === 'sms' ? 'SMS' : 'Asistente'} de ${body.alias}`,
+        mode,
+        maxDebit: pct(body.maxDebit, 20),
+        pinThreshold: mode === 'sms' ? usdAmount(0) : undefined,
+        children: [],
+      });
       const persona: MandateTree = {
         ...base,
         id,
@@ -240,13 +289,48 @@ export const mandatesHandlers = [
         holderName: body.alias,
         maxDebit: body.maxDebit,
         pinThreshold: usdAmount(0),
-        children: [celular],
+        children: [celular, agente('asistente', 'ag'), agente('sms', 'sms')],
       };
       root.children.push(persona);
       return HttpResponse.json(
-        { code: celular.id, mandateId: id },
+        { code: celular.id, mandateId: id, modes: modesOf(id).modes },
         { status: 201 },
       );
+    },
+  ),
+
+  http.get(apiUrl('/mandates/:mandateId/modes'), async ({ params }) => {
+    await networkDelay();
+    if (!findInTree(db.tree, String(params.mandateId))) return notFound();
+    return HttpResponse.json(modesOf(String(params.mandateId)));
+  }),
+
+  http.post(apiUrl('/mandates/:mandateId/modes'), async ({ params }) => {
+    await networkDelay();
+    if (!findInTree(db.tree, String(params.mandateId))) return notFound();
+    return HttpResponse.json({
+      created: [],
+      ...modesOf(String(params.mandateId)),
+    });
+  }),
+
+  http.patch(
+    apiUrl('/mandates/:mandateId/limits'),
+    async ({ params, request }) => {
+      await networkDelay();
+      const node = findInTree(db.tree, String(params.mandateId));
+      const parent = node && findInTree(db.tree, node.parentId ?? '');
+      if (!node || !parent) return notFound();
+      const { maxDebit } = (await request.json()) as { maxDebit?: Amount };
+      if (maxDebit) {
+        const others = parent.children
+          .filter((c) => !c.revoked && c.id !== node.id)
+          .reduce((sum, c) => sum + toNumber(c.maxDebit), 0);
+        if (others + toNumber(maxDebit) > toNumber(parent.maxDebit))
+          return fail('Supera lo que queda por repartir', 403);
+        node.maxDebit = maxDebit;
+      }
+      return HttpResponse.json(withoutChildren(node));
     },
   ),
 

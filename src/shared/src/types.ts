@@ -6,6 +6,9 @@ export type HolderType = 'person' | 'device' | 'agent'
 export type Category = 'mercado' | 'farmacia' | 'efectivo' | 'datos'
 export const CATEGORIES: Category[] = ['mercado', 'farmacia', 'efectivo', 'datos']
 
+/** Forma de pagar de un beneficiario: vale QR del celular (con o sin señal), Asistente en el chat de la app o SMS. */
+export type SpendMode = 'celular' | 'asistente' | 'sms'
+
 export interface Mandate {
   id: string
   parentId: string | null
@@ -25,6 +28,8 @@ export interface Mandate {
   expiresAt: string
   revoked: boolean
   frozen: boolean
+  /** Solo en las ramas de modo de un beneficiario */
+  mode?: SpendMode
   signature: string // ed25519 del gateway
 }
 

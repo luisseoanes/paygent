@@ -29,7 +29,9 @@ Convenciones:
 | `POST /mandates/root` | `{ rootMandateId?, maxDebit?, interval?, walletAddress? }` | `{ redirectUrl }`: consentimiento en la billetera del titular |
 | `GET /callback` · `GET /callback/:rootId` | `interact_ref`, `hash` (los pone la billetera) | Redirect a la web (`?ok=1` / `?ok=0`) |
 | `GET /demo/status?root=` | — | `{ rootGrant, mockOp, mockSms, asset, fxCopPerUsd }` |
-| `POST /mandates/:raíz/beneficiaries` | `{ alias, maxDebit, pin, offlineCap }` (todo obligatorio, en la moneda del árbol) | `{ code, mandateId }` (201). Crea la persona (PIN siempre) y su celular |
+| `POST /mandates/:raíz/beneficiaries` | `{ alias, maxDebit, pin, offlineCap }` (todo obligatorio, en la moneda del árbol) | `{ code, mandateId, modes }` (201). Crea la persona (PIN siempre) y sus tres modos (`docs/producto/modos-de-consumo.md`) |
+| `GET /mandates/:id/modes` | — | `{ personaId, modes }`: modos vivos de la persona (o de la persona de esa rama de modo) |
+| `POST /mandates/:persona/modes` | — | `{ created, personaId, modes }`. Habilita los modos que falten (403 con `x-api-key`) |
 | `GET\|PUT /delivery-address/:rootId` | `{ recipientName, address }` | Dirección de entrega de ese árbol |
 
 ## Mandatos
@@ -41,6 +43,7 @@ Convenciones:
 | `POST /mandates/:id/delegate` | `Partial<Mandate>` del hijo | `Mandate` firmado (invariantes GW-03) |
 | `POST /mandates/:id/revoke` | — | `{ revoked: string[] }`. Si es una raíz, cancela también su grant |
 | `PATCH /mandates/:id/restrict` | `{ offlineCap?, frozen? }` | `Mandate` (solo restringe) |
+| `PATCH /mandates/:id/limits` | `{ maxDebit?, offlineCap? }` | `Mandate`. Solo el titular (403 con `x-api-key`): sube o baja dentro del padre |
 | `POST /mandates/:id/unfreeze` | — | `Mandate` |
 | `POST /mandates/:id/device-key` | `{ publicKey }` | `{ deviceKeyId, cert, offlineCap, gatewayPublicKey }` |
 | `GET /gateway/public-key` | — | `{ publicKey }` |
@@ -65,7 +68,7 @@ Convenciones:
 |---|---|---|
 | `GET /feed?root=` · `GET /feed/stream?root=` (SSE) | — | Eventos del árbol de ese titular (sin `root`, todos) |
 | `POST /sms/inbound` | `{ From, Body }` (JSON o form de Twilio) | `{ reply }` |
-| `GET /sms/profile?phone=` | — | Perfil del Asistente para ese canal |
+| `GET /sms/profile?phone=` | — | Perfil del Asistente para ese canal, con `asset` (la moneda de su árbol) |
 | `POST /asistente/chat` | `{ mensajes: { rol, texto }[], contexto: { mandato } }` | `{ texto }` |
 | `POST /demo/reset` | `{ full? }` | Vuelve a sembrar **solo** la demo de Juan |
 | `GET /health` · `GET /health/op?root=` | — | Estado de la api y de Open Payments |

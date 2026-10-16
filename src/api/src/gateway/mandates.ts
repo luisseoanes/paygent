@@ -35,9 +35,10 @@ const toMandate = (r: Row): Mandate => {
     expiresAt: r.expires_at,
     revoked: r.revoked,
     frozen: r.frozen,
+    mode: r.mode ?? undefined,
     signature: r.signature,
   }
-  for (const k of ['pinThreshold', 'offlineCap', 'offlineCapCeiling'] as const) if (m[k] === undefined) delete m[k]
+  for (const k of ['pinThreshold', 'offlineCap', 'offlineCapCeiling', 'mode'] as const) if (m[k] === undefined) delete m[k]
   return m
 }
 
@@ -61,12 +62,12 @@ export const putMandate = async (m: Mandate, conn?: Sql) => {
   await s(conn).query(
     `insert into mandates (id, parent_id, holder_type, holder_id, holder_name, asset_code, asset_scale, max_debit,
        spent_in_period, interval, period_start, categories, pin_threshold, offline_cap, offline_cap_ceiling, can_spend,
-       expires_at, revoked, frozen, signature)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20)
+       expires_at, revoked, frozen, signature, mode)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21)
      on conflict (id) do update set parent_id = $2, holder_type = $3, holder_id = $4, holder_name = $5, asset_code = $6,
        asset_scale = $7, max_debit = $8, spent_in_period = $9, interval = $10, period_start = $11, categories = $12::text[],
        pin_threshold = $13, offline_cap = $14, offline_cap_ceiling = $15, can_spend = $16, expires_at = $17,
-       revoked = $18, frozen = $19, signature = $20`,
+       revoked = $18, frozen = $19, signature = $20, mode = $21`,
     [
       signed.id,
       signed.parentId,
@@ -88,6 +89,7 @@ export const putMandate = async (m: Mandate, conn?: Sql) => {
       signed.revoked,
       signed.frozen,
       signed.signature,
+      signed.mode ?? null,
     ],
   )
   return signed
@@ -184,8 +186,10 @@ export const delegate = async (parentId: string, input: DelegateInput, conn?: Sq
     expiresAt: input.expiresAt ?? parent.expiresAt,
     revoked: false,
     frozen: false,
+    mode: input.mode,
     signature: '',
   }
+  if (!child.mode) delete child.mode
 
   // 1. Suma de hijos ≤ padre
   const siblingsTotal = (await childrenOf(parentId, conn))
@@ -233,6 +237,43 @@ export const restrict = async (id: string, patch: { offlineCap?: Amount; frozen?
     next.offlineCap = patch.offlineCap
   }
   return putMandate(next)
+}
+
+/**
+ * El titular cambia los topes de una rama (sube o baja) sin salirse de su padre: suma de hermanos ≤ padre y nunca por
+ * debajo de lo que ya repartió a sus hijos. El tope sin señal queda como nuevo techo. La raíz la fija la billetera.
+ */
+export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineCap?: Amount }, conn?: Sql) => {
+  const m = await getMandate(id, conn)
+  if (!m.parentId) throw badRequest('El tope de la raíz es el que firmaste en tu billetera')
+  if (m.revoked) throw forbidden('La rama está revocada')
+  const valid = (a?: Amount) => !a || (/^\d+$/.test(a.value) && a.assetCode === m.maxDebit.assetCode && a.assetScale === m.maxDebit.assetScale)
+  if (!valid(patch.maxDebit) || !valid(patch.offlineCap)) throw badRequest(`Los topes van en ${m.maxDebit.assetCode}`)
+  const next = { ...m }
+  if (patch.maxDebit) {
+    const parent = await getMandate(m.parentId, conn)
+    const live = (ms: Mandate[]) => ms.filter((c) => !c.revoked)
+    const siblings = live(await childrenOf(parent.id, conn)).filter((c) => c.id !== m.id)
+    const sum = (ms: Mandate[]) => ms.reduce((acc, c) => A.add(acc, c.maxDebit), A.zero(m.maxDebit))
+    const free = A.sub(parent.maxDebit, sum(siblings))
+    if (!A.lte(patch.maxDebit, free)) throw forbidden(`Supera lo que queda por repartir de ${parent.holderName} (${A.format(free)})`)
+    const delegated = sum(live(await childrenOf(m.id, conn)))
+    if (!A.lte(delegated, patch.maxDebit)) throw forbidden(`Ya repartió ${A.format(delegated)} entre sus propias ramas`)
+    next.maxDebit = patch.maxDebit
+  }
+  if (patch.offlineCap) {
+    if (!m.offlineCap) throw badRequest('Esta rama no paga sin señal')
+    next.offlineCap = next.offlineCapCeiling = patch.offlineCap
+  }
+  // Un tope sin señal nunca supera el de la rama: si se baja la rama, baja con ella.
+  for (const k of ['offlineCap', 'offlineCapCeiling'] as const) {
+    const cap = next[k]
+    if (cap && !A.lte(cap, next.maxDebit)) {
+      if (patch.offlineCap) throw badRequest('El tope sin señal no puede superar el de la rama')
+      next[k] = next.maxDebit
+    }
+  }
+  return putMandate(next, conn)
 }
 
 /** Suma el gasto en toda la cadena (GW-05), en una transacción: o se cuenta en todas las ramas o en ninguna. */

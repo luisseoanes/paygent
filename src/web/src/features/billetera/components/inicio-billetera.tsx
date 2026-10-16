@@ -17,11 +17,14 @@ export const InicioBilletera = ({
   dispositivo: d,
   onPagar,
   onAsistente,
+  formasDePagar,
   desvincular,
 }: {
   dispositivo: Dispositivo;
   onPagar: () => void;
   onAsistente?: () => void;
+  // Slot: las formas de pagar que le habilitó su titular (las compone la ruta)
+  formasDePagar?: React.ReactNode;
   // Slot: el control para desvincular (lo compone la ruta con su confirmación)
   desvincular?: React.ReactNode;
 }) => {
@@ -92,6 +95,8 @@ export const InicioBilletera = ({
           Hablar con el asistente
         </Button>
       )}
+
+      {formasDePagar}
 
       <section aria-labelledby="tus-vales" className="space-y-2">
         <h2 id="tus-vales" className="px-1 text-base font-medium text-grafito">

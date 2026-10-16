@@ -14,7 +14,8 @@ from . import replies, rules, session, tools
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 log = logging.getLogger("assistant")
 
-PIN = re.compile(r"^\s*(\d{4})\s*$")
+# 4 a 6 dígitos, como los PIN que acepta la api: cualquiera de ellos se queda fuera del LLM.
+PIN = re.compile(r"^\s*(\d{4,6})\s*$")
 CANCEL = re.compile(r"^\s*(no|cancelar|cancele)\W*$", re.I)
 CHOOSE_PICKUP = re.compile(r"^\s*(1|recoger|recojo|lo recojo|yo lo recojo)\W*$", re.I)
 CHOOSE_DELIVERY = re.compile(r"^\s*(2|enviar|env[ií]o|domicilio|a la casa|tr[aá]igan\w*)\W*$", re.I)

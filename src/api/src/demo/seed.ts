@@ -14,9 +14,11 @@ import { DEMO_WALLETS } from './wallets.ts'
  * guardada con otra versión se vuelve a sembrar conservando el grant de Juan (tabla root_grants, que la semilla
  * no toca) y la llave del gateway.
  */
-export const SEED_VERSION = '2026-10-16.postgres-cuentas'
+export const SEED_VERSION = '2026-10-16.modos-de-consumo'
 
 export const PHONE_MAMA = '+573001112233'
+/** El celular de María: su modo SMS habla con el Asistente desde este número. */
+export const PHONE_MARIA = '+573001110002'
 /** El chat de la PWA de María no tiene número: el Asistente la reconoce por este perfil. */
 export const CHAT_MARIA = 'app:maria'
 export const PIN_DEMO = '1234'
@@ -26,7 +28,7 @@ export const DEMO_PASSWORD = 'paygent123'
 /** Cuentas de la demo: quien delega (Juan) y quienes reciben la delegación o cobran. */
 const DEMO_USERS: (User & { password?: boolean })[] = [
   { id: 'juan', name: 'Juan Pérez', documentType: 'CC', documentNumber: '1017000001', email: 'juan@paygent.dev', phone: '+13465550101', password: true },
-  { id: 'maria', name: 'María Pérez', documentType: 'CC', documentNumber: '1017000002', email: 'maria@paygent.dev', phone: '+573001110002', password: true },
+  { id: 'maria', name: 'María Pérez', documentType: 'CC', documentNumber: '1017000002', email: 'maria@paygent.dev', phone: PHONE_MARIA, password: true },
   // Doña Carmen solo tiene un celular de teclas: sin correo ni contraseña, entra por SMS.
   { id: 'carmen', name: 'Carmen Pérez', documentType: 'CC', documentNumber: '32000003', phone: PHONE_MAMA },
   { id: 'rosa', name: 'Rosa Gómez', documentType: 'CC', documentNumber: '43000004', email: 'tendero@paygent.dev', phone: '+573105550101', password: true },
@@ -124,6 +126,7 @@ export const seed = async ({ keepGrant = true } = {}) =>
       'maria',
       {
         id: 'maria-device',
+        mode: 'celular',
         holderType: 'device',
         holderId: 'celular-maria',
         holderName: 'Celular de María',
@@ -134,16 +137,24 @@ export const seed = async ({ keepGrant = true } = {}) =>
       },
       tx,
     )
+    // Modo SMS de María: escribe al Asistente desde su número; es él quien paga, así que la rama es suya.
     await delegate(
       'maria',
       {
         id: 'maria-sms',
-        holderType: 'person',
-        holderId: 'maria-sms',
-        holderName: 'María (SMS)',
+        mode: 'sms',
+        holderType: 'agent',
+        holderId: 'asistente',
+        holderName: 'SMS de María',
         maxDebit: pesos(200_000),
-        pinThreshold: pesos(0), // siempre PIN
+        categories: ['mercado', 'farmacia', 'efectivo', 'datos'],
+        pinThreshold: pesos(0), // siempre PIN: el remitente de un SMS se puede suplantar
       },
+      tx,
+    )
+    await delegate(
+      'maria-sms',
+      { id: 'maria-sms-datos', holderType: 'agent', holderId: 'asistente', holderName: 'SMS de María → Inventario', maxDebit: pesos(2000), categories: ['datos'] },
       tx,
     )
     // El agente de María: habla con ella en el chat de su PWA. Es una hoja de SU rama, así que Juan lo ve y lo
@@ -152,6 +163,7 @@ export const seed = async ({ keepGrant = true } = {}) =>
       'maria',
       {
         id: 'asistente-maria',
+        mode: 'asistente',
         holderType: 'agent',
         holderId: 'asistente',
         holderName: 'Asistente de María',
@@ -204,10 +216,10 @@ export const seed = async ({ keepGrant = true } = {}) =>
 
     // Quién es la persona detrás de cada rama (login y perfiles).
     await linkHolderUser(ROOT_ID, 'juan', tx)
-    for (const id of ['maria', 'maria-device', 'maria-sms']) await linkHolderUser(id, 'maria', tx)
+    for (const id of ['maria', 'maria-device']) await linkHolderUser(id, 'maria', tx)
 
     await setPin('asistente', PIN_DEMO, tx)
-    await setPin('maria-sms', PIN_DEMO, tx)
+    await setPin('maria', PIN_DEMO, tx)
     await setPin('asistente-maria', PIN_DEMO, tx)
 
     const location = { lat: 6.0, lng: -75.43 } // municipio de Antioquia (sintético)
@@ -226,6 +238,11 @@ export const seed = async ({ keepGrant = true } = {}) =>
         rootId: ROOT_ID,
         chatFor: 'maria',
       },
+      tx,
+    )
+
+    await insertProfile(
+      { phone: PHONE_MARIA, userId: 'maria', name: 'María', mandateId: 'maria-sms', dataMandateId: 'maria-sms-datos', location, rootId: ROOT_ID },
       tx,
     )
 

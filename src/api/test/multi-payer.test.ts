@@ -125,7 +125,8 @@ describe('El titular registra un beneficiario: alias, tope, PIN y tope sin seña
     const enlace = await post('/auth/register/beneficiario', {
       documento: '70000001', nombre: 'Rosa Beto', email: 'mama.beto@correo.co', telefono: '+573120000001', password: 'clave-segura', mandateId: code,
     })
-    expect(enlace.json()).toMatchObject({ role: 'beneficiario', mandateIds: [mandateId, code].sort() })
+    // Primero la rama del celular: con ella /billetera enlaza el teléfono.
+    expect(enlace.json()).toMatchObject({ role: 'beneficiario', mandateId: code, mandateIds: [code, mandateId] })
   })
 
   it('PIN, tope y tope sin señal son obligatorios; el tope sin señal no puede superar el del periodo', async () => {
@@ -135,7 +136,9 @@ describe('El titular registra un beneficiario: alias, tope, PIN y tope sin seña
     expect((await post(url, { ...base, pin: undefined })).statusCode).toBe(400)
     expect((await post(url, { ...base, offlineCap: undefined })).statusCode).toBe(400)
     expect((await post(url, { ...base, maxDebit: undefined })).statusCode).toBe(400)
-    expect((await post(url, { ...base, offlineCap: A.cop(20_000) })).statusCode).toBe(400)
+    const pasado = await post(url, { ...base, offlineCap: A.cop(20_000) })
+    expect(pasado.statusCode).toBe(400)
+    expect(pasado.json().error).toMatch(/sin señal/)
   })
 
   it('no se puede colgar de una rama que no sea la raíz', async () => {

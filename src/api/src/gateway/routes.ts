@@ -28,9 +28,11 @@ import {
   revoke,
   ROOT_ID,
   setFrozen,
+  setLimits,
   treeOf,
   type DelegateInput,
 } from './mandates.ts'
+import { enableModes, listModes } from './modes.ts'
 import { pay } from './pay.ts'
 import { setPin } from './pin.ts'
 import { sql } from '../store/sql.ts'
@@ -170,8 +172,9 @@ export default async function gatewayRoutes(app: FastifyInstance) {
 
   /**
    * Alta de un beneficiario por su titular. Siempre sale de la raíz del titular (todo el dinero sale de su cuenta):
-   * crea la rama de la persona (alias, tope por periodo, PIN siempre) y la de su celular (tope sin señal). Devuelve el
-   * código con el que el beneficiario enlaza su cuenta (POST /auth/register/beneficiario) y su celular.
+   * crea la rama de la persona (alias, tope por periodo, PIN siempre) y le habilita todos los modos (celular con su
+   * tope sin señal, Asistente en la app y SMS). Devuelve el código (la rama del celular) con el que el beneficiario
+   * enlaza su cuenta (POST /auth/register/beneficiario) y su celular.
    */
   app.post<{ Params: { id: string }; Body: { alias?: string; maxDebit?: Amount; offlineCap?: Amount; pin?: string } }>(
     '/mandates/:id/beneficiaries',
@@ -185,36 +188,62 @@ export default async function gatewayRoutes(app: FastifyInstance) {
       if (!alias) throw badRequest('Falta el nombre con el que lo verás en tu panel')
       if (!positive(maxDebit)) throw badRequest(`Falta el tope por periodo (en ${root.maxDebit.assetCode})`)
       if (!positive(offlineCap)) throw badRequest(`Falta el tope sin señal (en ${root.maxDebit.assetCode})`)
+      if (!A.lte(offlineCap!, maxDebit!)) throw badRequest('El tope sin señal no puede superar el tope por periodo')
       if (!/^\d{4,6}$/.test(pin ?? '')) throw badRequest('El PIN son de 4 a 6 números')
 
       const id = randomId('b')
-      const code = await sql().tx(async (tx) => {
-        const persona = await delegate(
+      await sql().tx(async (tx) => {
+        await delegate(
           root.id,
           { id, holderType: 'person', holderId: id, holderName: alias, maxDebit: maxDebit!, pinThreshold: A.zero(maxDebit!) },
           tx,
         )
-        const celular = await delegate(
-          persona.id,
-          {
-            id: `${id}-cel`,
-            holderType: 'device',
-            holderId: `${id}-cel`,
-            holderName: `Celular de ${alias}`,
-            maxDebit: maxDebit!,
-            offlineCap: offlineCap!,
-            offlineCapCeiling: offlineCap!,
-          },
-          tx,
-        )
-        await setPin(persona.id, pin!, tx)
-        return celular.id
+        await setPin(id, pin!, tx)
+        await enableModes(id, { offlineCap }, tx)
       })
+      const { modes } = await listModes(id)
+      const code = modes.find((m) => m.mode === 'celular')!.mandateId
       await emit({ mandateId: id, actor: { type: 'person', name: root.holderName }, kind: 'grant', amount: maxDebit, reason: `${root.holderName} registró a ${alias}` })
       reply.status(201)
-      return { code, mandateId: id, deviceMandateId: code }
+      return { code, mandateId: id, deviceMandateId: code, modes }
     },
   )
+
+  // Modos de consumo de un beneficiario: los ve él (cómo pagar) y su titular (topes por modo).
+  app.get<{ Params: { id: string } }>('/mandates/:id/modes', async (req) => listModes(req.params.id))
+
+  // El titular vuelve a habilitar los modos que falten (revocados o altas anteriores a los modos).
+  app.post<{ Params: { id: string } }>('/mandates/:id/modes', async (req) => {
+    if (req.headers['x-api-key']) throw forbidden('Un agente no puede habilitar modos')
+    const persona = await getMandate(req.params.id)
+    if (persona.holderType !== 'person' || !persona.parentId) throw badRequest('Los modos se habilitan en la rama de una persona')
+    if (persona.revoked) throw forbidden('La rama está revocada')
+    const created = await sql().tx((tx) => enableModes(persona.id, {}, tx))
+    if (created.length)
+      await emit({
+        mandateId: persona.id,
+        actor: { type: 'person', name: 'Titular' },
+        kind: 'grant',
+        reason: `${persona.holderName} ya puede pagar por: ${created.join(', ')}`,
+      })
+    return { created, ...(await listModes(persona.id)) }
+  })
+
+  // El titular cambia el tope de una rama (sube o baja dentro de su padre). Un agente nunca: el Guardián solo restringe.
+  app.patch<{ Params: { id: string }; Body: { maxDebit?: Amount; offlineCap?: Amount } }>('/mandates/:id/limits', async (req) => {
+    if (req.headers['x-api-key']) throw forbidden('Un agente no puede cambiar topes')
+    const { maxDebit, offlineCap } = req.body ?? {}
+    if (!maxDebit && !offlineCap) throw badRequest('Falta el tope nuevo (maxDebit u offlineCap)')
+    const m = await setLimits(req.params.id, { maxDebit, offlineCap })
+    await emit({
+      mandateId: m.id,
+      actor: { type: 'person', name: 'Titular' },
+      kind: 'grant',
+      amount: m.maxDebit,
+      reason: `Nuevo tope de ${m.holderName}: ${A.format(m.maxDebit)}${m.offlineCap ? `, sin señal ${A.format(m.offlineCap)}` : ''}`,
+    })
+    return m
+  })
 
   app.post<{ Body: PayRequest }>('/pay', async (req) => {
     const agent = await requireAgent(req)
@@ -232,6 +261,8 @@ export default async function gatewayRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { phone: string } }>('/sms/profile', async (req) => {
     const profile = await getProfile(req.query.phone)
     if (!profile) throw notFound('Teléfono')
-    return { ...profile, deliveryAddress: await getAddress(profile.rootId) }
+    // La moneda del árbol de esa persona: el Asistente arma los montos en ella (no en la de la demo).
+    const asset = A.assetOf((await getMandate(profile.rootId)).maxDebit)
+    return { ...profile, asset, deliveryAddress: await getAddress(profile.rootId) }
   })
 }

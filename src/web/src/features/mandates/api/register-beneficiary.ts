@@ -3,13 +3,13 @@ import * as z from 'zod';
 
 import { api } from '@/lib/api-client';
 import { type MutationConfig } from '@/lib/react-query';
-import { type Amount } from '@/types/api';
+import { type Amount, type ModeView } from '@/types/api';
 
 import { money, parseMoney } from '../utils/mandate';
 
 // POST /mandates/:raíz/beneficiaries — el titular registra a un beneficiario. Siempre sale de su raíz (todo el
 // dinero sale de su cuenta): alias, tope por periodo, PIN y tope sin señal, los cuatro obligatorios. La api
-// devuelve el código con el que el beneficiario enlaza su cuenta en /enlazar.
+// le habilita todos los modos (celular, Asistente, SMS) y devuelve el código para enlazar su cuenta en /enlazar.
 
 const monto = z
   .string()
@@ -57,7 +57,7 @@ export const registerBeneficiary = ({
 }: {
   rootMandateId: string;
   data: RegisterBeneficiaryBody;
-}): Promise<{ code: string; mandateId: string }> =>
+}): Promise<{ code: string; mandateId: string; modes?: ModeView[] }> =>
   api.post(`/mandates/${rootMandateId}/beneficiaries`, data);
 
 type UseRegisterBeneficiaryOptions = {

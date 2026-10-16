@@ -14,7 +14,7 @@ La api guarda todo en **Postgres**. El esquema está en `src/api/src/store/migra
 | `users` | Cuentas: nombre, apellido, documento, correo, contraseña (scrypt con salt), celular. Correo y contraseña son opcionales para quien solo usa SMS |
 | `payers` | Quien delega: su wallet pública y la moneda de esa wallet. **Nunca** se guarda una llave suya |
 | `root_grants` | El permiso que el titular firmó en su billetera (GNAP): token, URL de gestión y de continuación. Estado `pending → active → replaced/revoked` |
-| `mandates` | El árbol. Montos en columnas, en la moneda del árbol; firma ed25519 del gateway; `holder_user_id` une la rama con la cuenta de su titular o beneficiario |
+| `mandates` | El árbol. Montos en columnas, en la moneda del árbol; firma ed25519 del gateway; `holder_user_id` une la rama con la cuenta de su titular o beneficiario; `mode` marca las ramas de modo (`celular`, `asistente`, `sms`) y va firmado |
 | `pins` | PIN por mandato (scrypt con salt). Se busca subiendo por la cadena |
 | `agents` | Agentes (Asistente, Inventario, Guardián). Sin clave propia: el servicio usa `AGENT_SERVICE_KEY` |
 | `merchants` | Quien solo recibe: dirección de cobro (la que firman los vales), a dónde llega el dinero (wallet o Puntored) y su dueño |
@@ -33,7 +33,8 @@ La api guarda todo en **Postgres**. El esquema está en `src/api/src/store/migra
 - **Titular:** fila en `users` y en `payers`, más **su propio mandato raíz** (`root_<userId>`; la demo usa `root`).
   Su grant vive en `root_grants` ligado a esa raíz.
 - **Beneficiario:** fila en `users`, enlazada (`mandates.holder_user_id`) a la rama que le creó su titular, y a la de
-  su celular. El titular la crea con `POST /mandates/:raíz/beneficiaries` y le pasa el código.
+  su celular. El titular la crea con `POST /mandates/:raíz/beneficiaries` y le pasa el código. Sus modos de consumo
+  (celular, Asistente, SMS) son ramas hijas: ver `docs/producto/modos-de-consumo.md`.
 - **Moneda:** la de la wallet de cada titular. Todos los mandatos y pagos de su árbol van en ella.
 - **Un pago** se hace con el grant de la raíz de la rama que paga.
 

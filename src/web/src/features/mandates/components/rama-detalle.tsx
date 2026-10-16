@@ -15,6 +15,7 @@ import { Sello } from '@/components/brand/sello';
 import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/dialog';
 import { useNotifications } from '@/components/ui/notifications';
+import { modoInfo } from '@/config/modos';
 import { type FeedEvent, type MandateTree } from '@/types/api';
 import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/format';
@@ -36,6 +37,7 @@ import {
 } from '../utils/mandate';
 
 import { Libreta } from './libreta';
+import { ModosDeConsumo } from './modos-de-consumo';
 import { VincularCelular } from './vincular-celular';
 
 // Detalle de una rama: cuánto le queda, las acciones de Juan a un toque
@@ -356,7 +358,14 @@ export const RamaDetalle = ({
         </section>
       )}
 
+      {node.holderType === 'person' &&
+        node.parentId &&
+        status !== 'revoked' && <ModosDeConsumo personaId={node.id} />}
+
       <dl className="divide-y divide-rule">
+        {node.mode && (
+          <Dato label="Forma de pagar">{modoInfo[node.mode].nombre}</Dato>
+        )}
         {!restringe && (
           <Dato label="Puede gastar en">
             {node.categories.length

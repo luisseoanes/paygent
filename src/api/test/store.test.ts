@@ -28,7 +28,8 @@ describe('Cuentas', () => {
 
   it('María entra como beneficiaria y ve sus ramas', async () => {
     const res = await login('MARIA@paygent.dev', DEMO_PASSWORD)
-    expect(res.json()).toMatchObject({ role: 'beneficiario', rootMandateId: null, mandateIds: ['maria', 'maria-device', 'maria-sms'] })
+    // Las ramas de agente (Asistente, SMS) son del Asistente, no de su cuenta; la del celular va primero.
+    expect(res.json()).toMatchObject({ role: 'beneficiario', rootMandateId: null, mandateId: 'maria-device', mandateIds: ['maria-device', 'maria'] })
   })
 
   it('la tendera entra con su tienda', async () => {

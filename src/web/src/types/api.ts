@@ -33,6 +33,10 @@ export type HolderType = 'person' | 'device' | 'agent';
 
 export type Category = 'mercado' | 'farmacia' | 'efectivo' | 'datos';
 
+// Forma de pagar de un beneficiario: vale QR del celular (con o sin señal),
+// Asistente en el chat de la app o SMS desde su número.
+export type SpendMode = 'celular' | 'asistente' | 'sms';
+
 export type Mandate = {
   id: string;
   parentId: string | null;
@@ -51,8 +55,23 @@ export type Mandate = {
   expiresAt: string;
   revoked: boolean;
   frozen: boolean;
+  // Solo en las ramas de modo de un beneficiario
+  mode?: SpendMode;
   // ed25519 del gateway
   signature: string;
+};
+
+// GET /mandates/:id/modes: los modos vivos de la persona dueña de esa rama.
+export type ModeView = {
+  mode: SpendMode;
+  mandateId: string;
+  maxDebit: Amount;
+  remaining: Amount;
+  offlineCap?: Amount;
+  pinThreshold?: Amount;
+  frozen: boolean;
+  // Número desde el que escribe por SMS, si ya enlazó su cuenta
+  phone?: string;
 };
 
 // Respuesta de GET /mandates/:id/tree: el mandato con sus hijos anidados.

@@ -1,4 +1,4 @@
-import { type Merchant, type Voucher } from '@openroute/shared';
+import { amount as A, type Merchant, type Voucher } from '@openroute/shared';
 import * as React from 'react';
 import { useSearchParams } from 'react-router';
 
@@ -9,12 +9,14 @@ import { Spinner } from '@/components/ui/spinner';
 import { ChatAsistente } from '@/features/asistente/components/chat-asistente';
 import { NubeChat } from '@/features/asistente/components/nube-chat';
 import { useChat } from '@/features/asistente/hooks/use-chat';
+import { FormasDePagar } from '@/features/billetera/components/formas-de-pagar';
 import { InicioBilletera } from '@/features/billetera/components/inicio-billetera';
 import { Pagar } from '@/features/billetera/components/pagar';
 import { ValeQr } from '@/features/billetera/components/vale-qr';
 import { Vincular } from '@/features/billetera/components/vincular';
 import { useRefrescarDispositivo } from '@/features/billetera/hooks/use-refrescar-dispositivo';
 import { useDispositivoStore } from '@/features/billetera/stores/dispositivo-store';
+import { useModes } from '@/features/mandates/api/modes';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { ProtectedRoute, useUser } from '@/lib/auth';
 
@@ -44,6 +46,9 @@ const BilleteraApp = () => {
     [dispositivo],
   );
   const chat = useChat({ contexto });
+  const modos = useModes({ mandateId: dispositivo?.mandateId }).data?.modes;
+  // Sin datos (p. ej. sin señal) no se esconde: el chat dirá si no está habilitado.
+  const conAsistente = !modos || modos.some((m) => m.mode === 'asistente');
   const cerrarChat = () => setChatAbierto(false);
   const chatVisible = chatAbierto && !!dispositivo;
   useRefrescarDispositivo();
@@ -115,7 +120,15 @@ const BilleteraApp = () => {
         <InicioBilletera
           dispositivo={dispositivo}
           onPagar={() => setVista({ tipo: 'pagar' })}
-          onAsistente={() => setChatAbierto(true)}
+          onAsistente={conAsistente ? () => setChatAbierto(true) : undefined}
+          formasDePagar={
+            modos && (
+              <FormasDePagar
+                modos={modos}
+                aCop={(a) => A.toCop(a, dispositivo.fx)}
+              />
+            )
+          }
           desvincular={
             <ConfirmationDialog
               title="¿Desvincular este celular?"

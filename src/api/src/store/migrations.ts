@@ -217,6 +217,10 @@ const MIGRATIONS: { version: string; sql: string }[] = [
       create index feed_events_mandate on feed_events(mandate_id);
     `,
   },
+  {
+    version: '003_modos_de_consumo',
+    sql: `alter table mandates add column mode text check (mode in ('celular', 'asistente', 'sms'));`,
+  },
 ]
 
 export const migrate = async (sql: Sql) => {

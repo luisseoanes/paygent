@@ -102,6 +102,31 @@ def test_insulina_para_recoger_pide_pin(fake):
     assert "Recoja" in say("1234")
 
 
+def test_pin_de_seis_digitos_no_llega_al_llm(fake, monkeypatch):
+    # Regresión: el router solo cogía 4 dígitos y la api acepta PIN de 4 a 6.
+    monkeypatch.setattr(router, "MOCK_LLM", False)
+    leaked = []
+
+    async def handle(_s, text):
+        leaked.append(text)
+        return "llm"
+
+    import assistant.llm as llm
+    monkeypatch.setattr(llm, "handle", handle)
+    session.get(PHONE, fake.profile_data).pending = {
+        "pendingId": "pend1", "option": {"wallet": "w", "category": "farmacia", "product": "Insulina", "merchant": "F"},
+        "entrega": tools.PICKUP, "codigo": "1", "total": 1000}
+    say("123456")
+    assert leaked == [] and fake.calls[-1]["pin"] == "123456"
+
+
+def test_paga_en_la_moneda_del_arbol_de_quien_escribe(fake):
+    # Cada titular tiene su moneda: la del perfil manda sobre la de la demo.
+    fake.profile_data = {**PROFILE, "asset": {"assetCode": "USD", "assetScale": 2}}
+    say("necesito la pastilla de la presión")
+    assert fake.calls[0]["amount"]["assetCode"] == "USD"
+
+
 def test_sin_direccion_registrada_solo_recoger(fake):
     fake.profile_data = {**PROFILE, "deliveryAddress": None}
     reply = say("necesito la pastilla de la presión")

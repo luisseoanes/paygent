@@ -17,6 +17,11 @@ from .session import Session
 PICKUP, DELIVERY = "recoger", "domicilio"
 
 
+async def _asset(s: Session) -> dict:
+    """Moneda del árbol de quien escribe (la da /sms/profile); sin ella, la de la demo."""
+    return s.profile.get("asset") or await api.root_asset()
+
+
 def recipient(s: Session) -> str | None:
     """Quién recibe los domicilios. Lo registró Juan; el agente no puede cambiarlo."""
     return (s.profile.get("deliveryAddress") or {}).get("recipientName")
@@ -31,7 +36,7 @@ async def buscar_producto(s: Session, consulta: str) -> dict:
     await merchants.refresh()
     pay = await api.pay(
         mandateId=s.profile["dataMandateId"], merchantWallet=merchants.wallet_of(merchants.INVENTORY_ID),
-        amount=from_cop(PRICE_PER_QUERY_COP, await api.root_asset()), price=of(COP, PRICE_PER_QUERY_COP),
+        amount=from_cop(PRICE_PER_QUERY_COP, await _asset(s)), price=of(COP, PRICE_PER_QUERY_COP),
         category="datos", reason=f"Consulta de inventario: \"{consulta[:40]}\"",
     )
     if pay.get("result") != "allow":
@@ -91,11 +96,11 @@ async def proponer_compra(s: Session, indice: int = 0, entrega: str = PICKUP) ->
     code = _code()
     delivery = {"mode": "delivery" if entrega == DELIVERY else "pickup", "code": code}
     if fee:
-        delivery["fee"] = from_cop(fee, await api.root_asset())
+        delivery["fee"] = from_cop(fee, await _asset(s))
     where = f"con envío a casa de {recipient(s)}" if entrega == DELIVERY else "para recoger"
     pay = await api.pay(
         # price: el comercio recibe exactamente sus pesos; amount es el estimado en la moneda de Juan
-        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(total, await api.root_asset()),
+        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(total, await _asset(s)),
         price=of(COP, total),
         category=o["category"], reason=f"{o['product']} en {o['merchant']} para {s.profile['name']}, {where}",
         delivery=delivery,
@@ -116,7 +121,7 @@ async def confirmar_pin(s: Session, pin: str) -> dict:
     o = p["option"]
     # El gateway usa lo que guardó en la compra pendiente (monto, comercio y entrega), no lo que mandemos aquí.
     pay = await api.pay(
-        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(p["total"], await api.root_asset()),
+        mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(p["total"], await _asset(s)),
         category=o["category"], reason=o["product"], pendingId=p["pendingId"], pin=pin,
     )
     if pay["result"] == "allow":

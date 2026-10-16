@@ -4,6 +4,7 @@ import { getPayer, getUser, getUserWithPassword, insertPayer, insertUser, type U
 import { env } from '../env.ts'
 import { HttpError, badRequest } from '../gateway/errors.ts'
 import { findMandate, linkHolderUser, putMandate } from '../gateway/mandates.ts'
+import { linkModeProfiles } from '../gateway/modes.ts'
 import { checkSecret, hashSecret } from '../gateway/pin.ts'
 import { getWallet } from '../op/client.ts'
 import { sql } from '../store/sql.ts'
@@ -18,8 +19,10 @@ const TOPE_INICIAL_COP = 1_200_000
 const sessionOf = async (user: User) => {
   const payer = await getPayer(user.id)
   const [root] = await sql().query<{ id: string }>(`select id from mandates where holder_user_id = $1 and parent_id is null`, [user.id])
+  // Primero la del celular: es la que enlaza la billetera (/billetera la usa como código).
   const branches = await sql().query<{ id: string }>(
-    `select id from mandates where holder_user_id = $1 and parent_id is not null order by id`,
+    `select id from mandates where holder_user_id = $1 and parent_id is not null and not revoked
+     order by (holder_type = 'device') desc, id`,
     [user.id],
   )
   const [shop] = await sql().query<{ id: string }>(`select id from merchants where owner_user_id = $1`, [user.id])
@@ -157,6 +160,9 @@ export default async function authRoutes(app: FastifyInstance) {
           branch.parentId,
           userId,
         ])
+      // Con la cuenta ya hay celular: el modo SMS queda hablando con ese número.
+      const persona = branch.holderType === 'device' ? branch.parentId : branch.holderType === 'person' ? branch.id : null
+      if (persona) await linkModeProfiles(persona, tx)
     })
     reply.status(201)
     return sessionOf((await getUser(userId))!)

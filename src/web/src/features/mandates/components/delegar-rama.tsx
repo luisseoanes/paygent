@@ -3,15 +3,21 @@ import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Form, Input } from '@/components/ui/form';
+import { modoInfo } from '@/config/modos';
 import { paths } from '@/config/paths';
-import { type MandateTree } from '@/types/api';
+import { type MandateTree, type ModeView } from '@/types/api';
 
 import {
   type RegisterBeneficiaryValues,
   createRegisterBeneficiaryInputSchema,
   useRegisterBeneficiary,
 } from '../api/register-beneficiary';
-import { disponibleParaDelegar, money, toAmount } from '../utils/mandate';
+import {
+  amountToNumber,
+  disponibleParaDelegar,
+  money,
+  toAmount,
+} from '../utils/mandate';
 
 // Registrar un beneficiario: el titular solo decide cómo lo ve (alias), cuánto puede gastar por periodo, su PIN
 // y cuánto sin señal. Sale siempre de su raíz: no se elige de dónde. Al terminar, el código para enlazar.
@@ -25,9 +31,11 @@ export type DelegarRamaProps = {
 
 const CodigoParaEnlazar = ({
   code,
+  modes = [],
   onDone,
 }: {
   code: string;
+  modes?: ModeView[];
   onDone: () => void;
 }) => {
   const url = `${window.location.origin}${paths.enlazar.getHref(code)}`;
@@ -43,6 +51,24 @@ const CodigoParaEnlazar = ({
       >
         {code}
       </p>
+      {modes.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-sm text-grafito">Ya puede pagar por:</p>
+          <ul className="space-y-1 text-sm text-ink-2">
+            {modes.map((m) => (
+              <li key={m.mode} className="flex justify-between gap-3">
+                <span>{modoInfo[m.mode].nombre}</span>
+                <span className="cifra">
+                  {money(amountToNumber(m.maxDebit))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-ink-2">
+            Puedes cambiar estos topes o quitar un modo desde su rama.
+          </p>
+        </div>
+      )}
       <Button
         type="button"
         variant="outline"
@@ -61,12 +87,18 @@ const CodigoParaEnlazar = ({
 export const DelegarRama = ({ root, onDone }: DelegarRamaProps) => {
   const disponible = disponibleParaDelegar(root);
   const schema = createRegisterBeneficiaryInputSchema(disponible);
-  const [code, setCode] = React.useState<string | null>(null);
+  const [alta, setAlta] = React.useState<{
+    code: string;
+    modes?: ModeView[];
+  } | null>(null);
   const registrar = useRegisterBeneficiary({
-    mutationConfig: { onSuccess: (res) => setCode(res.code) },
+    mutationConfig: { onSuccess: (res) => setAlta(res) },
   });
 
-  if (code) return <CodigoParaEnlazar code={code} onDone={onDone} />;
+  if (alta)
+    return (
+      <CodigoParaEnlazar code={alta.code} modes={alta.modes} onDone={onDone} />
+    );
 
   const submit = (values: RegisterBeneficiaryValues) =>
     registrar.mutate({
@@ -130,6 +162,9 @@ export const DelegarRama = ({ root, onDone }: DelegarRamaProps) => {
           </div>
           <p className="text-xs text-ink-2">
             Todo sale de tu cuenta. Se renueva y vence igual que tu mandato.
+            Queda habilitado para pagar con su celular (QR, con o sin señal),
+            con el Asistente en la app y por SMS; el tope se reparte entre ellos
+            y luego lo ajustas.
           </p>
           <Button
             type="submit"
