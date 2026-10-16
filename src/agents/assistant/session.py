@@ -11,6 +11,7 @@ class Session:
     options: list[dict] = field(default_factory=list)  # última búsqueda
     pending: dict | None = None  # {pendingId, option, entrega, codigo, total}
     awaiting: dict | None = None  # {indice}: opción esperando que elija recoger (1) o domicilio (2)
+    web_offers: list[dict] = field(default_factory=list)  # última búsqueda en internet (solo informativa)
 
 
 _sessions: dict[str, Session] = {}

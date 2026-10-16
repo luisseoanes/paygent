@@ -17,6 +17,21 @@ def search_result(r: dict, consulta: str) -> str | None:
     return None
 
 
+def web_result(r: dict, not_nearby: bool = False) -> str:
+    """Las ofertas más baratas en internet, tantas como quepan en un SMS."""
+    head = "No lo hay cerca. " if not_nearby else ""
+    if not r["ofertas"]:
+        return clip(f"{head}Tampoco encontré {r['producto']} en tiendas en línea. Escríbalo de otra forma.")
+    tail = ". Solo comparo precios: aún no compro en línea."
+    text = f"{head}{r['producto']} en internet:"
+    for i, o in enumerate(r["ofertas"]):
+        part = f"{',' if i else ''} {o['tienda']} {o['precio']}"
+        if len(text + part + tail) > SMS_MAX:
+            break
+        text += part
+    return clip(text + tail)
+
+
 def choose(o: dict, recipient: str) -> str:
     return clip(f"{o['merchant']} tiene {o['product']} a {fmt_cop(o['priceCOP'])}. Responda 1 para recogerlo "
                 f"o 2 para enviarlo a casa de {recipient} (+{fmt_cop(o['deliveryFeeCOP'])}).")

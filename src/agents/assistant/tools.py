@@ -9,6 +9,7 @@ import random
 from common.api_client import api
 from common.config import WALLET_INVENTARIO
 from common.money import cop_to_usd, fmt_cop, usd, usd_to_cop
+from inventory import web
 from inventory.router import PRICE_PER_QUERY_USD, QueryIn, query
 
 from .session import Session
@@ -43,6 +44,20 @@ async def buscar_producto(s: Session, consulta: str) -> dict:
             for i, o in enumerate(s.options)
         ],
         "envio_a": f"casa de {recipient(s)}" if recipient(s) else "sin dirección registrada",
+    }
+
+
+async def buscar_en_internet(s: Session, consulta: str) -> dict:
+    """Busca el producto de verdad en tiendas en línea de Colombia (precio, disponibilidad y enlace).
+    Solo informa: NO compra ni paga. Comprar en línea todavía no está habilitado."""
+    r = await web.search_web(consulta, limit=3)
+    s.web_offers = r["offers"]
+    return {
+        "producto": f"{r['label']} {r['strength'] or ''}".strip(),
+        "ofertas": [{"tienda": o["store"], "precio": fmt_cop(o["priceCOP"]), "producto": o["product"]}
+                    for o in r["offers"]],
+        "tiendas_consultadas": r["storesConsulted"],
+        "nota": "Solo comparación de precios: todavía no se puede comprar en línea.",
     }
 
 
@@ -138,6 +153,19 @@ TOOL_SCHEMAS = [
         "strict": True,
     },
     {
+        "name": "buscar_en_internet",
+        "description": "Busca el producto en tiendas en línea reales de Colombia (droguerías y supermercados) y "
+                       "devuelve las más baratas con su precio. Solo informa: no compra ni paga. Úsala si la persona "
+                       "pide buscar en internet o comparar precios, o si no está en las tiendas cercanas.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"consulta": {"type": "string", "description": "Lo que pidió la persona, en sus palabras"}},
+            "required": ["consulta"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
         "name": "consultar_saldo",
         "description": "Consulta cuánto le queda disponible a la persona en este periodo.",
         "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -151,6 +179,8 @@ async def run_tool(s: Session, name: str, args: dict) -> dict:
         return await buscar_producto(s, str(args.get("consulta", "")))
     if name == "proponer_compra":
         return await proponer_compra(s, int(args.get("indice", 0)), str(args.get("entrega", PICKUP)))
+    if name == "buscar_en_internet":
+        return await buscar_en_internet(s, str(args.get("consulta", "")))
     if name == "consultar_saldo":
         return await consultar_saldo(s)
     return {"error": f"Herramienta desconocida: {name}"}

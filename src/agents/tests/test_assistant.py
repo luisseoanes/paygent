@@ -105,6 +105,31 @@ def test_sin_direccion_registrada_solo_recoger(fake):
     assert "Recoja" in reply and "casa" not in reply
 
 
+@pytest.fixture
+def fake_web(monkeypatch):
+    async def search_web(query, limit=3):
+        offers = [{"store": "Pasteur", "priceCOP": 7992, "product": "LOSARTAN 50 MG", "url": "https://x/p"},
+                  {"store": "La Rebaja", "priceCOP": 14100, "product": "LOSARTAN 50 MG", "url": "https://y/p"}]
+        known = "presion" in query or "losartan" in query
+        return {"label": "Losartán" if known else query, "strength": "50 mg" if known else None,
+                "offers": offers[:limit] if known else [], "storesConsulted": 7}
+
+    monkeypatch.setattr(tools.web, "search_web", search_web)
+
+
+def test_busca_en_internet_y_no_paga_nada(fake, fake_web):
+    reply = say("busque en internet la pastilla de la presión")
+    assert "Losartán 50 mg en internet: Pasteur $7.992, La Rebaja $14.100" in reply
+    assert "aún no compro en línea" in reply and len(reply) <= SMS_MAX
+    assert fake.calls == []  # ni la compra ni la consulta al Inventario local: solo informa
+
+
+def test_si_no_esta_cerca_lo_busca_en_internet(fake, fake_web):
+    reply = say("necesito un tensiometro")
+    assert reply.startswith("No lo hay cerca.") and "Tampoco encontré" in reply
+    assert all(c["category"] == "datos" for c in fake.calls)  # solo la consulta local de $0.01
+
+
 def test_saldo():
     assert "Le quedan" in say("cuánto me queda?")
 

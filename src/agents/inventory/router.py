@@ -7,6 +7,7 @@ from common.api_client import api
 from common.config import MOCK_INVENTORY_PAYMENT, WALLET_INVENTARIO
 
 from .search import search
+from .web import search_web
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -46,3 +47,14 @@ async def query(q: QueryIn) -> dict:
 @router.post("/query")
 async def query_route(q: QueryIn):
     return await query(q)
+
+
+class WebQueryIn(BaseModel):
+    query: str
+    limit: int = 5
+
+
+@router.post("/web")
+async def web_route(q: WebQueryIn):
+    """Búsqueda real en tiendas en línea de Colombia (precio, disponibilidad y enlace). No compra ni paga."""
+    return await search_web(q.query, limit=max(1, min(q.limit, 10)))

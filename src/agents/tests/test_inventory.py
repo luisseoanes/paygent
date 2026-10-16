@@ -43,3 +43,8 @@ def test_comercio_sin_wallet_cobra_por_puntored():
     assert rosa and rosa[0]["wallet"] == "puntored:tienda"
     con_wallet = [o for o in search("arroz", limit=10) if o["merchant"] == "Minimercado El Paisa"]
     assert con_wallet and con_wallet[0]["wallet"].startswith("https://")
+
+
+def test_tensiometro_no_es_la_pastilla_de_la_presion():
+    """"tensiómetro" contiene "tensión" (sinónimo del losartán): el agente no debe ofrecer comprar losartán."""
+    assert search("necesito un tensiometro") == []

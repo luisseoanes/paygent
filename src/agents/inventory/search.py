@@ -86,9 +86,21 @@ def match_score(query: str, offer: Offer) -> float:
     )
 
 
+def whole_words(query: str, offer: Offer) -> bool:
+    """Los sinónimos deben coincidir por palabras completas (con tolerancia a errores de ortografía).
+    Sin esto, "tensiómetro" contiene "tensión" y el agente ofrecía comprar la pastilla de la presión."""
+    q_words = strip_stopwords(query).split()
+    for term in offer.terms:
+        t_words = strip_stopwords(term).split() or term.split()
+        hits = sum(any(fuzz.ratio(t, q) >= 85 for q in q_words) for t in t_words)
+        if hits == len(t_words) or (len(t_words) >= 2 and 2 * hits >= len(t_words)):
+            return True
+    return False
+
+
 def search(query: str, location: dict | None = None, limit: int = 3) -> list[dict]:
     location = location or {"lat": 6.0, "lng": -75.43}
-    scored = [(match_score(query, o), o) for o in OFFERS]
+    scored = [(match_score(query, o) if whole_words(query, o) else 0, o) for o in OFFERS]
     best = max((s for s, _ in scored), default=0)
     if best < MIN_SCORE:
         return []
