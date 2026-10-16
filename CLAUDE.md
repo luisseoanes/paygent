@@ -87,14 +87,15 @@ inside the code, all comments must be short one-liners and extensive documentati
 | `docs/openpayments-guide.md` | Open Payments primer |
 | `AI_USAGE.md`, `prompts/` | Hackathon AI-usage declaration and prompt log |
 
-One `.env` at the repo root feeds api, web (Vite proxy) and agents. API state lives in
-`src/api/.data/db.json` (git-ignored; delete it to start fresh). `private.key` lives at the root and
-is git-ignored — never commit keys.
+One `.env` at the repo root feeds api, web (Vite proxy) and agents. API state lives in Postgres
+(`DATABASE_URL`; schema in `src/api/src/store/migrations.ts`). Without it, PGlite in
+`src/api/.data/pglite` (git-ignored; delete it to start fresh). Payer and merchant wallets, agents and
+accounts are rows, not env vars. `private.key` lives at the root and is git-ignored — never commit keys.
 
 ## Open Payments setup
 
 1. In the [Test Wallet](https://wallet.interledger-test.dev) create the demo wallets and put their
-   addresses in `.env` (`WALLET_*`).
+   addresses in `src/api/src/demo/wallets.ts` (seed) or register them via the api (`POST /merchants`).
 2. On the client wallet (`OP_CLIENT_WALLET`) generate a developer key: set `OP_KEY_ID` and save
    the private key as `./private.key`.
 3. `MOCK_OP=0` and `pnpm op:smoke` — approve the grant in the browser; a 40 COP payment must appear.

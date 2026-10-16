@@ -163,14 +163,14 @@ paygent/
 | OP-08 ✅ | Mapa de errores de Open Payments → razones internas (límite excedido, saldo insuficiente, quote vencida, token inválido) | BE | P0 | 1.5h | OP-04 | Cada error llega a `/pay` como `deny` con una razón legible → **Hecho: `explainOpError`; la razón llega al feed (`denied`) y al SMS** |
 | OP-09 ⛔ | Intervalo corto para la demo (`PT2M` o `PT5M`) y prueba de renovación | BE | P2 | 1h | PRE-03 | El tope vuelve a estar disponible después del intervalo → **Descartado: se explica en el pitch que el permiso se renueva cada mes** |
 | OP-10 ✅ | Capa de presentación FX si no hay COP (tasa fija documentada y marcada como simulada) | BE | P1 | 0.5h | PRE-03 | La UI muestra COP con la etiqueta "tasa de referencia" → **Hecho: "Tasa de referencia" en la PWA de María; el débito real lo cotiza Open Payments (`pay-price.test.ts`)** |
-| BE-FEED ✅ | `FeedEvent` en SQLite + `GET /feed/stream` (SSE) | BE | P0 | 1.5h | GW-01 | El panel recibe eventos en menos de 1 segundo → **Hecho con JSON (no SQLite); el panel de Juan lo recibe en vivo** |
-| BE-AUTH ✅ | Autenticación de agentes: el agente firma la request (ed25519) con la llave registrada. Alternativa P0: API key por agente | BE | P1 | 1.5h | GW-01 | Una request sin firma válida recibe 401 → **Hecho con la alternativa P0 (API key por agente, test de 401). La firma ed25519 queda descartada** |
+| BE-FEED ✅ | `FeedEvent` en SQLite + `GET /feed/stream` (SSE) | BE | P0 | 1.5h | GW-01 | El panel recibe eventos en menos de 1 segundo → **Hecho en Postgres (tabla `feed_events`); el panel de Juan lo recibe en vivo** |
+| BE-AUTH ✅ | Autenticación de agentes: el agente firma la request (ed25519) con la llave registrada. Alternativa P0: API key por agente | BE | P1 | 1.5h | GW-01 | Una request sin firma válida recibe 401 → **Hecho con una credencial única del servicio de agentes (`AGENT_SERVICE_KEY`) + `x-agent-id`; los agentes son filas de la tabla `agents`. La firma ed25519 queda descartada** |
 
 ### ÉPICO GW — Mandate Gateway (LU)
 
 | ID | Tarea | Resp. | Prio | Est. | Dep. | Criterio de aceptación |
 |---|---|---|---|---|---|---|
-| GW-01 ✅ | Modelo SQLite: Mandate, Agent, DeviceKey, SmsAuth, Merchant, Voucher, Payment, GuardianEvent, FeedEvent + semillas (Juan, María, mamá, 3 comercios, 3 agentes) | LU | P0 | 2h | PRE-04 | `POST /demo/reset` deja la base en el estado inicial de la demo → **Hecho con JSON (no SQLite) y semillas versionadas** |
+| GW-01 ✅ | Modelo SQLite: Mandate, Agent, DeviceKey, SmsAuth, Merchant, Voucher, Payment, GuardianEvent, FeedEvent + semillas (Juan, María, mamá, 3 comercios, 3 agentes) | LU | P0 | 2h | PRE-04 | `POST /demo/reset` deja la base en el estado inicial de la demo → **Hecho en Postgres (esquema en `src/api/src/store/migrations.ts`) con semillas versionadas** |
 | GW-02 ✅ | Llave ed25519 del gateway; firma y verificación de mandatos sobre JSON canónico | LU | P0 | 1.5h | PRE-04 | Test: un mandato alterado falla la verificación → **Hecho, con test** |
 | GW-03 ✅ | `POST /mandates/:id/delegate` con invariantes: suma de hijos ≤ padre, categorías ⊆ padre, vigencia ≤ padre | LU | P0 | 2h | GW-02 | Tests: los 3 invariantes rechazan casos inválidos → **Hecho, con tests de los 3 invariantes** |
 | GW-04 ✅ | Motor `authorize(actor, mandateId, amount, category, pin?)`: recorre la cadena hasta la raíz y valida revocado, congelado, vigencia, tope del periodo (ventanas de `interval`), categoría y umbral de PIN | LU | P0 | 3h | GW-03 | Tests por cada razón de `deny` y por `needs_pin` → **Hecho, con tests de cada razón** |
@@ -178,6 +178,7 @@ paygent/
 | GW-06 ✅ | Compras pendientes: `needs_pin` crea un `pendingId`; `/pay` con `pendingId` + PIN (hash con salt) la confirma | LU | P0 | 1h | GW-05 | PIN incorrecto → `deny`; correcto → pago real → **Hecho: PIN verificado con pago real en Railway** |
 | GW-07 ✅ | `POST /mandates/:id/revoke` en cascada + freeze/unfreeze | LU | P0 | 1h | GW-03 | Revocar una rama no afecta a sus hermanas → **Hecho, con test** |
 | GW-08 ✅ | `PATCH /mandates/:id/restrict` con **monotonía**: solo baja topes o congela; nunca supera al padre | LU | P0 | 1h | GW-03 | Test: intentar ampliar devuelve 403 → **Hecho, con tests** |
+| DB-01 ✅ | Modelo de datos en Postgres: cuentas (`users`: documento, correo, contraseña con hash, nombre, celular), quien delega (`payers`: wallet y moneda) con su permiso (`root_grants`), árbol (`mandates`), comercios y agentes como filas, pagos, vales, feed. `POST /auth/login`, `POST /merchants`, `POST /agents` | BE | P1 | 4h | GW-01 | Sin `WALLET_*` ni `AGENT_KEY_*` en el entorno; el grant de Juan sobrevive al reset → **Hecho: 12 tests en `store.test.ts`, guion de la demo 15/15 sobre PGlite y persistencia comprobada al reiniciar** |
 
 ### ÉPICO OFF — Modo sin señal (LU servidor · FE cliente)
 

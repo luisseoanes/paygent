@@ -2,12 +2,14 @@
 
 import httpx
 
-from .config import AGENT_KEY_ASSISTANT, API_URL
+from .config import AGENT_ID, AGENT_SERVICE_KEY, API_URL
 
 
 class Api:
-    def __init__(self, api_key: str = AGENT_KEY_ASSISTANT, base_url: str = API_URL):
-        self._client = httpx.AsyncClient(base_url=base_url, headers={"x-api-key": api_key}, timeout=30)
+    def __init__(self, agent_id: str = AGENT_ID, base_url: str = API_URL):
+        self._client = httpx.AsyncClient(
+            base_url=base_url, headers={"x-api-key": AGENT_SERVICE_KEY, "x-agent-id": agent_id}, timeout=30,
+        )
         self._asset: dict | None = None
 
     async def _get(self, path: str, **params):
@@ -35,6 +37,9 @@ class Api:
             return await self._get(f"/payments/{payment_id}")
         except httpx.HTTPStatusError:
             return None
+
+    async def merchants(self) -> list[dict]:
+        return await self._get("/merchants")
 
     async def pay(self, **body) -> dict:
         """POST /pay → AuthDecision & { paymentId? }. El gateway decide; el agente solo propone."""

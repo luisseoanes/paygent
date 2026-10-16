@@ -1,7 +1,7 @@
-merchant_id,name,wallet_env,lat,lng,delivery_fee_cop
-farmacia-san-jose,Farmacia San José,WALLET_FARMACIA,6.0025,-75.4300,4000
-drogueria-esperanza,Droguería La Esperanza,WALLET_FARMACIA,6.0090,-75.4380,5000
-drogas-popular,Drogas Popular,WALLET_FARMACIA,6.0150,-75.4400,0
+merchant_id,name,cobro,lat,lng,delivery_fee_cop
+farmacia-san-jose,Farmacia San José,farmacia,6.0025,-75.4300,4000
+drogueria-esperanza,Droguería La Esperanza,farmacia,6.0090,-75.4380,5000
+drogas-popular,Drogas Popular,farmacia,6.0150,-75.4400,0
 tienda-dona-rosa,Tienda Doña Rosa,puntored:tienda,6.0010,-75.4310,3000
-minimercado-paisa,Minimercado El Paisa,WALLET_TIENDA,6.0060,-75.4250,3500
-puntored-centro,Puntored Centro,WALLET_PUNTORED,6.0015,-75.4295,0
+minimercado-paisa,Minimercado El Paisa,minimercado,6.0060,-75.4250,3500
+puntored-centro,Puntored Centro,puntored,6.0015,-75.4295,0

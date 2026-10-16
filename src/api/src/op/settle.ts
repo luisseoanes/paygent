@@ -1,9 +1,11 @@
 import { OpenPaymentsClientError } from '@interledger/open-payments'
 import { randomId, type Amount } from '@openroute/shared'
-import { db } from '../db.ts'
+import { getActiveGrant } from '../db.ts'
 import { env } from '../env.ts'
 import { getClient, getWallet } from './client.ts'
 import { rotateRootToken } from './grants.ts'
+
+const ROOT_ID = 'root'
 
 export interface SettleInput {
   merchantWallet: string
@@ -15,9 +17,9 @@ export interface SettleInput {
    */
   price?: Amount
   /** Se llama con el débito real cotizado ANTES de mover el dinero; si lanza, no se paga. */
-  confirmDebit?: (debit: Amount) => void
+  confirmDebit?: (debit: Amount) => void | Promise<void>
   /** OP-06: si settle respondió sin confirmar la llegada (`confirmed: false`), se llama cuando se sabe. */
-  onLateOutcome?: (outcome: PaymentOutcome) => void
+  onLateOutcome?: (outcome: PaymentOutcome) => void | Promise<void>
   metadata?: Record<string, string>
 }
 
@@ -123,10 +125,10 @@ export const waitForPayment = async (
 export const settle = async (input: SettleInput, retried = false): Promise<SettleResult> => {
   if (env.MOCK_OP) {
     await new Promise((r) => setTimeout(r, 250))
-    input.confirmDebit?.(input.amount) // en mock el débito real es el estimado
+    await input.confirmDebit?.(input.amount) // en mock el débito real es el estimado
     return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.price ?? input.amount, confirmed: true }
   }
-  const root = db.rootGrant
+  const root = await getActiveGrant(ROOT_ID)
   if (!root) throw new SettleError('Juan todavía no aprobó el mandato raíz en su billetera')
 
   const client = await getClient()
@@ -150,7 +152,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     )
 
     try {
-      input.confirmDebit?.(quote.debitAmount)
+      await input.confirmDebit?.(quote.debitAmount)
     } catch (err) {
       // No se paga: el cobro no debe quedar abierto en el comercio.
       await client.incomingPayment.complete({ url: incoming.id, accessToken: incomingToken }).catch(() => {})
@@ -166,7 +168,9 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     // incoming payment: el Test Wallet solo abona el saldo cuando el incoming se completa (o caduca, a los 30 días).
     const check = async () => {
       const [out, inc] = await Promise.all([
-        client.outgoingPayment.get({ url: outgoing.id, accessToken: db.rootGrant?.accessToken ?? root.accessToken }).catch(() => null),
+        client.outgoingPayment
+          .get({ url: outgoing.id, accessToken: (await getActiveGrant(ROOT_ID))?.accessToken ?? root.accessToken })
+          .catch(() => null),
         client.incomingPayment.get({ url: incoming.id, accessToken: incomingToken }),
       ])
       return { failed: !!out?.failed, received: BigInt(inc.receivedAmount.value) }
@@ -185,7 +189,10 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     const outcome = await Promise.race([finished, sleep(SETTLE_WAIT_MS).then(() => 'timeout' as const)])
     if (outcome === 'failed') throw new SettleError('El pago no llegó al comercio: revisa el saldo de la wallet de Juan')
     const confirmed = outcome === 'completed'
-    if (!confirmed) void finished.then((late) => input.onLateOutcome?.(late))
+    if (!confirmed)
+      void finished
+        .then((late) => input.onLateOutcome?.(late))
+        .catch((e) => console.warn('[settle] resultado tardío sin registrar', outgoing.id, e))
 
     return { outgoingPaymentId: outgoing.id, debitAmount: quote.debitAmount, receiveAmount: quote.receiveAmount, confirmed }
   } catch (err) {

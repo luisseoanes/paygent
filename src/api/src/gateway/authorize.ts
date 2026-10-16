@@ -1,4 +1,4 @@
-import { amount as A, type Amount, type AuthDecision, type Category } from '@openroute/shared'
+import { amount as A, type Amount, type AuthDecision, type Category, type Mandate } from '@openroute/shared'
 import { chainOf, rollPeriod } from './mandates.ts'
 
 export interface AuthorizeInput {
@@ -14,13 +14,21 @@ export interface AuthorizeInput {
  * GW-04: el motor de reglas. Recorre la cadena hasta la raíz.
  * El modelo propone; ESTE código decide. Nunca depende de un LLM.
  */
-export const authorize = ({ mandateId, amount, category, pinOk = false, now = new Date() }: AuthorizeInput): AuthDecision => {
-  let chain
+export const authorize = async (input: AuthorizeInput): Promise<AuthDecision> => {
+  let chain: Mandate[]
   try {
-    chain = chainOf(mandateId)
+    chain = await chainOf(input.mandateId)
   } catch {
     return { result: 'deny', reason: 'not_found' }
   }
+  return authorizeChain(chain, input)
+}
+
+/** Las reglas sobre la cadena ya cargada (hoja → raíz). Puro: no toca la base. */
+export const authorizeChain = (
+  chain: Mandate[],
+  { amount, category, pinOk = false, now = new Date() }: AuthorizeInput,
+): AuthDecision => {
   const leaf = chain[0]
 
   if (!leaf.canSpend) return { result: 'deny', reason: 'cannot_spend', detail: `${leaf.holderName} no puede gastar` }

@@ -5,12 +5,13 @@ El catálogo es sintético (ver README de agents). Lo REAL es el pago por consul
 
 import csv
 import math
-import os
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
 from rapidfuzz import fuzz
+
+from common.merchants import wallet_of
 
 HERE = Path(__file__).parent
 MIN_SCORE = 70
@@ -32,7 +33,7 @@ def strip_stopwords(text: str) -> str:
 class Offer:
     merchant_id: str
     merchant: str
-    wallet: str
+    cobro: str
     product: str
     category: str
     price_cop: int
@@ -52,9 +53,8 @@ def _load() -> list[Offer]:
             m = merchants[r["merchant_id"]]
             offers.append(Offer(
                 merchant_id=r["merchant_id"], merchant=m["name"],
-                # "puntored:<id>" = comercio sin wallet que cobra por Puntored (la api decide a dónde va el dinero)
-                wallet=m["wallet_env"] if m["wallet_env"].startswith("puntored:")
-                else os.getenv(m["wallet_env"], f"https://ilp.interledger-test.dev/{r['merchant_id']}"),
+                # Id del comercio en la api (tabla merchants) o "puntored:<id>" si cobra por Puntored sin wallet.
+                cobro=m["cobro"],
                 product=r["product"], category=r["category"],
                 price_cop=int(r["price_cop"]), stock=int(r["stock"]),
                 lat=float(m["lat"]), lng=float(m["lng"]),
@@ -112,7 +112,7 @@ def search(query: str, location: dict | None = None, limit: int = 3) -> list[dic
         # Ranking: precio normalizado + distancia (1 km ≈ $2.000 COP de "costo" de caminar) - bono por stock alto
         rank = o.price_cop + d * 2 - min(o.stock, 10) * 50
         results.append((rank, {
-            "merchant": o.merchant, "wallet": o.wallet, "product": o.product, "category": o.category,
+            "merchant": o.merchant, "wallet": wallet_of(o.cobro), "product": o.product, "category": o.category,
             "priceCOP": o.price_cop, "distanceM": d, "stock": o.stock, "deliveryFeeCOP": o.delivery_fee_cop,
         }))
     results.sort(key=lambda x: x[0])

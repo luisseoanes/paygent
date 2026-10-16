@@ -21,12 +21,17 @@ vi.mock('../src/op/client.ts', () => ({
 }))
 vi.mock('../src/op/grants.ts', () => ({ rotateRootToken: async () => Promise.reject(inactive()) }))
 
-const store = await import('../src/db.ts')
+const { initStore, sql } = await import('../src/store/sql.ts')
 const { settle } = await import('../src/op/settle.ts')
 
 describe('OP-07: pagar con el mandato raíz revocado', () => {
   it('falla con una razón legible, no con el error crudo de Open Payments', async () => {
-    store.db.rootGrant = { walletAddress: 'https://w/juan', accessToken: 'viejo', manageUrl: 'm', continueUri: 'c', continueToken: 'ct' }
+    await initStore()
+    await sql().query(
+      `insert into root_grants (id, root_mandate_id, status, wallet_address, max_debit, interval, continue_uri, continue_token,
+         access_token, manage_url)
+       values ('g1', 'root', 'active', 'https://w/juan', '{}'::jsonb, 'P1M', 'c', 'ct', 'viejo', 'm')`,
+    )
     await expect(settle({ merchantWallet: 'https://w/tienda', amount: A.USD(1) })).rejects.toThrow(/revocado o venció/)
   })
 })

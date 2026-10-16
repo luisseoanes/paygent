@@ -7,7 +7,7 @@ que aplica topes, categorías y PIN. El modelo propone; el gateway decide.
 import random
 
 from common.api_client import api
-from common.config import WALLET_INVENTARIO
+from common import merchants
 from common.money import COP, fmt_cop, from_cop, of, to_cop
 from inventory import web
 from inventory.router import PRICE_PER_QUERY_COP, QueryIn, query
@@ -28,8 +28,9 @@ def can_deliver(s: Session, o: dict) -> bool:
 
 async def buscar_producto(s: Session, consulta: str) -> dict:
     """Paga 40 COP (≈ $0.01) al Agente de Inventario (agente → agente) y consulta quién tiene el producto."""
+    await merchants.refresh()
     pay = await api.pay(
-        mandateId=s.profile["dataMandateId"], merchantWallet=WALLET_INVENTARIO,
+        mandateId=s.profile["dataMandateId"], merchantWallet=merchants.wallet_of(merchants.INVENTORY_ID),
         amount=from_cop(PRICE_PER_QUERY_COP, await api.root_asset()), price=of(COP, PRICE_PER_QUERY_COP),
         category="datos", reason=f"Consulta de inventario: \"{consulta[:40]}\"",
     )

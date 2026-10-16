@@ -4,14 +4,15 @@
  *
  *   pnpm --filter @openroute/api fx:probe 12000            (con las variables de Railway: railway run pnpm …)
  */
-import { getClient, getWallet } from '../src/op/client.ts'
+import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { env } from '../src/env.ts'
+import { getClient, getWallet } from '../src/op/client.ts'
 
 const pesos = Number(process.argv[2] ?? 12_000)
-const merchant = process.argv[3] ?? env.WALLET_FARMACIA
+const merchant = process.argv[3] ?? DEMO_WALLETS.farmacia
 
 const client = await getClient()
-const [sender, receiver] = await Promise.all([getWallet(env.WALLET_JUAN), getWallet(merchant)])
+const [sender, receiver] = await Promise.all([getWallet(DEMO_WALLETS.juan), getWallet(merchant)])
 const token = async (authServer: string, type: 'incoming-payment' | 'quote') => {
   const g = await client.grant.request(
     { url: authServer },

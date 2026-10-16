@@ -4,7 +4,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from common.api_client import api
-from common.config import MOCK_INVENTORY_PAYMENT, WALLET_INVENTARIO
+from common import merchants
+from common.config import MOCK_INVENTORY_PAYMENT
 
 from .search import search
 from .web import search_web
@@ -35,13 +36,15 @@ async def verify_payment(payment_id: str | None) -> None:
     if not payment_id or payment_id in _used_payments:
         raise HTTPException(402, "Pago requerido: $0.01 por consulta")
     p = await api.payment(payment_id)
-    if not p or p["status"] != "completed" or p["merchantWallet"] != WALLET_INVENTARIO:
+    await merchants.refresh()
+    if not p or p["status"] != "completed" or p["merchantWallet"] != merchants.wallet_of(merchants.INVENTORY_ID):
         raise HTTPException(402, "El pago no está liquidado a la wallet del Agente de Inventario")
     _used_payments.add(payment_id)
 
 
 async def query(q: QueryIn) -> dict:
     await verify_payment(q.paymentId)
+    await merchants.refresh()
     return {"options": search(q.query, q.location.model_dump() if q.location else None)}
 
 

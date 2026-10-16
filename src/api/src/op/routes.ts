@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { amount as A, monthly, type Amount } from '@openroute/shared'
-import { db } from '../db.ts'
+import { getActiveGrant, payerOfRoot } from '../db.ts'
 import { env } from '../env.ts'
 import { emit } from '../feed/bus.ts'
+import { badRequest } from '../gateway/errors.ts'
 import { getMandate, putMandate, ROOT_ID } from '../gateway/mandates.ts'
 import { getWallet } from './client.ts'
 import { continueRootGrant, requestRootGrant } from './grants.ts'
@@ -10,16 +11,21 @@ import { continueRootGrant, requestRootGrant } from './grants.ts'
 export default async function opRoutes(app: FastifyInstance) {
   // OP-01
   app.get('/health/op', async () => {
-    if (env.MOCK_OP) return { mock: true, rootGrant: !!db.rootGrant }
-    return { mock: false, rootGrant: !!db.rootGrant, juan: await getWallet(env.WALLET_JUAN) }
+    const rootGrant = !!(await getActiveGrant(ROOT_ID))
+    if (env.MOCK_OP) return { mock: true, rootGrant }
+    const payer = await payerOfRoot(ROOT_ID)
+    return { mock: false, rootGrant, juan: payer ? await getWallet(payer.walletAddress) : null }
   })
 
   // OP-02
   app.post<{ Body: { walletAddress?: string; maxDebit?: Amount; interval?: string } }>('/mandates/root', async (req) => {
     const body = req.body ?? {}
+    // La wallet es la de quien delega (tabla payers); el cuerpo puede indicarla, pero no hace falta.
+    const walletAddress = body.walletAddress ?? (await payerOfRoot(ROOT_ID))?.walletAddress
+    if (!walletAddress) throw badRequest('No hay una wallet registrada para quien delega')
     return requestRootGrant({
-      walletAddress: body.walletAddress ?? env.WALLET_JUAN,
-      maxDebit: body.maxDebit ?? getMandate(ROOT_ID).maxDebit,
+      walletAddress,
+      maxDebit: body.maxDebit ?? (await getMandate(ROOT_ID)).maxDebit,
       interval: body.interval ?? monthly(),
     })
   })
@@ -31,9 +37,9 @@ export default async function opRoutes(app: FastifyInstance) {
     try {
       const pending = await continueRootGrant(interact_ref, hash)
       // El mandato raíz refleja exactamente lo que Juan aprobó en su billetera.
-      const root = getMandate(ROOT_ID)
-      putMandate({ ...root, maxDebit: pending.maxDebit, interval: pending.interval, revoked: false, frozen: false })
-      emit({
+      const root = await getMandate(ROOT_ID)
+      await putMandate({ ...root, maxDebit: pending.maxDebit, interval: pending.interval, revoked: false, frozen: false })
+      await emit({
         mandateId: ROOT_ID,
         actor: { type: 'person', name: 'Juan' },
         kind: 'grant',

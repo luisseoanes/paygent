@@ -23,7 +23,9 @@ MOCK_INVENTORY_PAYMENT = _flag("MOCK_INVENTORY_PAYMENT", False)
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-5-5")
 LLM_TIMEOUT_S = float(os.getenv("LLM_TIMEOUT_S", "8"))
 FX_COP_PER_USD = float(os.getenv("FX_COP_PER_USD", "4000"))
-AGENT_KEY_ASSISTANT = os.getenv("AGENT_KEY_ASSISTANT", "dev-assistant-key")
-WALLET_INVENTARIO = os.getenv("WALLET_INVENTARIO", "https://ilp.interledger-test.dev/agente-inventario")
+# Credencial única del servicio de agentes ante la api; cada agente es una fila (tabla agents) y se indica con
+# x-agent-id. Dar de alta un agente no añade variables de entorno.
+AGENT_SERVICE_KEY = os.getenv("AGENT_SERVICE_KEY", "dev-agents-key")
+AGENT_ID = "asistente"
 
 SMS_MAX = 160
