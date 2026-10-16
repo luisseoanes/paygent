@@ -18,7 +18,7 @@ import JuanRoute from '../juan';
 vi.mock('@/utils/redirect', () => ({ redirectTo: vi.fn() }));
 
 const setupFlow = (url: string, { signedIn = false } = {}) => {
-  if (signedIn) sessionStorage.setItem('paygent-session', '1');
+  if (signedIn) sessionStorage.setItem('paygent-session', 'juan');
   const router = createMemoryRouter(
     [
       { path: paths.auth.login.path, element: <LoginRoute /> },
@@ -44,7 +44,7 @@ test('Juan needs to sign in and then sees his mandate from the API', async () =>
   expect(router.state.location.pathname).toBe(paths.auth.login.path);
 
   await userEvent.type(screen.getByLabelText(/correo/i), 'juan@paygent.dev');
-  await userEvent.type(screen.getByLabelText(/contraseña/i), 'secreto123');
+  await userEvent.type(screen.getByLabelText(/contraseña/i), 'paygent123');
   await userEvent.click(
     screen.getByRole('button', { name: /iniciar sesión/i }),
   );
@@ -62,6 +62,21 @@ test('Juan needs to sign in and then sees his mandate from the API', async () =>
     }),
   ).toBeInTheDocument();
   expect(screen.getByText('$300')).toBeInTheDocument();
+});
+
+test('wrong credentials are refused with a clear message', async () => {
+  setupFlow(paths.auth.login.getHref());
+
+  await screen.findByRole('heading', { name: /iniciar sesión/i });
+  await userEvent.type(screen.getByLabelText(/correo/i), 'juan@paygent.dev');
+  await userEvent.type(screen.getByLabelText(/contraseña/i), 'otraclave1');
+  await userEvent.click(
+    screen.getByRole('button', { name: /iniciar sesión/i }),
+  );
+
+  expect(
+    await screen.findByText(/correo o contraseña incorrectos/i),
+  ).toBeInTheDocument();
 });
 
 test('the login form validates before calling the API', async () => {

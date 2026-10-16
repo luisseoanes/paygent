@@ -84,7 +84,7 @@ export const Resultado = ({
               seed={vale.voucher.voucherId}
             />
             <p className="cifra text-[3rem] leading-none font-light tracking-[-0.03em] text-grafito">
-              {formatCop(A.usdToCop(vale.voucher.amount, fx))}
+              {formatCop(A.toCop(vale.voucher.amount, fx))}
             </p>
             <p className="max-w-xs text-[0.9375rem] text-ink-2">
               {vale.status === 'pending'

@@ -11,7 +11,7 @@ from .web import search_web
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
-PRICE_PER_QUERY_USD = 0.01
+PRICE_PER_QUERY_COP = 40  # ≈ $0.01
 _used_payments: set[str] = set()
 
 

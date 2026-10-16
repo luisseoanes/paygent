@@ -46,6 +46,9 @@ cd src/agents && uv run pytest -q # agents only
 
 ## Architecture rules
 
+- **The root currency is Juan's wallet currency** (COP for the hackathon; USD supported). Every
+  mandate and payment in the tree uses it. Write amounts in pesos and convert with
+  `amount.fromCop` / `pesos()` (agents: `from_cop`); never hardcode an asset code.
 - **The 5 agent rules are invariants, not prompts.** An agent is a leaf of the tree and never spends
   beyond its sub-mandate; permissions only narrow down the tree (monotonicity); above the threshold
   a PIN is required; every agent payment is a real Outgoing Payment; every action lands in the feed
@@ -94,7 +97,7 @@ is git-ignored — never commit keys.
    addresses in `.env` (`WALLET_*`).
 2. On the client wallet (`OP_CLIENT_WALLET`) generate a developer key: set `OP_KEY_ID` and save
    the private key as `./private.key`.
-3. `MOCK_OP=0` and `pnpm op:smoke` — approve the grant in the browser; a $0.01 payment must appear.
+3. `MOCK_OP=0` and `pnpm op:smoke` — approve the grant in the browser; a 40 COP payment must appear.
 4. For phones, expose the web via a tunnel and set `PUBLIC_API_URL` / `WEB_URL`.
 
 ## Tools

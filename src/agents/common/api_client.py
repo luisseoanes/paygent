@@ -8,6 +8,7 @@ from .config import AGENT_KEY_ASSISTANT, API_URL
 class Api:
     def __init__(self, api_key: str = AGENT_KEY_ASSISTANT, base_url: str = API_URL):
         self._client = httpx.AsyncClient(base_url=base_url, headers={"x-api-key": api_key}, timeout=30)
+        self._asset: dict | None = None
 
     async def _get(self, path: str, **params):
         r = await self._client.get(path, params=params or None)
@@ -19,6 +20,12 @@ class Api:
             return await self._get("/sms/profile", phone=phone)
         except httpx.HTTPStatusError:
             return None
+
+    async def root_asset(self) -> dict:
+        """Moneda de la wallet de Juan, según la api. No cambia mientras la api corre."""
+        if self._asset is None:
+            self._asset = (await self._get("/demo/status"))["asset"]
+        return self._asset
 
     async def mandate(self, mandate_id: str) -> dict:
         return await self._get(f"/mandates/{mandate_id}")

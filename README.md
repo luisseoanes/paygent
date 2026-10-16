@@ -69,20 +69,21 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 
 ## Pasar a Open Payments real (PRE-01, PRE-02, H2)
 
-1. En el [Test Wallet](https://wallet.interledger-test.dev) crea las wallets (Juan en USD, Paygent, Tienda, Farmacia, Puntored, Inventario) y pon sus URLs en `.env`.
+1. En el [Test Wallet](https://wallet.interledger-test.dev) crea las wallets (Juan en COP, Paygent, Tienda, Farmacia, Puntored, Inventario; una distinta por comercio) y pon sus URLs en `.env`.
 2. En la wallet de Paygent genera una llave de desarrollador: `OP_KEY_ID` y el archivo `private.key` en la raíz (está en `.gitignore`).
-3. `MOCK_OP=0` y `pnpm op:smoke`: abre la URL, aprueba como Juan, pega la URL de vuelta. Debe aparecer un pago de $0.01 en la Tienda.
+3. `MOCK_OP=0` y `pnpm op:smoke`: abre la URL, aprueba como Juan, pega la URL de vuelta. Debe aparecer un pago de 40 COP en la Tienda.
 4. Levanta un túnel (`cloudflared tunnel --url http://localhost:5173` o ngrok) y pon `PUBLIC_API_URL=<túnel>/api` y `WEB_URL=<túnel>`. El túnel también da HTTPS, que la cámara y el service worker necesitan en los celulares.
 5. `pnpm dev`, abre `/juan` y pulsa **Aprobar en mi billetera**.
 
 ## Datos de la demo (semillas)
 
-- Árbol: Juan $300/mes → María $250 (celular $100 con tope offline $20, techo $50; SMS $50 con PIN siempre) · Asistente $40/semana (PIN si > $10) → Inventario $0.50 · Guardián $0.
+- Moneda: la de la wallet de Juan (`WALLET_JUAN`); en mock, COP. Las semillas están en pesos y, si Juan paga en USD, se convierten con `FX_COP_PER_USD`.
+- Árbol: Juan $1.200.000/mes → María $1.000.000 (celular $400.000 con tope offline $80.000, techo $200.000; SMS $200.000 con PIN siempre) · Asistente $160.000/semana (PIN si > $40.000) → Inventario $2.000 · Guardián $0.
 - Umbral de PIN del Asistente: **$10** (decisión del equipo). El losartán (≈ $3) se paga sin PIN; la insulina (≈ $21) lo pide.
 - Cobro de los comercios: **Tienda Doña Rosa no tiene wallet** y cobra por Puntored a su llave Bre-B (`3105550101`): el pago real va a `WALLET_PUNTORED` con el comercio y la llave en el `metadata`. Farmacia San José y Minimercado El Paisa cobran directo a su wallet. El tendero lo cambia en `/tendero`.
 - Entrega: el Asistente pregunta "1 recoger / 2 enviar". Con domicilio paga producto + envío en un solo pago a la tienda, a la dirección que registró Juan (por defecto: casa de María, Vereda La Palma). El costo de envío de cada comercio está en `src/agents/inventory/merchants.csv` (0 = no hace domicilios).
 - PIN de la demo: **1234** · Teléfono de la mamá (Doña Carmen): **+573001112233**.
-- Tasa de referencia simulada: 1 USD = 4.000 COP (`FX_COP_PER_USD`).
+- Tasa de referencia simulada: 1 USD = 4.000 COP (`FX_COP_PER_USD`); solo se usa si Juan paga en USD.
 - Estado en [src/api/.data/db.json](src/api/.data/) (borrarlo = empezar de cero). La llave del gateway está en `gateway-key.json` y **no** se borra con el reset, para no invalidar los certificados de los celulares.
 
 ## Decisiones pendientes del equipo

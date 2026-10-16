@@ -5,7 +5,14 @@ import { api } from '@/lib/api-client';
 import { type MutationConfig } from '@/lib/react-query';
 import { type Amount } from '@/types/api';
 
-import { buildInterval, parseMoney, periodos, usd } from '../utils/mandate';
+import {
+  buildInterval,
+  parseMoney,
+  periodos,
+  toAmount,
+} from '../utils/mandate';
+
+import { type Asset } from './get-grant-status';
 
 // POST /mandates/root — pide el grant interactivo de Open Payments con
 // debitAmount + interval y devuelve la URL de consentimiento del Test Wallet.
@@ -17,8 +24,7 @@ export const createRootMandateInputSchema = z.object({
     .trim()
     .min(1, 'Escribe el tope')
     .transform(parseMoney)
-    .refine((n) => Number.isFinite(n) && n > 0, 'Escribe un monto mayor a 0')
-    .refine((n) => n <= 10_000, 'Máximo $10.000 por periodo'),
+    .refine((n) => Number.isFinite(n) && n > 0, 'Escribe un monto mayor a 0'),
   periodo: z.enum(periodos),
 });
 
@@ -35,12 +41,14 @@ export type CreateRootMandateBody = {
   interval: string;
 };
 
+// El tope va en la moneda de la wallet de Juan (COP en el hackatón).
 export const toRootMandateBody = (
   values: CreateRootMandateValues,
+  asset: Asset,
   walletAddress?: string,
 ): CreateRootMandateBody => ({
   walletAddress,
-  maxDebit: usd(values.maxDebit),
+  maxDebit: toAmount(values.maxDebit, { value: '0', ...asset }),
   interval: buildInterval(values.periodo),
 });
 

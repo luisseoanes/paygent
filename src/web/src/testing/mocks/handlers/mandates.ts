@@ -106,6 +106,10 @@ export const mandatesHandlers = [
       mockSms: true,
       rootGrant: db.rootGrant,
       fxCopPerUsd: 4000,
+      asset: {
+        assetCode: db.tree.maxDebit.assetCode,
+        assetScale: db.tree.maxDebit.assetScale,
+      },
     });
   }),
 

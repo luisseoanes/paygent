@@ -32,9 +32,30 @@ export const format = (a: Amount) =>
     maximumFractionDigits: a.assetScale,
   })}${a.assetCode === 'USD' ? '' : ' ' + a.assetCode}`
 
-// ─── Capa de presentación FX (OP-10): tasa de referencia SIMULADA ───
+// ─── Moneda raíz: la de la wallet de Juan (COP por defecto; USD si Juan paga desde EE. UU.) ───
+export type Asset = Pick<Amount, 'assetCode' | 'assetScale'>
+export const COP_ASSET: Asset = { assetCode: 'COP', assetScale: 2 } // como el Test Wallet
+
+export const assetOf = (a: Amount): Asset => ({ assetCode: a.assetCode, assetScale: a.assetScale })
+/** Unidades mayores (pesos, dólares) → monto en unidades mínimas del activo. */
+export const of = (asset: Asset, major: number): Amount => ({
+  value: String(Math.round(major * 10 ** asset.assetScale)),
+  ...asset,
+})
+export const cop = (pesos: number): Amount => of(COP_ASSET, pesos)
+
+// ─── Capa de presentación FX (OP-10): tasa de referencia SIMULADA, solo para COP ↔ USD ───
 export const DEFAULT_FX_COP_PER_USD = 4000
 
-export const usdToCop = (a: Amount, rate = DEFAULT_FX_COP_PER_USD) => Math.round(toNumber(a) * rate)
-export const copToUsd = (cop: number, rate = DEFAULT_FX_COP_PER_USD): Amount => usd(cop / rate)
+const copPerUnit = (assetCode: string, rate: number) => {
+  if (assetCode === 'COP') return 1
+  if (assetCode === 'USD') return rate
+  throw new Error(`Sin tasa de referencia para ${assetCode}: Juan debe pagar en COP o USD`)
+}
+
+/** Pesos → monto en la moneda raíz. En COP no hay conversión. */
+export const fromCop = (pesos: number, asset: Asset, rate = DEFAULT_FX_COP_PER_USD): Amount =>
+  of(asset, pesos / copPerUnit(asset.assetCode, rate))
+/** Cualquier monto raíz → pesos, para mostrarlo. */
+export const toCop = (a: Amount, rate = DEFAULT_FX_COP_PER_USD) => Math.round(toNumber(a) * copPerUnit(a.assetCode, rate))
 export const formatCop = (cop: number) => `$${cop.toLocaleString('es-CO')} COP`

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../db.ts'
 import { env } from '../env.ts'
+import { getRootAsset } from '../op/asset.ts'
 import { seed } from './seed.ts'
 
 export default async function demoRoutes(app: FastifyInstance) {
@@ -15,5 +16,6 @@ export default async function demoRoutes(app: FastifyInstance) {
     mockSms: env.MOCK_SMS,
     rootGrant: !!db.rootGrant,
     fxCopPerUsd: env.FX_COP_PER_USD,
+    asset: getRootAsset(),
   }))
 }

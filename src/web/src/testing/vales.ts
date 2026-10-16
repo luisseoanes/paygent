@@ -1,4 +1,5 @@
 import {
+  type Amount,
   type DeviceCert,
   type Merchant,
   amount as A,
@@ -20,7 +21,8 @@ export const tiendaDePrueba: Merchant = {
   category: 'mercado',
 };
 
-export const celularDePrueba = (topeUsd = 20) => {
+// El tope offline va en la moneda de la wallet de Juan (COP o USD).
+export const celularDePrueba = (offlineCap: Amount = A.usd(20)) => {
   const keys = generateKeyPair();
   const now = new Date();
   const cert: DeviceCert = signDeviceCert(
@@ -29,7 +31,7 @@ export const celularDePrueba = (topeUsd = 20) => {
       deviceKeyId: 'dev_test',
       mandateId: 'maria-device',
       publicKey: keys.publicKey,
-      offlineCap: A.usd(topeUsd),
+      offlineCap,
       issuedAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 24 * 3600_000).toISOString(),
     },

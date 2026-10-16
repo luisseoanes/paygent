@@ -17,13 +17,18 @@ export const toAmount = (value: number, like: Amount): Amount => ({
   value: String(Math.round(value * 10 ** like.assetScale)),
 });
 
-// El grant raíz se pide en USD (la wallet de Juan en el Test Wallet).
+// Montos en USD (pruebas y payers de EE. UU.).
 export const usd = (value: number): Amount =>
   toAmount(value, { value: '0', assetCode: 'USD', assetScale: 2 });
 
-// "12,50" o "12.50" → 12.5. Vacío o basura → NaN (lo rechaza el schema).
-export const parseMoney = (raw: string) =>
-  raw.trim() === '' ? Number.NaN : Number(raw.trim().replace(',', '.'));
+// "12,50" o "12.50" → 12.5; "1.200.000" (miles a la colombiana) → 1200000.
+// Vacío o basura → NaN (lo rechaza el schema).
+export const parseMoney = (raw: string) => {
+  const t = raw.trim();
+  if (t === '') return Number.NaN;
+  if (/^\d{1,3}(\.\d{3})+$/.test(t)) return Number(t.replaceAll('.', ''));
+  return Number(t.replace(',', '.'));
+};
 
 export type MandateStatus = 'active' | 'frozen' | 'revoked';
 

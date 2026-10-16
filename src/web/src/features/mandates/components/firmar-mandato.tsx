@@ -11,6 +11,7 @@ import {
   toRootMandateBody,
   useCreateRootMandate,
 } from '../api/create-root-mandate';
+import { COP, useGrantStatus } from '../api/get-grant-status';
 import { periodoLabel, periodos } from '../utils/mandate';
 
 // Juan aún no tiene mandato (o lo revocó): elige el tope y el periodo y lo
@@ -41,6 +42,7 @@ export const FirmarMandato = ({
       onSuccess: ({ redirectUrl }) => redirectTo(redirectUrl),
     },
   });
+  const asset = useGrantStatus().data?.asset ?? COP;
   // Tras el éxito el navegador se va: el botón sigue ocupado hasta entonces.
   const ocupado = createRoot.isPending || createRoot.isSuccess;
 
@@ -83,16 +85,21 @@ export const FirmarMandato = ({
 
         <Form
           schema={createRootMandateInputSchema}
-          options={{ defaultValues: { maxDebit: '300', periodo: 'mes' } }}
+          options={{
+            defaultValues: {
+              maxDebit: asset.assetCode === 'COP' ? '1.200.000' : '300',
+              periodo: 'mes',
+            },
+          }}
           onSubmit={(values) =>
-            createRoot.mutate(toRootMandateBody(values, walletAddress))
+            createRoot.mutate(toRootMandateBody(values, asset, walletAddress))
           }
         >
           {({ register, formState }) => (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Input
-                  label="Tope entre todos (USD)"
+                  label={`Tope entre todos (${asset.assetCode})`}
                   inputMode="decimal"
                   autoComplete="off"
                   className="num h-12 bg-paper text-base"

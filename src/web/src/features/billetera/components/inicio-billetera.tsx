@@ -8,7 +8,7 @@ import { useOnline } from '@/hooks/use-online';
 import { formatCop, formatDate, formatTime } from '@/utils/format';
 
 import { type Dispositivo } from '../stores/dispositivo-store';
-import { disponibleSinSenalCop, topeSinSenalCents } from '../utils/vale';
+import { disponibleSinSenalCop } from '../utils/vale';
 
 // Inicio de María: cuánto puede gastar (este mes y sin señal) y un solo
 // botón grande para pagar. Debajo, los vales que ha firmado.
@@ -24,9 +24,9 @@ export const InicioBilletera = ({
   desvincular?: React.ReactNode;
 }) => {
   const online = useOnline();
-  const topeCop = A.usdToCop(A.USD(topeSinSenalCents(d)), d.fx);
+  const topeCop = A.toCop(d.cert.offlineCap, d.fx);
   const sinSenal = disponibleSinSenalCop(d);
-  const delMes = d.remaining ? A.usdToCop(d.remaining, d.fx) : undefined;
+  const delMes = d.remaining ? A.toCop(d.remaining, d.fx) : undefined;
 
   return (
     <div className="flex flex-1 flex-col gap-6 pt-4">
@@ -112,9 +112,12 @@ export const InicioBilletera = ({
         )}
       </section>
 
-      <p className="mt-auto text-center text-xs text-ink-2">
-        Tasa de referencia: 1 USD = {formatCop(d.fx)}
-      </p>
+      {/* Solo si Juan paga en USD: en COP no hay conversión. */}
+      {d.cert.offlineCap.assetCode !== 'COP' && (
+        <p className="mt-auto text-center text-xs text-ink-2">
+          Tasa de referencia: 1 USD = {formatCop(d.fx)}
+        </p>
+      )}
       {desvincular}
     </div>
   );

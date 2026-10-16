@@ -84,8 +84,12 @@ export type FeedEvent = {
 
 // --- Sesión -----------------------------------------------------------------
 
+// Quién usa la app: Juan delega, María paga, el tendero cobra.
+export type Rol = 'juan' | 'maria' | 'tendero';
+
 export type User = {
   id: string;
+  role: Rol;
   name: string;
   email: string;
   // Wallet address de Open Payments; se muestra solo si se conoce.

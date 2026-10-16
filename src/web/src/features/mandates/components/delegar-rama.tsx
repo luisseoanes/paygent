@@ -199,7 +199,7 @@ export const DelegarRama = ({ root, parentId, onDone }: DelegarRamaProps) => {
           />
 
           <Input
-            label="Tope por periodo (USD)"
+            label={`Tope por periodo (${root.maxDebit.assetCode})`}
             inputMode="decimal"
             autoComplete="off"
             className="num h-12 bg-paper text-base"

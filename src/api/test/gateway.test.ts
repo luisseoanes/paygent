@@ -9,6 +9,7 @@ import { authorize } from '../src/gateway/authorize.ts'
 import { delegate, getMandate, restrict, revoke } from '../src/gateway/mandates.ts'
 import { verifyMandate } from '@openroute/shared'
 import { gatewayKey } from '../src/gateway/keys.ts'
+import { setRootAsset } from '../src/op/asset.ts'
 
 const app = await buildApp({ logger: false })
 const assistantKey = { 'x-api-key': 'dev-assistant-key' }
@@ -20,43 +21,43 @@ describe('GW-02 firma de mandatos', () => {
   it('un mandato alterado falla la verificación', () => {
     const m = getMandate('maria')
     expect(verifyMandate(m, gatewayKey.publicKey)).toBe(true)
-    expect(verifyMandate({ ...m, maxDebit: A.usd(9999) }, gatewayKey.publicKey)).toBe(false)
+    expect(verifyMandate({ ...m, maxDebit: A.cop(39_996_000) }, gatewayKey.publicKey)).toBe(false)
   })
 })
 
 describe('GW-03 invariantes de delegación', () => {
   it('suma de hijos ≤ padre', () =>
-    expect(() => delegate('root', { holderType: 'person', holderId: 'x', maxDebit: A.usd(20) })).toThrow(/suma/))
+    expect(() => delegate('root', { holderType: 'person', holderId: 'x', maxDebit: A.cop(80_000) })).toThrow(/suma/))
   it('categorías ⊆ padre', () =>
     expect(() =>
-      delegate('maria-device', { holderType: 'device', holderId: 'x', maxDebit: A.usd(1), categories: ['efectivo'] }),
+      delegate('maria-device', { holderType: 'device', holderId: 'x', maxDebit: A.cop(4000), categories: ['efectivo'] }),
     ).toThrow(/Categorías/))
   it('vigencia ≤ padre', () =>
     expect(() =>
-      delegate('maria', { holderType: 'person', holderId: 'x', maxDebit: A.usd(1), expiresAt: '2999-01-01T00:00:00Z' }),
+      delegate('maria', { holderType: 'person', holderId: 'x', maxDebit: A.cop(4000), expiresAt: '2999-01-01T00:00:00Z' }),
     ).toThrow(/vigencia/))
 })
 
 describe('GW-04 authorize', () => {
   const base = { mandateId: 'asistente', category: 'farmacia' as const }
-  it('allow bajo el umbral', () => expect(authorize({ ...base, amount: A.usd(1.5) }).result).toBe('allow'))
-  it('needs_pin sobre el umbral', () => expect(authorize({ ...base, amount: A.usd(15) }).result).toBe('needs_pin'))
-  it('over_limit', () => expect(authorize({ ...base, amount: A.usd(41), pinOk: true })).toMatchObject({ reason: 'over_limit' }))
-  it('category', () => expect(authorize({ ...base, amount: A.usd(1), category: 'efectivo' })).toMatchObject({ reason: 'category' }))
+  it('allow bajo el umbral', () => expect(authorize({ ...base, amount: A.cop(6000) }).result).toBe('allow'))
+  it('needs_pin sobre el umbral', () => expect(authorize({ ...base, amount: A.cop(60_000) }).result).toBe('needs_pin'))
+  it('over_limit', () => expect(authorize({ ...base, amount: A.cop(164_000), pinOk: true })).toMatchObject({ reason: 'over_limit' }))
+  it('category', () => expect(authorize({ ...base, amount: A.cop(4000), category: 'efectivo' })).toMatchObject({ reason: 'category' }))
   it('cannot_spend (Guardián)', () =>
-    expect(authorize({ ...base, mandateId: 'guardian', amount: A.usd(1) })).toMatchObject({ reason: 'cannot_spend' }))
+    expect(authorize({ ...base, mandateId: 'guardian', amount: A.cop(4000) })).toMatchObject({ reason: 'cannot_spend' }))
   it('revoked', () => {
     revoke('asistente')
-    expect(authorize({ ...base, amount: A.usd(1) })).toMatchObject({ reason: 'revoked' })
+    expect(authorize({ ...base, amount: A.cop(4000) })).toMatchObject({ reason: 'revoked' })
   })
   it('frozen', () => {
     restrict('maria', { frozen: true })
-    expect(authorize({ ...base, mandateId: 'maria-device', category: 'mercado', amount: A.usd(1) })).toMatchObject({
+    expect(authorize({ ...base, mandateId: 'maria-device', category: 'mercado', amount: A.cop(4000) })).toMatchObject({
       reason: 'frozen',
     })
   })
   it('expired', () =>
-    expect(authorize({ ...base, amount: A.usd(1), now: new Date('2999-01-01') })).toMatchObject({ reason: 'expired' }))
+    expect(authorize({ ...base, amount: A.cop(4000), now: new Date('2999-01-01') })).toMatchObject({ reason: 'expired' }))
 })
 
 describe('GW-07/08', () => {
@@ -66,7 +67,7 @@ describe('GW-07/08', () => {
     expect(getMandate('maria').revoked).toBe(false)
   })
   it('restrict no puede ampliar más allá del techo de Juan', async () => {
-    const res = await app.inject({ method: 'PATCH', url: '/mandates/maria-device/restrict', payload: { offlineCap: A.usd(60) } })
+    const res = await app.inject({ method: 'PATCH', url: '/mandates/maria-device/restrict', payload: { offlineCap: A.cop(240_000) } })
     expect(res.statusCode).toBe(403)
   })
   it('restrict no puede descongelar', () => expect(() => restrict('maria', { frozen: false })).toThrow())
@@ -80,32 +81,32 @@ describe('/pay', () => {
   it('PIN: incorrecto → deny; correcto → pago y gasto en toda la cadena', async () => {
     const pay = (payload: object) =>
       app.inject({ method: 'POST', url: '/pay', headers: assistantKey, payload }).then((r) => r.json())
-    const body = { mandateId: 'asistente', merchantWallet: farmacia, amount: A.usd(15), category: 'farmacia', reason: 'losartán' }
+    const body = { mandateId: 'asistente', merchantWallet: farmacia, amount: A.cop(60_000), category: 'farmacia', reason: 'losartán' }
 
     const first = await pay(body)
     expect(first.result).toBe('needs_pin')
     expect(await pay({ ...body, pendingId: first.pendingId, pin: '0000' })).toMatchObject({ reason: 'bad_pin' })
     const ok = await pay({ ...body, pendingId: first.pendingId, pin: '1234' })
     expect(ok.result).toBe('allow')
-    expect(getMandate('asistente').spentInPeriod.value).toBe('1500')
-    expect(getMandate('root').spentInPeriod.value).toBe('1500')
+    expect(getMandate('asistente').spentInPeriod).toEqual(A.cop(60_000))
+    expect(getMandate('root').spentInPeriod).toEqual(A.cop(60_000))
   })
 })
 
 describe('Entrega: recoger o domicilio a la casa que registró Juan', () => {
   const pay = (payload: object) =>
     app.inject({ method: 'POST', url: '/pay', headers: assistantKey, payload }).then((r) => r.json())
-  const order = (delivery: object, usd = 4) => ({
+  const order = (delivery: object, pesos = 16_000) => ({
     mandateId: 'asistente',
     merchantWallet: db.merchants.farmacia.wallet,
-    amount: A.usd(usd),
+    amount: A.cop(pesos),
     category: 'farmacia',
     reason: 'losartán con envío',
     delivery,
   })
 
   it('el gateway pone la dirección de Juan aunque el agente mande otra', async () => {
-    const res = await pay(order({ mode: 'delivery', code: '4321', fee: A.usd(1), address: 'Otra casa', recipientName: 'Ladrón' }))
+    const res = await pay(order({ mode: 'delivery', code: '4321', fee: A.cop(4000), address: 'Otra casa', recipientName: 'Ladrón' }))
     expect(res.result).toBe('allow')
     const p = db.payments[res.paymentId]
     expect(p.delivery).toMatchObject({ mode: 'delivery', code: '4321', recipientName: 'María' })
@@ -129,9 +130,9 @@ describe('Entrega: recoger o domicilio a la casa que registró Juan', () => {
   })
 
   it('con PIN, la entrega se conserva y la tienda ve el pedido', async () => {
-    const first = await pay(order({ mode: 'delivery', code: '7777', fee: A.usd(1) }, 22))
+    const first = await pay(order({ mode: 'delivery', code: '7777', fee: A.cop(4000) }, 88_000))
     expect(first.result).toBe('needs_pin')
-    const ok = await pay({ ...order({ mode: 'pickup', code: 'x' }, 22), pendingId: first.pendingId, pin: '1234' })
+    const ok = await pay({ ...order({ mode: 'pickup', code: 'x' }, 88_000), pendingId: first.pendingId, pin: '1234' })
     expect(ok.result).toBe('allow')
     const orders = (await app.inject({ method: 'GET', url: '/merchants/farmacia/orders' })).json()
     expect(orders[0]).toMatchObject({ id: ok.paymentId, delivery: { mode: 'delivery', code: '7777', recipientName: 'María' } })
@@ -145,7 +146,7 @@ describe('Cobro: directo a la wallet del comercio o por Puntored si no tiene', (
         method: 'POST',
         url: '/pay',
         headers: assistantKey,
-        payload: { mandateId: 'asistente', merchantWallet, amount: A.usd(2), category: 'mercado', reason: 'arroz' },
+        payload: { mandateId: 'asistente', merchantWallet, amount: A.cop(8000), category: 'mercado', reason: 'arroz' },
       })
       .then((r) => r.json())
 
@@ -189,7 +190,7 @@ describe('OFF-03 liquidación de vales', () => {
     const device = generateKeyPair()
     const reg = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: device.publicKey } })
     const { cert } = reg.json()
-    const mk = (counter: number, cents: number, cumulative: number): Voucher =>
+    const mk = (counter: number, pesos: number, cumulative: number): Voucher =>
       signVoucher(
         {
           voucherId: randomId('v_'),
@@ -197,15 +198,15 @@ describe('OFF-03 liquidación de vales', () => {
           deviceCert: cert,
           merchantWallet: 'https://ilp.interledger-test.dev/dona-rosa',
           category: 'mercado',
-          amount: A.USD(cents),
+          amount: A.cop(pesos),
           counter,
-          cumulative: A.USD(cumulative),
+          cumulative: A.cop(cumulative),
           createdAt: new Date().toISOString(),
         },
         device.secretKey,
       )
-    const v1 = mk(1, 500, 500)
-    const v2 = mk(2, 300, 800)
+    const v1 = mk(1, 20_000, 20_000)
+    const v2 = mk(2, 12_000, 32_000)
     const replay = { ...v1 } // el mismo vale, presentado otra vez
 
     const first = await app.inject({ method: 'POST', url: '/vouchers/settle', payload: { vouchers: [v1, v2] } })
@@ -214,5 +215,24 @@ describe('OFF-03 liquidación de vales', () => {
     const second = await app.inject({ method: 'POST', url: '/vouchers/settle', payload: { vouchers: [replay] } })
     expect(second.json().results[0]).toMatchObject({ status: 'rejected', reason: 'replay' })
     expect(getMandate('maria-device').frozen).toBe(true)
+  })
+})
+
+describe('Moneda raíz: la de la wallet de Juan', () => {
+  it('por defecto (mock) Juan paga en COP', async () => {
+    expect(getMandate('root').maxDebit).toEqual(A.cop(1_200_000))
+    const status = (await app.inject({ method: 'GET', url: '/demo/status' })).json()
+    expect(status.asset).toEqual({ assetCode: 'COP', assetScale: 2 })
+  })
+
+  it('si la wallet de Juan es USD, el árbol se siembra en USD con la tasa de referencia', () => {
+    setRootAsset({ assetCode: 'USD', assetScale: 2 })
+    try {
+      seed({ keepGrant: false })
+      expect(getMandate('root').maxDebit).toEqual(A.usd(300))
+      expect(getMandate('asistente').pinThreshold).toEqual(A.usd(10))
+    } finally {
+      setRootAsset(A.COP_ASSET)
+    }
   })
 })

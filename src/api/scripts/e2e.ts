@@ -61,6 +61,8 @@ const device = generateKeyPair()
 const { cert } = await call<{ cert: DeviceCert }>('/mandates/maria-device/device-key', { publicKey: device.publicKey })
 const merchants = await call<any[]>('/merchants')
 const tienda = merchants.find((m) => m.id === 'tienda')
+// 20.000 COP en la moneda raíz (la del tope del certificado)
+const valeMonto = A.fromCop(20_000, A.assetOf(cert.offlineCap), env.FX_COP_PER_USD)
 const voucher: Voucher = signVoucher(
   {
     voucherId: randomId('v_'),
@@ -68,9 +70,9 @@ const voucher: Voucher = signVoucher(
     deviceCert: cert,
     merchantWallet: tienda.wallet,
     category: 'mercado',
-    amount: A.usd(5),
+    amount: valeMonto,
     counter: 1,
-    cumulative: A.usd(5),
+    cumulative: valeMonto,
     createdAt: new Date().toISOString(),
   },
   device.secretKey,
