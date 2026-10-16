@@ -12,7 +12,7 @@ vi.mock('../src/op/settle.ts', async (importOriginal) => {
         ? { value: String(Math.round((Number(input.price.value) / 100 / fx.copPerUsd) * 100)), assetCode: 'USD', assetScale: 2 }
         : input.amount
       input.confirmDebit?.(debit) // si lanza, no se paga
-      return { outgoingPaymentId: 'op_test', debitAmount: debit, receiveAmount: input.price ?? debit }
+      return { outgoingPaymentId: 'op_test', debitAmount: debit, receiveAmount: input.price ?? debit, confirmed: true }
     },
   }
 })

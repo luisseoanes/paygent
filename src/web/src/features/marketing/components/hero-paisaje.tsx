@@ -1,6 +1,12 @@
 import { ArrowRight } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import type * as React from 'react';
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from 'motion/react';
+import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Link } from '@/components/ui/link';
@@ -90,16 +96,28 @@ export type HeroPaisajeProps = {
 export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
   const reduceMotion = useReducedMotion();
   const { paso } = useGuion();
+  const ref = React.useRef<HTMLElement>(null);
+  // Al bajar, el paisaje se queda un poco atrás (profundidad) y el titular
+  // se aleja.
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start start', 'end start'],
+  });
+  const paisajeY = useTransform(scrollYProgress, [0, 1], ['0%', '8%']);
+  const titularY = useTransform(scrollYProgress, [0, 0.5], [0, 90]);
+  const titularOpacidad = useTransform(scrollYProgress, [0, 0.45], [1, 0]);
 
   return (
     <section
+      ref={ref}
       aria-labelledby="hero-title"
       className="relative isolate overflow-hidden bg-firma"
     >
       {/* Paisaje: cielo despejado arriba, montañas abajo a la derecha */}
-      <div
+      <motion.div
         aria-hidden="true"
         className="absolute inset-0 -z-10 overflow-hidden"
+        style={reduceMotion ? undefined : { y: paisajeY }}
       >
         <img
           src={paisaje}
@@ -108,51 +126,58 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
           height={180}
           className="h-full w-full animate-paneo object-cover object-[60%_100%] pixelado motion-reduce:animate-none"
         />
-      </div>
+      </motion.div>
 
-      <div className="mx-auto grid min-h-[min(100svh,860px)] w-full max-w-[1400px] grid-rows-[auto_1fr] gap-6 px-4 pt-28 sm:px-6 lg:grid-cols-12 lg:px-10 lg:pt-32">
+      <div className="mx-auto grid min-h-[min(calc(100svh+32px),900px)] w-full max-w-[1400px] grid-rows-[auto_1fr] gap-6 px-4 pt-28 sm:px-6 lg:grid-cols-12 lg:px-10 lg:pt-32">
+        {/* Fuera: se aleja con el scroll. Dentro: entra al cargar. */}
         <motion.div
-          className="lg:col-span-5 lg:-mt-8 lg:-ml-12"
-          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.3, 0.7, 0.2, 1] }}
+          className="lg:col-span-5 lg:-mt-8"
+          style={
+            reduceMotion ? undefined : { y: titularY, opacity: titularOpacidad }
+          }
         >
-          <Heading
-            level="display"
-            id="hero-title"
-            className="font-geist text-[clamp(2.1rem,3.6vw,3.4rem)] leading-[1.08] tracking-[-0.03em] text-paper-raised drop-shadow-[0_1px_8px_rgb(20_60_120/0.25)]"
-            style={{ fontWeight: 300, fontVariationSettings: 'normal' }}
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.3, 0.7, 0.2, 1] }}
           >
-            Pagar no debería necesitar{' '}
-            <span
-              className="font-pixel tracking-normal"
-              style={{ fontWeight: 500 }}
+            <Heading
+              level="display"
+              id="hero-title"
+              className="font-geist text-[clamp(2.1rem,3.6vw,3.4rem)] leading-[1.08] tracking-[-0.03em] text-paper-raised drop-shadow-[0_1px_8px_rgb(20_60_120/0.25)]"
+              style={{ fontWeight: 300, fontVariationSettings: 'normal' }}
             >
-              internet.
-            </span>
-          </Heading>
-          <p className="mt-4 max-w-[40ch] font-geist text-[1.0625rem] leading-relaxed text-paper-raised/90">
-            Un solo permiso de Open Payments para personas y agentes de IA:
-            pagan con datos, sin señal o por SMS.
-          </p>
-          <div className="mt-7 flex flex-wrap items-center gap-2.5">
-            <Button
-              asChild
-              className="h-11 rounded-lg bg-paper-raised px-5 font-geist text-[0.9375rem] text-grafito shadow-sm hover:bg-hueso"
-            >
-              <Link variant="unstyled" to={paths.juan.getHref()}>
-                Entrar a mi mandato
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="h-11 rounded-lg border-paper-raised/80 bg-ink/15 px-5 font-geist text-[0.9375rem] font-medium text-paper-raised backdrop-blur-md hover:bg-paper-raised/25"
-            >
-              <a href="#que-es-real">Qué es real</a>
-            </Button>
-          </div>
+              Pagar no debería necesitar{' '}
+              <span
+                className="font-pixel tracking-normal"
+                style={{ fontWeight: 500 }}
+              >
+                internet.
+              </span>
+            </Heading>
+            <p className="mt-4 max-w-[40ch] font-geist text-[1.0625rem] leading-relaxed text-paper-raised/90">
+              Un solo permiso de Open Payments para personas y agentes de IA:
+              pagan con datos, sin señal o por SMS.
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-2.5">
+              <Button
+                asChild
+                className="h-11 rounded-lg bg-paper-raised px-5 font-geist text-[0.9375rem] text-grafito shadow-sm hover:bg-hueso"
+              >
+                <Link variant="unstyled" to={paths.juan.getHref()}>
+                  Entrar a mi mandato
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                asChild
+                className="h-11 rounded-lg border-paper-raised/80 bg-ink/15 px-5 font-geist text-[0.9375rem] font-medium text-paper-raised backdrop-blur-md hover:bg-paper-raised/25"
+              >
+                <a href="#que-es-real">Qué es real</a>
+              </Button>
+            </div>
+          </motion.div>
         </motion.div>
 
         {/* El objeto, apoyado en las montañas */}

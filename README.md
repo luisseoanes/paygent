@@ -78,7 +78,7 @@ Los `TODO <ID>` del código apuntan a la tarea del backlog que falta (`grep -r "
 ## Datos de la demo (semillas)
 
 - Moneda: la de la wallet de Juan (`WALLET_JUAN`); en mock, COP. Las semillas están en pesos y, si Juan paga en USD, se convierten con `FX_COP_PER_USD`.
-- Árbol: Juan $1.200.000/mes → María $1.000.000 (celular $400.000 con tope offline $80.000, techo $200.000; SMS $200.000 con PIN siempre) · Asistente $160.000/semana (PIN si > $40.000) → Inventario $2.000 · Guardián $0.
+- Árbol: Juan $1.200.000/mes → María $1.000.000 (celular $400.000 con tope offline $80.000, techo $200.000; SMS $200.000 con PIN siempre; Asistente de María $160.000/mes con PIN si > $40.000, el del chat de su app) · Asistente $160.000/semana (PIN si > $40.000) → Inventario $2.000 · Guardián $0.
 - Umbral de PIN del Asistente: **$10** (decisión del equipo). El losartán (≈ $3) se paga sin PIN; la insulina (≈ $21) lo pide.
 - Cobro de los comercios: **Tienda Doña Rosa no tiene wallet** y cobra por Puntored a su llave Bre-B (`3105550101`): el pago real va a `WALLET_PUNTORED` con el comercio y la llave en el `metadata`. Farmacia San José y Minimercado El Paisa cobran directo a su wallet. El tendero lo cambia en `/tendero`.
 - Entrega: el Asistente pregunta "1 recoger / 2 enviar". Con domicilio paga producto + envío en un solo pago a la tienda, a la dirección que registró Juan (por defecto: casa de María, Vereda La Palma). El costo de envío de cada comercio está en `src/agents/inventory/merchants.csv` (0 = no hace domicilios).

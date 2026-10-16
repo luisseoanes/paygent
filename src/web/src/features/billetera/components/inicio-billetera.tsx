@@ -1,5 +1,5 @@
 import { amount as A } from '@openroute/shared';
-import { QrCode } from 'lucide-react';
+import { MessageCircle, QrCode } from 'lucide-react';
 import type * as React from 'react';
 
 import { ReglaDeConsumo } from '@/components/brand/regla-consumo';
@@ -16,10 +16,12 @@ import { disponibleSinSenalCop } from '../utils/vale';
 export const InicioBilletera = ({
   dispositivo: d,
   onPagar,
+  onAsistente,
   desvincular,
 }: {
   dispositivo: Dispositivo;
   onPagar: () => void;
+  onAsistente?: () => void;
   // Slot: el control para desvincular (lo compone la ruta con su confirmación)
   desvincular?: React.ReactNode;
 }) => {
@@ -79,6 +81,17 @@ export const InicioBilletera = ({
       >
         Pagar
       </Button>
+      {onAsistente && (
+        <Button
+          size="lg"
+          variant="outline"
+          className="-mt-2 w-full rounded-full"
+          icon={<MessageCircle aria-hidden="true" />}
+          onClick={onAsistente}
+        >
+          Hablar con el asistente
+        </Button>
+      )}
 
       <section aria-labelledby="tus-vales" className="space-y-2">
         <h2 id="tus-vales" className="px-1 text-base font-medium text-grafito">

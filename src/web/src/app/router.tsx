@@ -74,6 +74,10 @@ export const createAppRouter = (queryClient: QueryClient) =>
           path: paths.tendero.path,
           lazy: () => import('./routes/tendero').then(convert(queryClient)),
         },
+        {
+          path: paths.celular.path,
+          lazy: () => import('./routes/celular').then(convert(queryClient)),
+        },
       ],
     },
   ]);

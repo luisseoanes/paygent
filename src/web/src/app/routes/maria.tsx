@@ -6,12 +6,16 @@ import { AppShell } from '@/components/layouts';
 import { Head } from '@/components/seo';
 import { ConfirmationDialog } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { ChatAsistente } from '@/features/asistente/components/chat-asistente';
+import { NubeChat } from '@/features/asistente/components/nube-chat';
+import { useChat } from '@/features/asistente/hooks/use-chat';
 import { InicioBilletera } from '@/features/billetera/components/inicio-billetera';
 import { Pagar } from '@/features/billetera/components/pagar';
 import { ValeQr } from '@/features/billetera/components/vale-qr';
 import { Vincular } from '@/features/billetera/components/vincular';
 import { useRefrescarDispositivo } from '@/features/billetera/hooks/use-refrescar-dispositivo';
 import { useDispositivoStore } from '@/features/billetera/stores/dispositivo-store';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { ProtectedRoute } from '@/lib/auth';
 
 // PWA de María (FE-03, OFF-04): vincular el celular una vez, ver cuánto puede
@@ -30,6 +34,15 @@ const MariaApp = () => {
   const olvidar = useDispositivoStore((s) => s.olvidar);
   const [vista, setVista] = React.useState<Vista>({ tipo: 'inicio' });
   const codigo = searchParams.get('vincular') ?? undefined;
+  const [chatAbierto, setChatAbierto] = React.useState(false);
+  const escritorio = useMediaQuery('(min-width: 1024px)');
+  const contexto = React.useMemo(
+    () => (dispositivo ? { mandato: dispositivo.mandateId } : undefined),
+    [dispositivo],
+  );
+  const chat = useChat({ contexto });
+  const cerrarChat = () => setChatAbierto(false);
+  const chatVisible = chatAbierto && !!dispositivo;
   useRefrescarDispositivo();
 
   React.useEffect(() => {
@@ -51,6 +64,17 @@ const MariaApp = () => {
         'Eliges dónde pagas y cuánto, en pesos.',
         'Muestras el QR del vale: el tendero lo cobra al instante o cuando vuelva la señal.',
       ]}
+      escena={
+        chatVisible && escritorio ? (
+          <NubeChat>
+            <ChatAsistente
+              chat={chat}
+              onCerrar={cerrarChat}
+              className="h-[min(68dvh,560px)]"
+            />
+          </NubeChat>
+        ) : undefined
+      }
     >
       <Head
         title="María"
@@ -62,6 +86,12 @@ const MariaApp = () => {
         </div>
       ) : !dispositivo ? (
         <Vincular codigoInicial={codigo} />
+      ) : chatVisible && !escritorio ? (
+        <ChatAsistente
+          chat={chat}
+          onCerrar={cerrarChat}
+          className="h-[calc(100dvh-7rem)]"
+        />
       ) : vista.tipo === 'pagar' ? (
         <Pagar
           dispositivo={dispositivo}
@@ -81,6 +111,7 @@ const MariaApp = () => {
         <InicioBilletera
           dispositivo={dispositivo}
           onPagar={() => setVista({ tipo: 'pagar' })}
+          onAsistente={() => setChatAbierto(true)}
           desvincular={
             <ConfirmationDialog
               title="¿Desvincular este celular?"
