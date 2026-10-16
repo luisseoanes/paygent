@@ -17,6 +17,8 @@ export const env = {
   MOCK_OP: flag('MOCK_OP', true),
   MOCK_SMS: flag('MOCK_SMS', true),
   MOCK_INVENTORY_PAYMENT: flag('MOCK_INVENTORY_PAYMENT', false),
+  /** 'telnyx' habilita POST /sms/telnyx; las llaves TELNYX_* se leen en sms/telnyx.ts */
+  SMS_PROVIDER: str('SMS_PROVIDER', 'twiml'),
 
   PORT: Number(str('API_PORT', '3001')),
   PUBLIC_API_URL: str('PUBLIC_API_URL', 'http://localhost:3001'),

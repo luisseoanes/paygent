@@ -1,16 +1,16 @@
 // Puente SMS: celular real (por un SmsTransport) ↔ POST /sms/inbound. Privacidad primero: solo números permitidos.
+import type { SmsSender } from '../sms/sender.ts'
 
 export interface InboundSms {
   id: number
   address: string
 }
 
-export interface SmsTransport {
+export interface SmsTransport extends SmsSender {
   latestId(): Promise<number>
   /** Solo id y remitente: el cuerpo se lee aparte y únicamente si el remitente está permitido */
   newMessages(afterId: number): Promise<InboundSms[]>
   readBody(id: number): Promise<string>
-  send(to: string, body: string): Promise<void>
 }
 
 export interface BridgeDeps {
