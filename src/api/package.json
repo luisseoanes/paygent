@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "op:smoke": "tsx scripts/op-smoke.ts",
     "e2e": "tsx scripts/e2e.ts",
-    "fx:probe": "tsx scripts/fx-probe.ts"
+    "fx:probe": "tsx scripts/fx-probe.ts",
+    "sms:bridge": "tsx scripts/sms-bridge.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

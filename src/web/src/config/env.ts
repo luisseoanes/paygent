@@ -11,6 +11,8 @@ const EnvSchema = z.object({
     .optional(),
   // Wallet de Juan en el Test Wallet, solo para mostrarla en su panel.
   JUAN_WALLET_ADDRESS: z.string().min(1).optional(),
+  // Número del celular-puente (pnpm sms:bridge) al que el tendero envía vales por SMS.
+  SMS_GATEWAY_NUMBER: z.string().min(1).optional(),
 });
 
 const createEnv = () => {
