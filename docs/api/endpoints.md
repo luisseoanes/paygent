@@ -43,6 +43,9 @@ Convenciones:
 | `PATCH /mandates/:id/restrict` | `{ offlineCap?, frozen? }` | `Mandate` (solo restringe) |
 | `POST /mandates/:id/unfreeze` | — | `Mandate` |
 | `POST /mandates/:id/device-key` | `{ publicKey }` | `{ deviceKeyId, cert, offlineCap, gatewayPublicKey }` |
+| `GET /mandates/:id/sms` | — | `{ active, phone? (enmascarado), mandateId? }` |
+| `PUT /mandates/:id/sms` | `{ phone, pin }` + `x-user-id` del titular | Activa o cambia el SMS de la rama: hoja del Asistente con PIN siempre |
+| `DELETE /mandates/:id/sms` | `x-user-id` del titular | Apaga el SMS y revoca la hoja del Asistente |
 | `GET /gateway/public-key` | — | `{ publicKey }` |
 
 ## Pagos, vales y comercios

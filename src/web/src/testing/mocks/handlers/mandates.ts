@@ -44,6 +44,26 @@ const fail = (error: string, status: number) =>
 
 const notFound = () => fail('Ese mandato no existe.', 404);
 
+const normalizarCelular = (raw: string) => {
+  const d = raw.replace(/[\s\-().]/g, '');
+  if (/^3\d{9}$/.test(d)) return `+57${d}`;
+  if (/^573\d{9}$/.test(d)) return `+${d}`;
+  if (/^\+[1-9]\d{7,14}$/.test(d)) return d;
+  return null;
+};
+
+// Todos iguales o en escalera (0000, 1234, 4321).
+const pinObvio = (pin: string) => {
+  const d = [...pin].map(Number);
+  const paso = d[1] - d[0];
+  return (
+    Math.abs(paso) <= 1 && d.every((n, i) => i === 0 || n - d[i - 1] === paso)
+  );
+};
+
+const enmascarar = (e164: string) =>
+  `${e164.startsWith('+57') ? '+57 ' : ''}••• ••• ${e164.slice(-4)}`;
+
 const withoutChildren = ({ children: _children, ...mandate }: MandateTree) =>
   mandate;
 
@@ -247,6 +267,62 @@ export const mandatesHandlers = [
         { code: celular.id, mandateId: id },
         { status: 201 },
       );
+    },
+  ),
+
+  // SMS de una rama, con las mismas reglas que src/api (gateway/sms-canal.ts): solo el titular, E.164, PIN no obvio.
+  http.get(apiUrl('/mandates/:mandateId/sms'), async ({ params, request }) => {
+    await networkDelay();
+    if (!request.headers.get('x-user-id'))
+      return fail('Inicia sesión como titular', 401);
+    const phone = db.sms[String(params.mandateId)];
+    return HttpResponse.json(
+      phone
+        ? {
+            active: true,
+            phone: enmascarar(phone),
+            mandateId: `sms_${String(params.mandateId)}`,
+          }
+        : { active: false },
+    );
+  }),
+
+  http.put(apiUrl('/mandates/:mandateId/sms'), async ({ params, request }) => {
+    await networkDelay();
+    if (!request.headers.get('x-user-id'))
+      return fail('Inicia sesión como titular', 401);
+    const id = String(params.mandateId);
+    if (!findInTree(db.tree, id)) return notFound();
+    const body = (await request.json()) as { phone?: string; pin?: string };
+    const phone = normalizarCelular(body.phone ?? '');
+    if (!phone) return fail('Ese no parece un celular (ej. 300 111 2233)', 400);
+    if (!/^\d{4}$/.test(body.pin ?? ''))
+      return fail('El PIN son exactamente 4 números', 400);
+    if (pinObvio(body.pin!))
+      return fail('Ese PIN es muy fácil de adivinar', 400);
+    const otra = Object.entries(db.sms).find(
+      ([m, p]) => p === phone && m !== id,
+    );
+    if (otra)
+      return fail('Ese número ya habla con el Asistente desde otra rama', 409);
+    db.sms[id] = phone;
+    return HttpResponse.json({
+      active: true,
+      phone: enmascarar(phone),
+      mandateId: `sms_${id}`,
+    });
+  }),
+
+  http.delete(
+    apiUrl('/mandates/:mandateId/sms'),
+    async ({ params, request }) => {
+      await networkDelay();
+      if (!request.headers.get('x-user-id'))
+        return fail('Inicia sesión como titular', 401);
+      const id = String(params.mandateId);
+      if (!db.sms[id]) return fail('SMS de esta rama no existe', 404);
+      delete db.sms[id];
+      return HttpResponse.json({ active: false });
     },
   ),
 

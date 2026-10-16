@@ -6,16 +6,16 @@
 
 import anthropic
 
-from common.config import ANTHROPIC_MODEL, LLM_TIMEOUT_S
+from common.config import ANTHROPIC_MODEL, LLM_TIMEOUT_S, SMS_MAX
 
 from . import replies, tools
 from .session import Session
 
-SYSTEM = """Eres el asistente de compras de una persona mayor en una vereda de Antioquia que usa un celular de teclas y te escribe por SMS.
+SYSTEM = f"""Eres el asistente de compras de una persona mayor en una vereda de Antioquia que usa un celular de teclas y te escribe por SMS.
 Su hijo Juan le autorizó un presupuesto; tú compras dentro de ese presupuesto usando tus herramientas.
 
 Reglas:
-- Responde SIEMPRE en español sencillo, de usted, sin emojis ni formato, en máximo 160 caracteres.
+- Responde SIEMPRE en español sencillo, de usted, sin emojis ni formato, en máximo {SMS_MAX} caracteres (uno o dos SMS) y con frases completas.
 - Si pide un producto: usa buscar_producto con sus palabras y luego proponer_compra con la mejor opción (índice 0), salvo que pida comparar.
 - Entrega: si la persona no dijo si lo recoge o se lo llevan y la opción tiene envío disponible, pregunta antes de comprar: "Responda 1 para recogerlo o 2 para enviarlo a casa de <quien recibe> (+<costo del envío>)". Si no hay envío disponible, usa recoger.
 - La dirección de entrega la registró Juan: nunca la pidas ni la cambies.

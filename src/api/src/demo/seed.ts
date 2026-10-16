@@ -2,6 +2,7 @@ import { monthly, weekly, type Mandate } from '@openroute/shared'
 import { insertPayer, insertProfile, insertUser, putAddress, setMeta, upsertMerchant, type User } from '../db.ts'
 import { delegate, linkHolderUser, putMandate, ROOT_ID } from '../gateway/mandates.ts'
 import { hashSecret, setPin } from '../gateway/pin.ts'
+import { conectarSms, UBICACION_POR_DEFECTO } from '../gateway/sms-canal.ts'
 import { getRootAsset, pesos } from '../op/asset.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { DEMO_WALLETS } from './wallets.ts'
@@ -173,46 +174,37 @@ export const seed = async ({ keepGrant = true } = {}) =>
       },
       tx,
     )
-    await delegate(
-      ROOT_ID,
-      {
-        id: 'asistente',
-        holderType: 'agent',
-        holderId: 'asistente',
-        holderName: 'Asistente de la mamá',
-        maxDebit: pesos(160_000),
-        interval: weekly(now),
-        categories: ['farmacia', 'mercado', 'datos'],
-        // Decisión del equipo: PIN si > 40.000 COP (≈ $10). Compras menores las paga el agente sin preguntar.
-        pinThreshold: pesos(40_000),
-      },
-      tx,
-    )
-    await delegate(
-      'asistente',
-      {
-        id: 'asistente-datos',
-        holderType: 'agent',
-        holderId: 'asistente',
-        holderName: 'Asistente → Inventario',
-        maxDebit: pesos(2000),
-        categories: ['datos'],
-      },
-      tx,
-    )
     await delegate(ROOT_ID, { id: 'guardian', holderType: 'agent', holderId: 'guardian', holderName: 'Agente Guardián', maxDebit: pesos(0), canSpend: false }, tx)
 
     // Quién es la persona detrás de cada rama (login y perfiles).
     await linkHolderUser(ROOT_ID, 'juan', tx)
     for (const id of ['maria', 'maria-device', 'maria-sms']) await linkHolderUser(id, 'maria', tx)
 
-    await setPin('asistente', PIN_DEMO, tx)
     await setPin('maria-sms', PIN_DEMO, tx)
     await setPin('asistente-maria', PIN_DEMO, tx)
 
-    const location = { lat: 6.0, lng: -75.43 } // municipio de Antioquia (sintético)
-    await insertProfile(
-      { phone: PHONE_MAMA, userId: 'carmen', name: 'Doña Carmen', mandateId: 'asistente', dataMandateId: 'asistente-datos', location, rootId: ROOT_ID },
+    // Doña Carmen: su número habla con el Asistente, que paga con su propia rama. El mismo camino que usa un titular
+    // al activar el SMS de una rama (PUT /mandates/:id/sms).
+    const location = UBICACION_POR_DEFECTO // municipio de Antioquia (sintético)
+    await conectarSms(
+      ROOT_ID,
+      {
+        phone: PHONE_MAMA,
+        pin: PIN_DEMO,
+        name: 'Doña Carmen',
+        userId: 'carmen',
+        location,
+        asistente: {
+          id: 'asistente',
+          holderName: 'Asistente de la mamá',
+          maxDebit: pesos(160_000),
+          interval: weekly(now),
+          categories: ['farmacia', 'mercado', 'datos'],
+          // Decisión del equipo: PIN si > 40.000 COP (≈ $10). Compras menores las paga el agente sin preguntar.
+          pinThreshold: pesos(40_000),
+        },
+        datos: { id: 'asistente-datos', holderName: 'Asistente → Inventario', maxDebit: pesos(2000) },
+      },
       tx,
     )
     await insertProfile(

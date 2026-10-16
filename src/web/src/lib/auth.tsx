@@ -49,6 +49,9 @@ const getUser = async (): Promise<User | null> => readSession();
 /** Raíz del titular con sesión: la api atiende a cada titular por su raíz (grant, estado y feed). */
 export const currentRootMandateId = () => readSession()?.rootMandateId ?? null;
 
+/** Cuenta con sesión: la api la pide en x-user-id para lo que solo decide el titular. */
+export const currentUserId = () => readSession()?.id ?? null;
+
 export const getUserQueryOptions = () =>
   queryOptions({ queryKey: ['auth-user'], queryFn: getUser });
 
