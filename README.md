@@ -54,7 +54,7 @@ deterministic fallback.
 
 ## Getting started 🚀
 
-### The application
+### Run the application
 
 Requires Node 22 (`.node-version`), pnpm 11 and [uv](https://docs.astral.sh/uv/) (Python ≥ 3.11).
 
@@ -67,6 +67,8 @@ pnpm test                # vitest + pytest
 
 Open <http://localhost:5173> and log in as `juan@paygent.dev` / `paygent123` (demo PIN `1234`).
 
+### Flags
+
 | Flag | Default | In the demo |
 | ---- | ------- | ----------- |
 | `MOCK_OP` | `1` (Open Payments simulated) | **Always `0`: money is real** |
@@ -75,8 +77,11 @@ Open <http://localhost:5173> and log in as `juan@paygent.dev` / `paygent123` (de
 
 → [Quickstart](https://luisseoanes.github.io/paygent/quickstart/) for real Open Payments keys
 (`pnpm op:smoke`), tunnels and demo data.
+
 → [Configuration](https://luisseoanes.github.io/paygent/configuration/) for every env var.
+
 → [SMS & AI Assistant](https://luisseoanes.github.io/paygent/sms-assistant/) to plug in a real phone.
+
 → [Deployment](https://luisseoanes.github.io/paygent/deployment/) for Railway (production:
 <https://paygent.up.railway.app>).
 
