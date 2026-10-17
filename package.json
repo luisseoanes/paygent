@@ -13,7 +13,9 @@
     "reset": "curl -s -X POST http://localhost:3001/demo/reset",
     "op:smoke": "pnpm --filter @openroute/api op:smoke",
     "e2e": "pnpm --filter @openroute/api e2e",
-    "sms:bridge": "pnpm --filter @openroute/api sms:bridge"
+    "sms:bridge": "pnpm --filter @openroute/api sms:bridge",
+    "docs:dev": "uvx zensical@0.0.71 serve -a localhost:8001",
+    "docs:build": "uvx zensical@0.0.71 build --clean --strict"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

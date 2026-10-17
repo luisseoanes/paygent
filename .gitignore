@@ -10,4 +10,7 @@ src/agents/inventory/.cache/
 .pytest_cache/
 *.log
 dev-dist/
+# Salida y caché de Zensical
+/site/
+/.cache/
 CLAUDE.local.md

@@ -1,0 +1,39 @@
+# Publica el sitio de documentación (Zensical) en GitHub Pages. Requiere Settings → Pages → Source: GitHub Actions.
+name: Documentation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - site-docs/**
+      - zensical.toml
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      # Misma versión que pnpm docs:build
+      - run: pip install zensical==0.0.71
+      # Sin caché en CI, como recomienda Zensical; --strict falla con enlaces rotos
+      - run: zensical build --clean --strict
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - uses: actions/deploy-pages@v5
+        id: deployment

@@ -1,0 +1,69 @@
+# Sitio de documentación técnica en inglés (Zensical). Los docs del equipo en español siguen en docs/.
+[project]
+site_name = "Paygent"
+site_description = "Delegable payment power for people and their AI agents, on Open Payments."
+site_url = "https://luisseoanes.github.io/paygent/"
+repo_url = "https://github.com/luisseoanes/paygent"
+repo_name = "luisseoanes/paygent"
+edit_uri = "edit/main/site-docs/"
+docs_dir = "site-docs"
+site_dir = "site"
+copyright = "Paygent · Interledger Open Payments hackathon"
+
+nav = [
+  { "Overview" = "index.md" },
+  { "Quickstart" = "quickstart.md" },
+  { "Concepts" = [
+    "architecture.md",
+    "payment-flow.md",
+    "offline-vouchers.md",
+    "sms-assistant.md",
+    "agents.md",
+  ] },
+  { "Reference" = [
+    "api-reference.md",
+    "configuration.md",
+  ] },
+  { "Operations" = [
+    "deployment.md",
+    "security.md",
+  ] },
+]
+
+[project.theme]
+logo = "assets/logo.svg"
+favicon = "assets/logo.svg"
+features = [
+  "content.code.copy",
+  "content.action.edit",
+  "navigation.instant",
+  "navigation.sections",
+  "navigation.footer",
+  "navigation.top",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc = { permalink = true }
+pymdownx.details = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+
+[project.validation]
+invalid_links = true
+invalid_link_anchors = true
