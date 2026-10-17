@@ -221,6 +221,42 @@ const MIGRATIONS: { version: string; sql: string }[] = [
     version: '003_modos_de_consumo',
     sql: `alter table mandates add column mode text check (mode in ('celular', 'asistente', 'sms'));`,
   },
+  {
+    // Intentos fallidos de PIN por mandato (no por compra): sin esto se prueban los 10.000 PIN pidiendo compras nuevas.
+    version: '004_bloqueo_de_pin',
+    sql: `
+      alter table pins add column failed_attempts integer not null default 0;
+      alter table pins add column locked_until timestamptz;
+    `,
+  },
+  {
+    // Un vale se reclama (processing) antes de pagarlo: dos cobros simultáneos del mismo vale ya no pagan dos veces.
+    version: '005_vale_en_proceso',
+    sql: `
+      alter table vouchers drop constraint vouchers_status_check;
+      alter table vouchers add constraint vouchers_status_check check (status in ('processing', 'settled', 'rejected', 'flagged'));
+    `,
+  },
+  {
+    // Acreditaciones de Puntored a los tenderos sin wallet: lo que sería su reporte de conciliación.
+    version: '006_acreditaciones_puntored',
+    sql: `
+      create table puntored_credits (
+        id text primary key,
+        payment_id text not null unique,
+        merchant_id text not null references merchants(id) on delete cascade,
+        llave text not null,
+        pesos bigint not null,
+        comision_pesos bigint not null default 0,
+        estado text not null check (estado in ('pendiente', 'acreditado', 'fallido')),
+        ref text,
+        motivo text,
+        creado_en timestamptz not null default now(),
+        acreditado_en timestamptz
+      );
+      create index puntored_credits_merchant on puntored_credits(merchant_id);
+    `,
+  },
 ]
 
 export const migrate = async (sql: Sql) => {

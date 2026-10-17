@@ -71,6 +71,7 @@ export type DenyReason =
   | 'bad_signature'
   | 'replay'
   | 'bad_pin'
+  | 'pin_locked'
   | 'cannot_spend'
   | 'not_found'
   | 'payment_failed'
@@ -119,7 +120,8 @@ export interface Delivery extends DeliveryRequest {
   address?: string
 }
 
-export type FeedKind = 'payment' | 'agent_to_agent' | 'voucher_settled' | 'guardian' | 'revoked' | 'denied' | 'grant'
+/** payout: Puntored le acreditó (o no) al tendero sin wallet lo que recibió */
+export type FeedKind = 'payment' | 'agent_to_agent' | 'voucher_settled' | 'guardian' | 'revoked' | 'denied' | 'grant' | 'payout'
 
 export interface FeedEvent {
   id: string
@@ -139,6 +141,24 @@ export interface FeedEvent {
  * el pago va a la wallet de Puntored y Puntored le acredita al tendero en su llave Bre-B.
  */
 export type Payout = { via: 'wallet'; wallet: string } | { via: 'puntored'; llave: string }
+
+/** Lo que Puntored le acreditó (o no) a un tendero sin wallet por un pago que recibió en su nombre. */
+export interface PuntoredCredit {
+  id: string
+  paymentId: string
+  merchantId: string
+  /** Llave Bre-B enmascarada (310•••0101) */
+  llave: string
+  /** Lo que recibió la tienda, en pesos, y la comisión de Puntored */
+  pesos: number
+  comisionPesos: number
+  estado: 'pendiente' | 'acreditado' | 'fallido'
+  /** Referencia de la transferencia Bre-B */
+  ref?: string
+  motivo?: string
+  creadoEn: string
+  acreditadoEn?: string
+}
 
 export interface Merchant {
   id: string

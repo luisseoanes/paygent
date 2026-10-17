@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import type { Category, Merchant, Payout } from '@openroute/shared'
 import { getMerchant, merchantByWallet, upsertMerchant } from '../store/merchants.ts'
 import { emit } from '../feed/bus.ts'
@@ -5,6 +6,7 @@ import { paymentsTo } from '../store/payments.ts'
 import { badRequest, HttpError, notFound } from '../gateway/errors.ts'
 import { DEMO_ROOT_ID } from '../demo/constants.ts'
 import { describePayout } from '../gateway/payout.ts'
+import type { Sql } from '../store/sql.ts'
 
 // Quien solo recibe: comercios con su wallet pública o, sin wallet, cobro por Puntored a su llave Bre-B.
 
@@ -28,18 +30,31 @@ export interface NewMerchant {
   payout?: Payout
 }
 
+/** "+57 310 555 0101" o "3105550101" → "3105550101": la llave Bre-B es un celular colombiano. */
+export const llaveBreB = (raw?: string) => {
+  const d = (raw ?? '').replace(/\D/g, '')
+  const celular = d.length === 12 && d.startsWith('57') ? d.slice(2) : d
+  return /^3\d{9}$/.test(celular) ? celular : undefined
+}
+
+/** El id de la tienda a partir de su nombre; si ya existe, con un sufijo (dos "Tienda La Esquina" no chocan). */
+export const freeMerchantId = async (name: string, conn?: Sql) => {
+  const base = slug(name) || 'tienda'
+  return (await getMerchant(base, conn)) ? `${base}-${randomBytes(2).toString('hex')}` : base
+}
+
 /** Alta de un comercio a nombre de la cuenta que lo registra (su tendero). */
-export const registerMerchant = async (body: NewMerchant, ownerUserId: string) => {
+export const registerMerchant = async (body: NewMerchant, ownerUserId: string, conn?: Sql) => {
   const { name, category, wallet, payout } = body
   if (!name?.trim() || !category || !CATEGORIES.includes(category)) throw badRequest(`Faltan el nombre o la categoría (${CATEGORIES.join(', ')})`)
   const id = body.id ?? slug(name)
-  if (await getMerchant(id)) throw new HttpError(409, `Ya existe el comercio ${id}`)
+  if (await getMerchant(id, conn)) throw new HttpError(409, `Ya existe el comercio ${id}`)
   if (payout?.via === 'puntored' && !isLlave(payout.llave)) throw badRequest('La llave Bre-B es un celular de 10 dígitos')
   if (payout?.via !== 'puntored' && !isWallet(wallet)) throw badRequest('Falta la wallet (https://…) o un payout por Puntored')
   const address = payout?.via === 'puntored' ? `puntored:${id}` : wallet!
-  if (await merchantByWallet(address)) throw new HttpError(409, 'Esa wallet ya es de otro comercio')
-  await upsertMerchant({ id, name: name.trim(), category, wallet: address, payout, ownerUserId })
-  return getMerchant(id)
+  if (await merchantByWallet(address, conn)) throw new HttpError(409, 'Esa wallet ya es de otro comercio')
+  await upsertMerchant({ id, name: name.trim(), category, wallet: address, payout, ownerUserId }, conn)
+  return (await getMerchant(id, conn))!
 }
 
 /** Cómo cobra el comercio. Su dirección de cobro no cambia, así que los vales que ya recibió siguen valiendo. */

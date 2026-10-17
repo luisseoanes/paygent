@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Caja } from '@/features/cobro/components/caja';
 import { ElegirTienda } from '@/features/cobro/components/elegir-tienda';
 import { Escanear } from '@/features/cobro/components/escanear';
+import { MisCobros } from '@/features/cobro/components/mis-cobros';
 import {
   type ResultadoEscaneo,
   Resultado,
@@ -29,10 +30,11 @@ const TenderoApp = () => {
   const { online, cargado, sincronizando } = useCaja();
   const merchantId = useCobroStore((s) => s.merchantId);
   const merchants = useCobroStore((s) => s.merchants);
+  const tienda = merchants.find((m) => m.id === merchantId);
   const miTienda = useUser().data?.merchantId;
   const [vista, setVista] = React.useState<Vista>({ tipo: 'caja' });
 
-  // La caja es la de la tienda de la cuenta: su historial viene de la api.
+  // La cuenta del tendero ya dice cuál es su tienda: no se elige a mano (ni se queda la de otra cuenta).
   React.useEffect(() => {
     if (
       cargado &&
@@ -98,11 +100,14 @@ const TenderoApp = () => {
           onListo={() => setVista({ tipo: 'caja' })}
         />
       ) : (
-        <Caja
-          online={online}
-          sincronizando={sincronizando}
-          onEscanear={() => setVista({ tipo: 'escanear' })}
-        />
+        <div className="flex flex-1 flex-col gap-8">
+          <Caja
+            online={online}
+            sincronizando={sincronizando}
+            onEscanear={() => setVista({ tipo: 'escanear' })}
+          />
+          {online && tienda && <MisCobros merchant={tienda} />}
+        </div>
       )}
     </AppShell>
   );

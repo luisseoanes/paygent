@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { amount as A, monthly, randomId, type Mandate } from '@openroute/shared'
+import { amount as A, monthly, randomId, type Category, type Mandate } from '@openroute/shared'
 import {
   branchesOfUser,
   findDuplicateUser,
@@ -21,6 +21,7 @@ import { checkSecret, hashSecret } from '../gateway/pin.ts'
 import { getWallet } from '../op/client.ts'
 import { holderUserOf, linkPersonIfFree } from '../store/mandates.ts'
 import { shopOfUser } from '../store/merchants.ts'
+import { freeMerchantId, isWallet, llaveBreB, registerMerchant } from '../merchants/registry.ts'
 import { sql } from '../store/sql.ts'
 import { issueToken } from './session.ts'
 
@@ -138,6 +139,42 @@ export default async function authRoutes(app: FastifyInstance) {
       await insertPayer({ userId, walletAddress, assetCode: asset.assetCode, assetScale: asset.assetScale }, tx)
       await putMandate(root, tx)
       await linkHolderUser(root.id, userId, tx)
+    })
+    reply.status(201)
+    return sessionOf((await getUser(userId))!)
+  })
+
+  /**
+   * Alta de un tendero: su cuenta y su tienda, en una sola transacción. Sin wallet cobra por Puntored a su llave
+   * Bre-B (por defecto, su celular); con `wallet` cobra directo en ella. Desde ya puede recibir vales y pagos.
+   */
+  app.post<{ Body: Record<string, string> }>('/auth/register/tendero', async (req, reply) => {
+    const b = required(req.body, ['documento', 'nombre', 'email', 'telefono', 'password', 'tienda', 'categoria'])
+    const password = validPassword(b.password)
+    const raw = req.body ?? {}
+    const wallet = raw.wallet?.trim() ? (raw.wallet.trim().startsWith('$') ? `https://${raw.wallet.trim().slice(1)}` : raw.wallet.trim()) : undefined
+    if (wallet && !isWallet(wallet)) throw badRequest('La wallet address no es válida')
+    const llave = wallet ? undefined : llaveBreB(raw.llave?.trim() || b.telefono)
+    if (!wallet && !llave) throw badRequest('La llave Bre-B es un celular colombiano de 10 dígitos (ej. 310 555 0101)')
+    await assertNew(b.email, b.documento, b.telefono)
+
+    const userId = randomId('u')
+    await sql().tx(async (tx) => {
+      await insertUser(
+        { id: userId, name: b.nombre, lastName: raw.apellido?.trim() || undefined, documentType: 'CC', documentNumber: b.documento, email: b.email.toLowerCase(), phone: b.telefono, password },
+        tx,
+      )
+      await registerMerchant(
+        {
+          id: await freeMerchantId(b.tienda, tx),
+          name: b.tienda,
+          category: b.categoria as Category,
+          wallet,
+          payout: wallet ? { via: 'wallet', wallet } : { via: 'puntored', llave: llave! },
+        },
+        userId,
+        tx,
+      )
     })
     reply.status(201)
     return sessionOf((await getUser(userId))!)

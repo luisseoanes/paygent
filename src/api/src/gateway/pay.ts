@@ -14,10 +14,11 @@ import { deletePayment, deletePending, getPending, insertPayment, insertPending,
 import { getAddress } from '../store/profiles.ts'
 import { emit } from '../feed/bus.ts'
 import { settle, SettleError } from '../op/settle.ts'
+import { acreditarPorPuntored } from './acreditacion.ts'
 import { authorize } from './authorize.ts'
 import { chainOf, findMandate, getMandate } from './mandates.ts'
 import { payoutFor } from './payout.ts'
-import { checkPin } from './pin.ts'
+import { PIN_BLOQUEO_MS, PIN_MAX_FALLOS, verifyPin } from './pin.ts'
 import { releaseSpend, reserveSpend, type Reservation } from './spend.ts'
 
 const PENDING_TTL_MS = 10 * 60_000
@@ -93,6 +94,15 @@ export const executePayment = async (input: {
     payout,
   }
   await insertPayment(payment)
+  // Tendero sin wallet: con el dinero ya en la wallet de Puntored, Puntored le acredita. Nunca tumba el pago.
+  const acreditar = async () => {
+    try {
+      const m = await merchantByWallet(input.merchantWallet)
+      if (m) await acreditarPorPuntored(payment, m)
+    } catch (err) {
+      console.warn(`[puntored] ${payment.id}: ${(err as Error).message}`)
+    }
+  }
 
   try {
     const result = await settle({
@@ -114,6 +124,7 @@ export const executePayment = async (input: {
       onLateOutcome: async (outcome) => {
         payment.status = outcome === 'completed' ? 'completed' : 'failed'
         await updatePayment(payment)
+        if (outcome === 'completed') await acreditar()
         if (outcome !== 'completed')
           await emit({
             mandateId: mandate.id,
@@ -142,6 +153,7 @@ export const executePayment = async (input: {
       delivery: input.delivery,
       payout,
     })
+    if (payment.status === 'completed') await acreditar()
   } catch (err) {
     if (reservation) await releaseSpend(reservation) // no se movió dinero: el tope vuelve a estar disponible
     if (err instanceof NotAuthorized) {
@@ -163,12 +175,30 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
   let deliveryReq = req.delivery
   let pinOk = false
 
+  // PIN bloqueado por fallos seguidos: el titular lo ve una vez, cuando se bloquea.
+  const pinLocked = async (justNow: boolean): Promise<PayResponse> => {
+    const m = justNow ? await findMandate(mandateId) : undefined
+    if (m)
+      await emit({
+        mandateId,
+        actor: { type: m.holderType, name: m.holderName },
+        kind: 'guardian',
+        reason: `PIN bloqueado ${PIN_BLOQUEO_MS / 60_000} min: ${PIN_MAX_FALLOS} intentos fallidos seguidos en ${m.holderName}`,
+      })
+    return { result: 'deny', reason: 'pin_locked', detail: `PIN bloqueado por ${PIN_BLOQUEO_MS / 60_000} minutos tras varios intentos fallidos` }
+  }
+
   if (req.pendingId) {
     const pending = await getPending(req.pendingId)
     if (!pending || new Date(pending.expiresAt) < new Date())
       return { result: 'deny', reason: 'not_found', detail: 'La compra pendiente no existe o venció' }
     if (pending.mandateId !== mandateId) return { result: 'deny', reason: 'not_found', detail: 'Mandato distinto' }
-    if (!req.pin || !(await checkPin(mandateId, req.pin))) {
+    const check = req.pin ? await verifyPin(mandateId, req.pin) : 'bad'
+    if (check === 'locked' || check === 'locked_now') {
+      await deletePending(pending.id)
+      return pinLocked(check === 'locked_now')
+    }
+    if (check !== 'ok') {
       const attempts = pending.attempts + 1
       if (attempts >= MAX_PIN_ATTEMPTS) await deletePending(pending.id)
       else await setPendingAttempts(pending.id, attempts)
@@ -179,7 +209,9 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
     await deletePending(pending.id)
     pinOk = true
   } else if (req.pin) {
-    if (!(await checkPin(mandateId, req.pin))) return { result: 'deny', reason: 'bad_pin', detail: 'PIN incorrecto' }
+    const check = await verifyPin(mandateId, req.pin)
+    if (check === 'locked' || check === 'locked_now') return pinLocked(check === 'locked_now')
+    if (check !== 'ok') return { result: 'deny', reason: 'bad_pin', detail: 'PIN incorrecto' }
     pinOk = true
   }
 

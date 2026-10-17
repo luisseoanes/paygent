@@ -59,9 +59,15 @@ export const putAddress = async (rootId: string, a: DeliveryAddress, conn?: Sql)
   )
 }
 
-/** Quién usa un canal (número del SMS o `app:<persona>`), si alguien. */
+/** Quién usa un canal (número del SMS o `app:<persona>`), si alguien; `revoked` si su hoja ya no puede pagar. */
 export const channelOwner = async (channel: string, conn?: Sql) =>
-  (await s(conn).query<{ user_id: string | null; mandate_id: string }>(`select user_id, mandate_id from profiles where channel = $1`, [channel]))[0]
+  (
+    await s(conn).query<{ user_id: string | null; mandate_id: string; revoked: boolean }>(
+      `select p.user_id, p.mandate_id, coalesce(m.revoked, true) as revoked
+       from profiles p left join mandates m on m.id = p.mandate_id where p.channel = $1`,
+      [channel],
+    )
+  )[0]
 
 /** Los canales de una hoja del Asistente. `smsOnly` deja fuera el chat de la app. */
 export const channelsOf = async (mandateId: string, { smsOnly = false } = {}, conn?: Sql) =>
@@ -90,14 +96,17 @@ export const relinkProfile = async (channel: string, mandateId: string, dataMand
   ])
 }
 
-/** El SMS activo de una rama (su hoja del Asistente sin revocar). Desde un celular, también el de su persona. */
-export const smsProfileOfBranch = async (branchId: string, conn?: Sql) => {
+/**
+ * El SMS de una rama (su hoja del Asistente). Desde un celular, también el de su persona. Por defecto solo el activo;
+ * `includeRevoked` encuentra también el de una rama revocada (para apagarlo y liberar el número).
+ */
+export const smsProfileOfBranch = async (branchId: string, conn?: Sql, { includeRevoked = false } = {}) => {
   const [r] = await s(conn).query<{ channel: string; mandate_id: string }>(
     `select p.channel, p.mandate_id from profiles p join mandates m on m.id = p.mandate_id
      where m.parent_id in (select $1 union select parent_id from mandates where id = $1 and holder_type = 'device')
-       and not m.revoked and p.chat_for is null
-     order by m.parent_id = $1 desc limit 1`,
-    [branchId],
+       and ($2 or not m.revoked) and p.chat_for is null
+     order by m.revoked, m.parent_id = $1 desc limit 1`,
+    [branchId, includeRevoked],
   )
   return r ? { phone: r.channel, mandateId: r.mandate_id } : undefined
 }

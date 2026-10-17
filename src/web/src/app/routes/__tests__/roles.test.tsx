@@ -102,6 +102,49 @@ test('a new titular registers with their wallet and can sign in again', async ()
   );
 });
 
+test('a shopkeeper registers their store from the same page and lands on their till', async () => {
+  const router = setup(paths.auth.registro.getHref());
+  await userEvent.click(
+    await screen.findByRole('link', { name: /cobrar en mi tienda/i }),
+  );
+
+  await userEvent.type(
+    await screen.findByLabelText(/nombre de tu tienda/i),
+    'Tienda La Esquina',
+  );
+  await userEvent.type(screen.getByLabelText(/tu nombre/i), 'Rosa');
+  await userEvent.type(
+    screen.getByLabelText(/número de documento/i),
+    '43000111',
+  );
+  await userEvent.type(screen.getByLabelText(/^celular$/i), '+57 310 555 0199');
+  // Sin wallet: por defecto cobra por Puntored a la llave de su celular.
+  expect(screen.getByLabelText(/llave bre-b/i)).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText(/correo/i), 'esquina@correo.co');
+  await userEvent.type(screen.getByLabelText(/contraseña/i), 'clave-segura');
+  await userEvent.click(
+    screen.getByRole('button', { name: /registrar mi tienda/i }),
+  );
+
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(paths.tendero.path),
+  );
+});
+
+test('a Bre-B key that is not a Colombian mobile number is rejected', async () => {
+  setup(paths.auth.registro.getHref('tienda'));
+  await userEvent.type(
+    await screen.findByLabelText(/llave bre-b/i),
+    '12345',
+  );
+  await userEvent.click(
+    screen.getByRole('button', { name: /registrar mi tienda/i }),
+  );
+  expect(
+    await screen.findByText(/un celular de 10 dígitos/i),
+  ).toBeInTheDocument();
+});
+
 test('registering checks the wallet address and the fields', async () => {
   setup(paths.auth.registro.getHref());
 

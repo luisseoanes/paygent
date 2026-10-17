@@ -30,7 +30,7 @@ Convenciones:
 | cadena | `POST /mandates/:id/device-key` (o solo el código, mientras ninguna cuenta haya reclamado la rama: es el enlazado de `/enlazar`), `POST /asistente/chat` (de su rama) |
 | cadena o agente | `GET /mandates/:id`, `GET /mandates/:id/tree`, `GET /mandates/:id/modes`, `GET /delivery-address/:rootId`, `GET /payments/:id` |
 | agente | `POST /pay` (y solo con mandatos de los que es titular), `GET /sms/profile`, `GET /vouchers` |
-| tendero | `GET /merchants/:id/orders`, `GET /merchants/:id/payments`, `PUT /merchants/:id/payout` |
+| tendero | `GET /merchants/:id/orders`, `GET /merchants/:id/payments`, `PUT /merchants/:id/payout`, `GET /merchants/:id/credits` |
 
 ## Cuentas
 
@@ -38,6 +38,7 @@ Convenciones:
 |---|---|---|
 | `POST /auth/login` | `{ email, password }` | Cuenta: `{ id, role: titular\|beneficiario\|tendero, name, apellido, documento, telefono, email, walletAddress, rootMandateId, mandateId, mandateIds, merchantId, token }` |
 | `POST /auth/register/titular` | `{ documento, nombre, apellido, email, telefono, password, walletAddress }` | La cuenta (201). Crea su fila en `payers` y **su mandato raíz** (`root_<userId>`) |
+| `POST /auth/register/tendero` | `{ documento, nombre, email, telefono, password, tienda, categoria, llave?, wallet? }` | La cuenta con `merchantId` (201) y su tienda en la misma transacción. Sin `wallet` cobra por Puntored a su llave Bre-B (`llave` o, si falta, el celular) |
 | `POST /auth/register/beneficiario` | `{ documento, nombre, email, telefono, password, mandateId }` | La cuenta (201). `mandateId` = el código que dio el titular |
 
 ## Titular: mandato raíz y beneficiarios
@@ -75,15 +76,16 @@ Convenciones:
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `POST /pay` (agente) | `{ mandateId, merchantWallet, amount, category, reason, price?, pin?, pendingId?, delivery? }` | `AuthDecision & { paymentId? }` |
+| `POST /pay` (agente) | `{ mandateId, merchantWallet, amount, category, reason, price?, pin?, pendingId?, delivery? }` | `AuthDecision & { paymentId? }`. PIN: 3 intentos por compra pendiente y **5 fallos seguidos por mandato** (en cualquier compra) lo bloquean 15 min → `pin_locked`, con aviso en el feed |
 | `GET /payments/:id` | — | `Payment` (`completed` solo si el comercio recibió el dinero) |
-| `POST /vouchers/settle` | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason?, paymentId? }[] }` |
+| `POST /vouchers/settle` | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason?, paymentId? }[] }`. Cada vale se reclama en la base antes de pagarlo: el mismo vale presentado dos veces a la vez se paga una sola vez (el segundo → `replay`, sin congelar mientras el primero se paga) |
 | `GET /vouchers` | — | Vales recibidos |
 | `POST /guardian/review` | — | Cambios de tope offline propuestos por el Guardián |
 | `GET /merchants` · `POST /merchants` | `{ id?, name, category, wallet \| payout }` | Lista · comercio creado (201) |
 | `GET /merchants/:id/orders` | — | Pedidos con entrega |
 | `GET /merchants/:id/payments` | — | Todo lo que recibió el comercio (vales liquidados y compras del Asistente), del más nuevo al más viejo, hasta 200: `Payment & { received }`, con `received` = lo que llegó en su moneda. Es la caja del tendero |
 | `PUT /merchants/:id/payout` | `{ via: wallet, wallet }` o `{ via: puntored, llave }` | Comercio |
+| `GET /merchants/:id/credits` | — | `PuntoredCredit[]`: lo que Puntored le acreditó (o no) a la tienda por cada pago, con llave enmascarada, referencia Bre-B y comisión. Cada acreditación también va al feed (`kind: payout`) |
 | `POST /agents` | `{ id?, name, role, walletAddress? }` | Agente creado (201), sin clave propia |
 
 ## Feed, canales y salud

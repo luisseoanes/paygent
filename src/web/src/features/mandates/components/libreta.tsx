@@ -37,6 +37,10 @@ export const describeEvent = (e: FeedEvent) => {
         : `Pago de ${actor} rechazado`;
     case 'grant':
       return `${actor} firmó el mandato en su billetera`;
+    case 'payout':
+      return e.reason?.startsWith('Puntored no pudo')
+        ? `Puntored no pudo acreditarle a ${merchant(e)}`
+        : `Puntored le acreditó a ${merchant(e)}`;
     default:
       return actor;
   }

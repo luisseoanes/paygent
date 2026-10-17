@@ -11,7 +11,8 @@ export interface DeviceKey {
 
 export interface StoredVoucher {
   voucher: Voucher
-  status: 'settled' | 'rejected' | 'flagged'
+  /** processing: reclamado y pagándose (nadie más puede cobrarlo) */
+  status: 'processing' | 'settled' | 'rejected' | 'flagged'
   reason?: string
   paymentId?: string
   receivedAt: string
@@ -52,6 +53,16 @@ export const putVoucher = async (key: string, v: StoredVoucher, conn?: Sql) => {
     [key, j(v.voucher), v.voucher.deviceKeyId, v.voucher.deviceCert.mandateId, v.status, v.reason ?? null, v.paymentId ?? null, v.receivedAt],
   )
 }
+/** Reclama un vale antes de pagarlo. false si ya estaba (cobrado, rechazado o pagándose en otra solicitud). */
+export const claimVoucher = async (key: string, v: Voucher, conn?: Sql) =>
+  (
+    await s(conn).query(
+      `insert into vouchers (key, voucher, device_key_id, mandate_id, status) values ($1, $2::jsonb, $3, $4, 'processing')
+       on conflict (key) do nothing returning key`,
+      [key, j(v), v.deviceKeyId, v.deviceCert.mandateId],
+    )
+  ).length > 0
+
 export const listVouchers = async (conn?: Sql) => (await s(conn).query(`select * from vouchers order by received_at desc`)).map(toVoucher)
 export const vouchersOfDevices = async (deviceKeyIds: string[], conn?: Sql) =>
   (await s(conn).query(`select * from vouchers where device_key_id = any($1::text[])`, [deviceKeyIds])).map(toVoucher)

@@ -59,6 +59,26 @@ export const authHandlers = [
     return HttpResponse.json(conToken(user), { status: 201 });
   }),
 
+  // El tendero queda con su tienda; sin wallet cobra por Puntored a su llave (por defecto, su celular).
+  http.post(apiUrl('/auth/register/tendero'), async ({ request }) => {
+    await networkDelay();
+    const d = (await request.json()) as Record<string, string>;
+    if (buscar(d.email!))
+      return conflicto('Ya hay una cuenta con ese correo. Inicia sesión.');
+    const user: User = {
+      id: `u_${crypto.randomUUID()}`,
+      role: 'tendero',
+      name: d.nombre!,
+      documento: d.documento,
+      telefono: d.telefono,
+      email: d.email!.toLowerCase(),
+      rootMandateId: null,
+      merchantId: `tienda-${crypto.randomUUID().slice(0, 4)}`,
+    };
+    registradas.push({ user, password: d.password! });
+    return HttpResponse.json(conToken(user), { status: 201 });
+  }),
+
   http.post(apiUrl('/auth/register/beneficiario'), async ({ request }) => {
     await networkDelay();
     const d = (await request.json()) as Record<string, string>;

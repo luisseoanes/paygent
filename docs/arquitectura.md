@@ -70,6 +70,7 @@ flowchart TB
 | `store/` | Persistencia | `sql.ts` (Postgres o PGlite, misma interfaz), migraciones y repositorios: `mandates`, `accounts`, `payments`, `grants`, `profiles`, `offline`, `merchants`, `feed`, `secrets`, `meta` |
 | `op/` | Adaptador | Cliente autenticado, grants y `settle` (incoming → quote → outgoing). No conoce el árbol |
 | `sms/`, `lib/agents.ts` | Adaptador | Webhooks y envío por proveedor; llamada al servicio de agentes con timeout |
+| `puntored/` | Adaptador | Acreditación de Puntored al tendero sin wallet. Puntored no recibe pagos de Open Payments: hoy es `simulado` (el pago real llega a la wallet que lo representa); el real sería su API a llaves Bre-B + webhook firmado, sin tocar `gateway/acreditacion.ts` |
 | `demo/` | Fixture | Semilla, raíz de la demo (`DEMO_ROOT_ID`) y su moneda. Nada del núcleo depende de ella |
 
 **Reglas de dependencia**, comprobadas en [`src/api/test/arquitectura.test.ts`](../src/api/test/arquitectura.test.ts)
@@ -153,8 +154,11 @@ Los cinco invariantes de los agentes se aplican aquí, no en un prompt:
   SMS ya atendidos viven en memoria. Para escalar: `LISTEN/NOTIFY` de Postgres para el feed y la deduplicación en
   una tabla.
 - **`POST /sms/inbound` es público** porque lo usan el simulador `/celular` y el puente adb de la demo. Cualquiera
-  puede escribir «como» un número, pero cada compra del modo SMS pide el PIN de la persona. Los webhooks de Telnyx y
-  SMS Gateway sí verifican la firma del proveedor. En producción, el simulador se apaga.
+  puede escribir «como» un número, pero cada compra del modo SMS pide el PIN de la persona, y 5 fallos seguidos en
+  ese mandato (en cualquier compra) bloquean el PIN 15 minutos con aviso al titular: sin ese bloqueo se podían probar
+  los 10.000 PIN pidiendo compras nuevas. Las consultas al Inventario que dispara (40 pesos) están acotadas por la hoja
+  de datos (2.000 pesos por periodo). Los webhooks de Telnyx y SMS Gateway sí verifican la firma del proveedor. En
+  producción, el simulador se apaga.
 - **Las cuentas de demo tienen contraseña pública** (botón en el login, para el jurado). Quien entra como Juan puede
   hacer lo que haría Juan; su wallet es del Test Wallet (dinero de prueba).
 - **El token del SSE va en la URL** (`?token=`), porque `EventSource` no admite cabeceras: puede quedar en los logs

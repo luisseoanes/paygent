@@ -37,6 +37,11 @@ export const env = {
   MOCK_FX: flag('MOCK_FX', !!process.env.VITEST),
   FX_TRM_URL: str('FX_TRM_URL', 'https://www.datos.gov.co/resource/32sa-8pi3.json'),
 
+  /** Puntored no recibe pagos de Open Payments: su acreditación al tendero va 'simulado' (único modo hoy). */
+  PUNTORED_MODE: str('PUNTORED_MODE', 'simulado'),
+  /** Comisión de Puntored por acreditación, en % de lo recibido. Se muestra en cada comprobante. */
+  PUNTORED_COMISION_PCT: Number(str('PUNTORED_COMISION_PCT', '0')),
+
   /** Credencial única del servicio de agentes (src/agents). Los agentes son filas de la tabla agents. */
   AGENT_SERVICE_KEY: str('AGENT_SERVICE_KEY', 'dev-agents-key'),
   /** Firma los tokens de sesión. Vacío: se deriva de la llave del gateway (estable mientras la base no cambie). */
