@@ -19,17 +19,17 @@ def set_rate(value: float) -> None:
         _rate = value
 
 
-async def refresh(api) -> float:
-    """Trae la tasa de la api; si falla, sigue con la última conocida."""
+async def refresh(api) -> bool:
+    """Trae la tasa de la api; si falla, sigue con la última conocida. True si la trajo."""
     try:
         set_rate(float((await api.fx())["copPerUsd"]))
+        return True
     except Exception as e:  # noqa: BLE001 — sin api los agentes siguen con la tasa que tenían
         log.warning("Tasa no disponible (%s): sigo con %s", e, _rate)
-    return _rate
+        return False
 
 
-async def keep_fresh(api, every_s: float = 3600) -> None:
-    """La TRM cambia una vez al día: basta revisarla cada hora."""
+async def keep_fresh(api, every_s: float = 3600, retry_s: float = 60) -> None:
+    """La TRM cambia una vez al día: basta revisarla cada hora. Si la api aún no responde (arrancó después), al minuto."""
     while True:
-        await refresh(api)
-        await asyncio.sleep(every_s)
+        await asyncio.sleep(every_s if await refresh(api) else retry_s)

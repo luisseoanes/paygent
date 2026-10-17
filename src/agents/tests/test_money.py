@@ -48,7 +48,38 @@ def test_refresh_toma_la_tasa_de_la_api_y_sin_api_conserva_la_ultima():
 
     antes = fx.rate()
     try:
-        assert asyncio.run(fx.refresh(Api({"copPerUsd": 3170.46, "fecha": "2026-10-16", "fuente": "trm"}))) == 3170.46
-        assert asyncio.run(fx.refresh(Api(RuntimeError("sin api")))) == 3170.46
+        assert asyncio.run(fx.refresh(Api({"copPerUsd": 3170.46, "fecha": "2026-10-16", "fuente": "trm"}))) is True
+        assert asyncio.run(fx.refresh(Api(RuntimeError("sin api")))) is False
+        assert fx.rate() == 3170.46
+    finally:
+        fx.set_rate(antes)
+
+
+def test_si_la_api_no_responde_reintenta_pronto_y_luego_cada_hora():
+    """Al arrancar antes que la api, los agentes no deben quedarse una hora con la tasa de respaldo."""
+    from common import fx
+
+    respuestas = [RuntimeError("api aún no arranca"), {"copPerUsd": 3170.46}]
+    esperas = []
+
+    class Api:
+        async def fx(self):
+            r = respuestas.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+    async def dormir(segundos):
+        esperas.append(segundos)
+        if len(esperas) == 2:
+            raise asyncio.CancelledError
+
+    antes = fx.rate()
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(fx.asyncio, "sleep", dormir)
+            with pytest.raises(asyncio.CancelledError):
+                asyncio.run(fx.keep_fresh(Api()))
+        assert esperas == [60, 3600] and fx.rate() == 3170.46
     finally:
         fx.set_rate(antes)
