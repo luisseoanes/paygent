@@ -22,6 +22,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+      # sms-canal-e2e.test.ts arranca el servicio de agentes de verdad (uv run uvicorn).
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+        working-directory: src/agents
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       # De uno en uno: en paralelo la carga de CPU hace fallar los waitFor de la web.
