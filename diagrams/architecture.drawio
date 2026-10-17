@@ -1,0 +1,103 @@
+<mxfile host="drawio-mcp">
+  <diagram id="arch" name="Architecture">
+    <mxGraphModel adaptiveColors="auto" dx="1500" dy="800" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1520" pageHeight="680" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Paygent · Architecture" style="text;html=1;fontSize=30;fontStyle=1;fontColor=#1F2937;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="600" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="hPeople" value="PEOPLE" style="text;html=1;fontSize=16;fontStyle=1;fontColor=#1F2937;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="hChan" value="CHANNELS" style="text;html=1;fontSize=16;fontStyle=1;fontColor=#1F2937;align=center;" vertex="1" parent="1">
+          <mxGeometry x="320" y="80" width="190" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="juan" value="&lt;b&gt;Juan&lt;/b&gt;&lt;br&gt;payer abroad" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="200" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="maria" value="&lt;b&gt;María&lt;/b&gt;&lt;br&gt;smartphone" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="230" width="200" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="shop" value="&lt;b&gt;Shopkeeper&lt;/b&gt;&lt;br&gt;verifies offline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="330" width="200" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="carmen" value="&lt;b&gt;Doña Carmen&lt;/b&gt;&lt;br&gt;feature phone" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="200" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="pwa" value="&lt;b&gt;Web App&lt;/b&gt;&lt;br&gt;PWA&lt;br&gt;works offline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="320" y="130" width="190" height="270" as="geometry"/>
+        </mxCell>
+        <mxCell id="smsphone" value="&lt;b&gt;SMS Gateway&lt;/b&gt;&lt;br&gt;Android phone" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="320" y="470" width="190" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="railway" value="PAYGENT · on Railway" style="swimlane;startSize=34;html=1;fontSize=16;fontStyle=1;fontColor=#1F2937;fillColor=none;swimlaneFillColor=none;strokeColor=#1F2937;dashed=1;strokeWidth=2;rounded=1;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="590" y="80" width="520" height="545" as="geometry"/>
+        </mxCell>
+        <mxCell id="db" value="&lt;b&gt;Postgres&lt;/b&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=18;" vertex="1" parent="railway">
+          <mxGeometry x="340" y="190" width="140" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="api" value="&lt;b&gt;API&lt;/b&gt;&lt;br&gt;Mandate Gateway&lt;br&gt;decides every /pay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563EB;strokeColor=#2563EB;strokeWidth=2;fontColor=#FFFFFF;fontSize=18;arcSize=14;" vertex="1" parent="railway">
+          <mxGeometry x="40" y="150" width="220" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="agents" value="AI Agents · propose only" style="swimlane;startSize=30;html=1;fontSize=15;fontStyle=1;fontColor=#1F2937;fillColor=none;swimlaneFillColor=none;strokeColor=#1F2937;strokeWidth=1;rounded=1;arcSize=6;" vertex="1" parent="railway">
+          <mxGeometry x="20" y="350" width="480" height="175" as="geometry"/>
+        </mxCell>
+        <mxCell id="guardian" value="&lt;b&gt;Guardian&lt;/b&gt;&lt;br&gt;only restricts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=17;arcSize=20;" vertex="1" parent="agents">
+          <mxGeometry x="20" y="70" width="135" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="inventory" value="&lt;b&gt;Inventory&lt;/b&gt;&lt;br&gt;finds stores" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=17;arcSize=20;" vertex="1" parent="agents">
+          <mxGeometry x="173" y="70" width="135" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="assistant" value="&lt;b&gt;Assistant&lt;/b&gt;&lt;br&gt;SMS chat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=17;arcSize=20;" vertex="1" parent="agents">
+          <mxGeometry x="326" y="70" width="135" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="op" value="OPEN PAYMENTS · Interledger" style="swimlane;startSize=34;html=1;fontSize=16;fontStyle=1;fontColor=#1F2937;fillColor=none;swimlaneFillColor=none;strokeColor=#2563EB;strokeWidth=2;rounded=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="80" width="290" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="wallet" value="&lt;b&gt;Juan's Wallet&lt;/b&gt;&lt;br&gt;+ auth server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="op">
+          <mxGeometry x="35" y="50" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="merchant" value="&lt;b&gt;Merchant Wallets&lt;/b&gt;&lt;br&gt;shop · pharmacy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="op">
+          <mxGeometry x="35" y="220" width="220" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="claude" value="&lt;b&gt;Claude LLM&lt;/b&gt;&lt;br&gt;understands text" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1F2937;strokeWidth=2;fontColor=#1F2937;fontSize=18;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="500" width="220" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="juan" target="pwa">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="maria" target="pwa">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="shop" target="pwa">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="SMS + PIN" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;fontSize=14;fontColor=#1F2937;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="carmen" target="smsphone">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" style="entryX=0;entryY=0.2;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="pwa" target="api">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" value="webhook" style="exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.88;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;fontSize=14;fontColor=#1F2937;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="smsphone" target="api">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;startArrow=classic;" edge="1" parent="railway" source="api" target="db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" style="exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.271;entryY=0;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;startArrow=classic;" edge="1" parent="railway" source="api" target="agents">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" value="grant · payments" style="exitX=0.8;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563EB;strokeWidth=3;endArrow=classic;fontSize=14;fontColor=#1F2937;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api" target="wallet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e10" value="money, direct" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2563EB;strokeWidth=3;endArrow=classic;fontSize=14;fontColor=#1F2937;labelBackgroundColor=#FFFFFF;" edge="1" parent="op" source="wallet" target="merchant">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F2937;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="assistant" target="claude">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
