@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Paisaje del hero · generador</title>
+<style>
+  body { margin: 0; background: #111; display: grid; place-items: center; min-height: 100vh; }
+  canvas { width: min(100vw, 1920px); image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="lienzo" width="640" height="360"></canvas>
+<script src="pixel.js"></script>
+<script>
+// Paisaje pixel art del hero: montañas de Antioquia, finca, palma de cera,
+// árbol grande y pradera. Determinista (semilla fija): dibujar(i) pinta el
+// cuadro i de un bucle de CUADROS; exportar.py lo graba a video.
+const W = 640, H = 360, CUADROS = 30;
+const lienzo = document.getElementById('lienzo');
+const ctx = lienzo.getContext('2d');
+
+// ─── paleta ───
+const P = {
+  cielo: ['#1a66db', '#1f70df', '#2479e3', '#2b84e7', '#3590eb', '#429cee', '#52a9f1', '#66b6f3', '#7fc3f5', '#98d0f7'],
+  nube: ['#ffffff', '#eef6ff', '#d7eafc', '#b9d9f7', '#98c5f0', '#7db3ea'],
+  lejos: ['#a9cdee', '#94c0e8', '#83b4e1'],
+  medio: ['#6ea6d2', '#5c97c6', '#4e88b8'],
+  cerca: ['#4f9a8c', '#428a80', '#367a73'],
+  loma: ['#55a08c', '#46907f', '#378072', '#2a6f66'],
+  cafe: ['#1d5a58', '#2a6c66'],
+  pasto: ['#6cbf9c', '#58ad8e', '#479b80', '#388973', '#2b7767', '#21655c'],
+  sombra: ['#24675e', '#1c5953', '#154b48'],
+  brillo: ['#8fd6b4', '#b3e6cb'],
+  copa: ['#0e3436', '#144446', '#1b5655', '#256a65', '#347f75', '#4c9886', '#6cb39b'],
+  tronco: ['#9a6b40', '#7d5434', '#634128', '#4a301e'],
+  trebol: ['#86d3b0', '#66bd9a', '#4ea585', '#378a6f'],
+  finca: { muro: '#f3efe4', muroS: '#d2c9b4', teja: '#c9552f', tejaS: '#a5432a', tejaL: '#e0744a', puerta: '#6b3d22', ventana: '#2d5f8f', azul: '#3d7fc4' },
+  palma: { tallo: '#e2dccd', talloS: '#bdb4a1', hoja: '#2f7f70', hojaL: '#4f9e88', hojaS: '#1f5f58' },
+  pino: ['#0f3b40', '#16494c', '#1f5b5a', '#2c6e69', '#3f857a'],
+  flor: { amarillo: '#f7cf36', amarilloS: '#e2a321', blanco: '#ffffff', blancoS: '#cfdcea', rojo: '#e44b3a', rojoS: '#b8352b', rosa: '#f396b0', centro: '#f2b830', tallo: '#2f8270' },
+  morfo: { a: '#2f86f5', b: '#79c2ff', c: '#1a4fb8', cuerpo: '#1d1e22' },
+  mariquita: { rojo: '#de3a2e', rojoL: '#ff6a52', negro: '#1d1e22' },
+};
+const RGB = {};
+const c = (h) => (RGB[h] ??= hex(h));
+
+let buf;
+const pon = (x, y, h) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const k = (y * W + x) * 4, [r, g, b] = c(h); buf[k] = r; buf[k + 1] = g; buf[k + 2] = b; buf[k + 3] = 255; };
+const mezcla = (x, y, h, a) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const k = (y * W + x) * 4, [r, g, b] = c(h); buf[k] += (r - buf[k]) * a; buf[k + 1] += (g - buf[k + 1]) * a; buf[k + 2] += (b - buf[k + 2]) * a; };
+
+
+// ─── capas fijas ───
+const HORIZONTE = 214;
+function cielo() {
+  for (let y = 0; y < HORIZONTE + 10; y++) for (let x = 0; x < W; x++) pon(x, y, tono(P.cielo, (y / (HORIZONTE + 10)) ** 1.15, x, y, 0.18));
+}
+
+// Nube cúmulo: unión de círculos con ruido; luz arriba a la izquierda
+function nube(cx, cy, ancho, alto, semilla) {
+  const r = azar(semilla);
+  const bolas = [];
+  const n = Math.round(ancho / 9);
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1);
+    const h = Math.sin(u * Math.PI) ** 0.7;
+    bolas.push({ x: cx - ancho / 2 + u * ancho + (r() - 0.5) * 8, y: cy - h * alto * (0.55 + r() * 0.45), rad: 8 + h * alto * (0.35 + r() * 0.3) });
+  }
+  for (let i = 0; i < n * 0.6; i++) bolas.push({ x: cx - ancho * 0.4 + r() * ancho * 0.8, y: cy - r() * alto * 0.4, rad: 6 + r() * 10 });
+  const n2 = ruido2(semilla + 9);
+  const x0 = cx - ancho / 2 - 30, x1 = cx + ancho / 2 + 30, y0 = cy - alto * 1.6, y1 = cy + 8;
+  for (let y = Math.floor(y0); y < y1; y++) for (let x = Math.floor(x0); x < x1; x++) {
+    let dentro = 0, nx = 0, ny = 0;
+    for (const b of bolas) { const dx = x - b.x, dy = y - b.y, d = Math.hypot(dx, dy); const borde = b.rad + (n2(x / 9, y / 9) - 0.5) * 2; if (d < borde) { const w = 1 - d / borde; dentro = Math.max(dentro, w); nx += dx / b.rad * w; ny += dy / b.rad * w; } }
+    if (!dentro || y > cy + 2) continue;
+    const luz = (-nx * 0.5 - ny * 0.9) / (Math.hypot(nx, ny) + 0.4);
+    const base = (y - (cy - alto)) / (alto * 1.1);
+    const t = 0.55 - luz * 0.35 + Math.max(0, base) * 0.45;
+    pon(x, y, tono(P.nube, t, x, y, 0.2));
+  }
+}
+
+function cordillera(base, amp, escala, semilla, rampa) {
+  const n = ruido1(semilla);
+  const lado = (x) => { const u = Math.max(0, Math.min(1, (x - 170) / 260)); return 0.18 + 0.82 * u * u * (3 - 2 * u); };
+  const alto = (x) => base - (fbm(n, x / escala, 5) ** 1.6) * amp * 1.6 * lado(x);
+  const hs = Array.from({ length: W + 16 }, (_, i) => alto(i - 8));
+  for (let x = 0; x < W; x++) {
+    const h = hs[x + 8];
+    const pend = (hs[x + 14] - hs[x + 2]) / 12;
+    for (let y = Math.floor(h); y < H; y++) {
+      const prof = (y - h);
+      // ladera a la sombra (sube hacia la derecha) más oscura cerca de la cresta
+      let t = 0.15 + Math.min(0.5, prof / 70) + (pend < -0.15 ? 0.45 * Math.max(0, 1 - prof / 50) : 0);
+      if (prof < 1.2) t = 0;
+      pon(x, y, tono(rampa, t, x, y, 0.25));
+    }
+  }
+  return alto;
+}
+
+function loma(cresta, rampa, semilla, arbolitos) {
+  const r = azar(semilla), n = ruido2(semilla);
+  for (let x = 0; x < W; x++) { const h = cresta(x); for (let y = Math.floor(h); y < H; y++) { const t = (y - h) / 40 + (n(x / 18, y / 10) - 0.5) * 0.6; pon(x, y, tono(rampa, t, x, y)); } }
+  for (let i = 0; i < arbolitos; i++) { const x = r() * W, y = cresta(x) + 2 + r() * 14; const rad = 1.5 + r() * 2.5; for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) if (dx * dx + dy * dy <= rad * rad) pon(x + dx, y + dy - rad, dy < -rad * 0.3 && dx < 0 ? P.cafe[1] : P.cafe[0]); }
+}
+
+function finca(x, y) {
+  const f = P.finca;
+  for (let j = 0; j < 9; j++) for (let i = 0; i < 18; i++) pon(x + i, y - j, i > 13 ? f.muroS : f.muro);
+  for (let j = 0; j < 6; j++) for (let i = -2 - j; i < 20 + j; i++) { const yy = y - 9 - (5 - j); pon(x + i, yy, j === 5 ? f.tejaS : i % 3 === 0 ? f.tejaS : i < 4 ? f.tejaL : f.teja); }
+  for (let j = 0; j < 5; j++) { pon(x + 4, y - j, f.puerta); pon(x + 5, y - j, f.puerta); }
+  for (const vx of [9, 13]) { pon(x + vx, y - 5, f.ventana); pon(x + vx + 1, y - 5, f.ventana); pon(x + vx, y - 4, f.ventana); pon(x + vx + 1, y - 4, f.ventana); }
+  for (let i = 0; i < 18; i++) pon(x + i, y, f.azul);
+}
+
+function palma(x, base, alto) {
+  const p = P.palma;
+  for (let j = 0; j < alto; j++) { const dx = Math.round(Math.sin(j / alto * 1.3) * 2); pon(x + dx, base - j, p.tallo); pon(x + dx + 1, base - j, p.talloS); }
+  return { x: x + Math.round(Math.sin(1.3) * 2), y: base - alto };
+}
+function copaPalma(t0, cx, cy, t) {
+  const p = P.palma;
+  const hojas = [[-1, -0.35], [-0.75, -0.75], [-0.3, -1], [0.3, -1], [0.75, -0.75], [1, -0.35], [-0.95, 0.2], [0.95, 0.2]];
+  hojas.forEach(([dx, dy], i) => {
+    const largo = 11 + (i % 3) * 2; const vaiven = Math.sin(t * Math.PI * 2 + i * 1.7) * 0.9;
+    for (let k = 1; k <= largo; k++) { const u = k / largo; const xx = cx + dx * k, yy = cy + dy * k + u * u * 5 + vaiven * u; pon(xx, yy, u > 0.7 ? p.hojaS : i % 2 ? p.hojaL : p.hoja); if (k % 2 === 0) pon(xx, yy + 1, p.hojaS); }
+  });
+  pon(cx, cy, p.hojaS); pon(cx + 1, cy, p.hojaS);
+}
+
+function prado(n) {
+  for (let y = HORIZONTE; y < H; y++) for (let x = 0; x < W; x++) {
+    const u = (y - HORIZONTE) / (H - HORIZONTE);
+    let t = 0.12 + u * 0.5 + (n(x / 34, y / 11) - 0.5) * 0.55;
+    pon(x, y, tono(P.pasto, t, x, y, 0.2));
+  }
+}
+
+// Sombra del árbol sobre el prado (abajo a la derecha)
+function sombraArbol(n) {
+  for (let y = 222; y < H; y++) for (let x = 300; x < W; x++) {
+    const d = ((x - 600) / 230) ** 2 + ((y - 268) / 60) ** 2 + (n(x / 24, y / 14) - 0.5) * 0.35;
+    if (d < 1) pon(x, y, tono(P.sombra, 1 - d, x, y, 0.2));
+  }
+}
+
+function tronco() {
+  const t = P.tronco, n = ruido2(909);
+  for (let y = 40; y < 266; y++) {
+    const u = (y - 40) / 226;
+    const cx = 600 + Math.sin(u * 2.2) * 6;
+    const ancho = 26 + u ** 2 * 14 + (y > 236 ? (y - 236) ** 1.6 * 0.5 : 0);
+    for (let x = Math.floor(cx - ancho / 2); x < cx + ancho / 2; x++) {
+      const v = (x - (cx - ancho / 2)) / ancho;
+      const corteza = n(x / 3, y / 14) > 0.62 ? 0.3 : n(x / 2, y / 9) < 0.25 ? -0.15 : 0;
+      pon(x, y, tono(t, 0.1 + v * 0.7 + corteza, x, y, 0));
+    }
+  }
+  // Raíces que se abren sobre el prado
+  for (const [dir, largo] of [[-1, 34], [1, 26], [-1, 18]]) for (let i = 0; i < largo; i++) { const x = 600 + dir * (16 + i), y = 262 + i * 0.15; for (let k = 0; k < 4 - i / 10; k++) pon(x, y - k, k === 0 ? t[3] : t[1]); }
+  // Ramas que entran a la copa
+  for (const [x0, dir] of [[592, -1], [612, 1]]) for (let i = 0; i < 40; i++) { const x = x0 + dir * i * 0.8, y = 70 - i; for (let k = 0; k < 6 - i / 8; k++) pon(x + k, y, k < 2 ? t[0] : t[2]); }
+}
+
+// ─── capas animadas ───
+// Copa: bultos de hojas con luz arriba a la izquierda; los bordes tiemblan
+// con el viento (solo algunos sectores, poco y rápido, como en el pixel art).
+function bultos(semilla, n, zona) {
+  const r = azar(semilla); const out = [];
+  for (let i = 0; i < n; i++) {
+    const p = zona(r);
+    out.push({ ...p, rad: p.rad, fase: r() * Math.PI * 2, vivo: r() < 0.55, sem: Math.floor(r() * 1e6) });
+  }
+  return out.sort((a, b) => a.y - b.y);
+}
+const COPA = bultos(11, 46, (r) => { const u = r(); const x = 462 + u * 190; const techo = 92 - (1 - u) * 55; return { x, y: -18 + r() ** 0.8 * techo, rad: 14 + r() * 11 }; });
+const FONDO_ARBOL = bultos(12, 30, (r) => ({ x: 475 + r() * 175, y: 110 + r() * 105, rad: 15 + r() * 10 }));
+const ARBUSTOS = bultos(23, 18, (r) => { const rad = 6 + r() * 8; return { x: 440 + r() * 60, y: 222 - rad * 0.4 + r() * 6, rad }; });
+const rp = azar(31);
+const PINOS = Array.from({ length: 34 }, () => { let x; do { x = 6 + rp() * 400; } while (x > 104 && x < 150); return { x, base: 213 + rp() * 6, alto: 16 + rp() * 22, fase: rp() * 6.28, vivo: rp() < 0.6 }; }).sort((a, b) => a.base - b.base);
+
+function dibujarBultos(lista, rampa, t, osc = 0) {
+  for (const b of lista) {
+    const R = b.rad + 3;
+    for (let y = Math.floor(b.y - R); y <= b.y + R; y++) for (let x = Math.floor(b.x - R); x <= b.x + R; x++) {
+      const dx = x - b.x, dy = y - b.y, d = Math.hypot(dx, dy);
+      const ang = Math.atan2(dy, dx);
+      // borde festoneado: hojas redondas alrededor del racimo
+      let borde = b.rad - 1 + Math.abs(Math.sin(ang * Math.max(5, Math.round(b.rad / 2)) + b.sem)) * 2.6;
+      if (b.vivo && dy < b.rad * 0.5) {
+        const sector = Math.floor((ang + Math.PI) / (Math.PI / 5));
+        const viento = Math.sin(t * Math.PI * 2 * 2 + b.fase + sector * 2.1);
+        if (viento > 0.6) borde += 1.2; else if (viento < -0.75) borde -= 1;
+      }
+      if (d > borde) continue;
+      // luz desde arriba a la izquierda: media luna clara, centro y sombra abajo
+      // distancia a un foco de luz arriba a la izquierda: límites en media luna
+      const dl = Math.hypot(dx + b.rad * 0.38, dy + b.rad * 0.5) / b.rad + osc * 1.5;
+      const luz = 0.6 - dl;
+      const k = rampa.length;
+      let i = dl < 0.5 ? k - 2 : dl < 0.95 ? k - 3 : dl < 1.3 ? k - 4 : k - 5;
+      if (d > borde - 1.3 && dy > -b.rad * 0.2) i = Math.max(0, k - 6);
+      // hojitas sueltas: un pixel más claro o más oscuro, en patrón fijo
+      let h = (x * 374761393 + y * 668265263 + b.sem) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+      if ((h & 15) === 0 && luz > -0.2) i = Math.min(k - 1, i + 1);
+      else if ((h & 31) === 1) i = Math.max(0, i - 1);
+      pon(x, y, rampa[Math.max(0, i)]);
+    }
+  }
+}
+
+function rayos() {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    for (const [x0, ancho] of [[540, 22], [585, 10]]) { const xx = x0 - (y * 0.55); if (x > xx && x < xx + ancho) mezcla(x, y, '#fff8d8', 0.07 * (1 - y / H)); }
+  }
+}
+
+// Pinos: pisos escalonados, luz a la izquierda; la punta se mece con el viento
+function pinos(t) {
+  const p = P.pino;
+  for (const q of PINOS) {
+    const pisos = Math.max(3, Math.round(q.alto / 7));
+    for (let y = 0; y < 3; y++) pon(q.x, q.base - y, P.tronco[2]);
+    for (let j = 0; j < q.alto; j++) {
+      const u = j / q.alto;
+      const piso = (j % Math.ceil(q.alto / pisos)) / Math.ceil(q.alto / pisos);
+      const ancho = Math.max(0.5, (1 - u) * q.alto * 0.32 * (0.55 + 0.45 * (1 - piso)));
+      const lean = q.vivo && u > 0.7 ? Math.round(Math.sin(t * Math.PI * 4 + q.fase) * (u - 0.7) * 4) : 0;
+      const y = q.base - 2 - j;
+      for (let x = Math.floor(q.x - ancho); x <= q.x + ancho; x++) {
+        const v = (x - q.x) / (ancho + 0.5);
+        const i = piso > 0.7 ? 0 : v < -0.35 ? 4 : v < 0.25 ? 3 : 1;
+        pon(x + lean, y, p[i]);
+      }
+    }
+  }
+}
+
+// Mechones de pasto que se mecen
+const r0 = azar(5);
+const MECHONES = Array.from({ length: 300 }, () => { const y = HORIZONTE + 8 + r0() ** 0.7 * (H - HORIZONTE - 8); return { x: r0() * W, y, alto: 2 + Math.round((y - HORIZONTE) / 30 + r0() * 2), fase: r0() * Math.PI * 2, claro: r0() < 0.5 }; }).sort((a, b) => a.y - b.y);
+function mechones(t) {
+  for (const m of MECHONES) {
+    const lean = Math.round(Math.sin(t * Math.PI * 2 + m.fase + m.x / 40) * 1.2);
+    const col = m.claro ? P.brillo[0] : P.pasto[1], punta = m.claro ? P.brillo[1] : P.pasto[0];
+    for (const [ox, h] of [[-1, m.alto - 1], [0, m.alto], [1, m.alto - 1]]) {
+      for (let k = 0; k < h; k++) {
+        const arriba = k >= h - 2;
+        const xx = m.x + ox + (arriba ? lean + (k === h - 1 ? ox : 0) : 0);
+        pon(xx, m.y - k, k === h - 1 ? punta : col);
+      }
+    }
+    pon(m.x - 1, m.y + 1, P.pasto[4]); pon(m.x, m.y + 1, P.pasto[4]); pon(m.x + 1, m.y + 1, P.pasto[4]);
+  }
+}
+
+// Tréboles abajo a la izquierda
+const r1 = azar(8);
+const TREBOLES = Array.from({ length: 70 }, () => ({ x: 120 + r1() * 200, y: 305 + r1() * 60, s: 2 + Math.floor(r1() * 2), fase: r1() * 6.28 })).sort((a, b) => a.y - b.y);
+function treboles(t) {
+  const tr = P.trebol;
+  for (const b of TREBOLES) {
+    const dy = Math.round(Math.sin(t * Math.PI * 2 + b.fase) * 0.8);
+    for (const [ox, oy] of [[-b.s, 0], [b.s, 0], [0, -b.s]]) {
+      const cx = b.x + ox, cy = b.y + oy + dy;
+      for (let y = -b.s; y <= b.s; y++) for (let x = -b.s; x <= b.s; x++) if (x * x + y * y <= b.s * b.s + 1) pon(cx + x, cy + y, y > 0 || x > 0 ? tr[2] : y < 0 && x < 0 ? tr[0] : tr[1]);
+    }
+    pon(b.x, b.y + dy, tr[3]);
+  }
+}
+
+// Flores: margaritas, rojas y un diente de león grande
+const r2 = azar(14);
+const FLORES = Array.from({ length: 46 }, () => { const zona = r2(); const x = zona < 0.6 ? 470 + r2() * 160 : 250 + r2() * 200; return { x, y: 246 + r2() * 26, tipo: r2() < 0.55 ? 'blanco' : r2() < 0.6 ? 'rojo' : 'rosa', fase: r2() * 6.28 }; });
+function flores(t) {
+  const f = P.flor;
+  for (const p of FLORES) {
+    const dx = Math.round(Math.sin(t * Math.PI * 2 + p.fase) * 0.8);
+    pon(p.x, p.y + 1, f.tallo); pon(p.x, p.y + 2, f.tallo);
+    const col = f[p.tipo];
+    pon(p.x + dx - 1, p.y, col); pon(p.x + dx + 1, p.y, col); pon(p.x + dx, p.y - 1, col); pon(p.x + dx, p.y + 1 - 1 + 1, col);
+    pon(p.x + dx, p.y, f.centro);
+  }
+  // Diente de león grande en primer plano
+  const bx = 205, by = 318, sw = Math.sin(t * Math.PI * 2) * 2.2;
+  for (let k = 0; k < 34; k++) { const u = k / 34; pon(bx + sw * u * u, by - k, f.tallo); if (k % 3 === 0) pon(bx + sw * u * u + 1, by - k, '#2f7a32'); }
+  for (const [lx, ly, dir] of [[bx, by - 8, -1], [bx, by - 14, 1]]) for (let i = 0; i < 9; i++) { pon(lx + dir * i, ly - Math.abs(Math.sin(i / 3)) * 2 + i * 0.3, i < 6 ? P.trebol[1] : P.trebol[2]); pon(lx + dir * i, ly - Math.abs(Math.sin(i / 3)) * 2 + i * 0.3 + 1, P.trebol[3]); }
+  const cx = bx + sw, cy = by - 38;
+  for (let y = -6; y <= 4; y++) for (let x = -6; x <= 6; x++) { const d = x * x / 36 + (y + 1) ** 2 / 25; if (d <= 1) pon(cx + x, cy + y, d > 0.65 || (x + y) % 4 === 0 ? f.amarilloS : f.amarillo); }
+}
+
+// Mariposa morfo azul que revolotea en un ocho
+function morfo(t) {
+  const m = P.morfo;
+  const a = t * Math.PI * 2;
+  const cx = 330 + Math.sin(a) * 26, cy = 238 + Math.sin(a * 2) * 9;
+  const abierta = Math.floor(t * CUADROS) % 3 !== 0;
+  const alas = abierta ? [[-3, -2], [-2, -2], [-3, -1], [-2, -1], [-1, -1], [-3, 0], [-2, 0], [-1, 0], [-2, 1], [-1, 1]] : [[-1, -2], [-1, -1], [-1, 0]];
+  for (const [x, y] of alas) { pon(cx + x, cy + y, y < 0 ? m.a : m.c); pon(cx - x, cy + y, y < 0 ? m.a : m.c); }
+  if (abierta) { pon(cx - 2, cy - 1, m.b); pon(cx + 2, cy - 1, m.b); }
+  pon(cx, cy - 1, m.cuerpo); pon(cx, cy, m.cuerpo); pon(cx, cy + 1, m.cuerpo);
+}
+
+// Mariquita que camina por una hoja
+function mariquita(t) {
+  const m = P.mariquita;
+  const hx = 250, hy = 352;
+  for (let i = -14; i <= 14; i++) { const y = hy - Math.round(Math.cos(i / 9) * 3); pon(hx + i, y, P.trebol[1]); pon(hx + i, y + 1, P.trebol[2]); pon(hx + i, y + 2, P.trebol[3]); }
+  const x = hx - 6 + Math.round((Math.sin(t * Math.PI * 2) + 1) * 4), y = hy - 6;
+  for (let j = -2; j <= 2; j++) for (let i = -3; i <= 3; i++) if (i * i / 9 + j * j / 4 <= 1) pon(x + i, y + j, j < 0 && i < 0 ? m.rojoL : m.rojo);
+  pon(x, y - 2, m.negro); pon(x, y, m.negro); pon(x - 2, y + 1, m.negro); pon(x + 2, y - 1, m.negro); pon(x + 3, y, m.negro); pon(x + 4, y, m.negro);
+  const paso = Math.floor(t * CUADROS) % 2; pon(x - 2 + paso, y + 3, m.negro); pon(x + 1 - paso, y + 3, m.negro);
+}
+
+// ─── composición ───
+let base = null, crestaCerca = null, puntaPalma = null;
+function fondo() {
+  buf = new Uint8ClampedArray(W * H * 4);
+  cielo();
+  nube(500, 175, 240, 120, 3);
+  cordillera(200, 90, 150, 101, P.lejos);
+  cordillera(210, 70, 95, 202, P.medio);
+  crestaCerca = cordillera(220, 40, 60, 303, P.cerca);
+  const n = ruido1(404);
+  loma((x) => 226 - Math.max(0, Math.sin((x - 30) / 230 * Math.PI)) * 30 - fbm(n, x / 40) * 8, P.loma, 404, 70);
+  // surcos de café en la loma izquierda
+  for (let fila = 0; fila < 7; fila++) for (let x = 30; x < 250; x += 3) { const y = 214 + fila * 3 - Math.sin((x - 30) / 230 * Math.PI) * 18 + fila * 0.5; if (y > 200) pon(x, y, P.cafe[0]); }
+  finca(118, 196);
+  const p = palma(178, 214, 58); puntaPalma = p;
+  prado(ruido2(505));
+  sombraArbol(ruido2(606));
+  base = buf;
+}
+
+function dibujar(i) {
+  if (!base) fondo();
+  const t = i / CUADROS;
+  buf = new Uint8ClampedArray(base);
+  copaPalma(0, puntaPalma.x, puntaPalma.y, t);
+  pinos(t);
+  dibujarBultos(FONDO_ARBOL, P.copa, t, 0.12);
+  dibujarBultos(ARBUSTOS, P.copa, t, 0.05);
+  tronco();
+  dibujarBultos(COPA, P.copa, t);
+  mechones(t);
+  flores(t);
+  treboles(t);
+  mariquita(t);
+  morfo(t);
+  rayos();
+  ctx.putImageData(new ImageData(buf, W, H), 0, 0);
+}
+
+window.CUADROS = CUADROS;
+window.dibujar = dibujar;
+// Vista previa: anima en bucle a 10 cuadros por segundo
+if (!new URLSearchParams(location.search).has('quieto')) { let i = 0; setInterval(() => dibujar(i++ % CUADROS), 100); } else dibujar(0);
+</script>
+</body>
+</html>

@@ -53,6 +53,10 @@
   --vidrio: rgb(255 255 255 / 0.55);
   --vidrio-borde: rgb(255 255 255 / 0.75);
 
+  /* Cierre al atardecer: cielo de noche y pradera (los extremos del video) */
+  --noche: #141d57;
+  --noche-prado: #0a222d;
+
   /* Semánticos (los usa la librería ui) */
   --background: var(--paper);
   --foreground: var(--ink);
@@ -169,6 +173,8 @@
   --color-grafito-2: var(--grafito-2);
   --color-vidrio: var(--vidrio);
   --color-vidrio-borde: var(--vidrio-borde);
+  --color-noche: var(--noche);
+  --color-noche-prado: var(--noche-prado);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

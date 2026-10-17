@@ -97,10 +97,10 @@ export const SiteHeader = ({ actions, menuActions }: SiteHeaderProps) => {
       <Container
         className={cn(
           'flex h-16 items-center justify-between gap-4',
-          // En iniciar sesión el logo va casi al borde, en su nube
+          // Sobre el paisaje (portada y entrada) el logo va en su nube
           // Sobre el paisaje el logo va casi al borde izquierdo
           sobreImagen && 'max-w-none! px-3 sm:px-4 lg:px-5',
-          enLogin && 'h-20',
+          sobreImagen && 'h-20',
         )}
       >
         <Link
@@ -108,8 +108,12 @@ export const SiteHeader = ({ actions, menuActions }: SiteHeaderProps) => {
           variant="unstyled"
           aria-label={`${siteConfig.name}, ir a la portada`}
         >
-          {enLogin ? (
-            <NubePixel tamano="sm" className="mt-6">
+          {sobreImagen ? (
+            <NubePixel
+              tamano="sm"
+              opacidad={0.7}
+              className={enLogin ? 'mt-6' : 'mt-4'}
+            >
               <Wordmark />
             </NubePixel>
           ) : (

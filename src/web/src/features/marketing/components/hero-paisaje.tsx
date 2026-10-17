@@ -13,15 +13,18 @@ import { Link } from '@/components/ui/link';
 import { Heading } from '@/components/ui/typography';
 import { paths } from '@/config/paths';
 
-import paisaje from '../assets/paisaje-cielo.png';
+import poster from '../assets/hero/paisaje-poster.png';
+import paisajeMp4 from '../assets/hero/paisaje.mp4';
+import paisajeWebm from '../assets/hero/paisaje.webm';
 import { PASOS, useGuion } from '../hooks/use-guion';
 
 import { PastoPixel } from './pasto-pixel';
 
 // Hero con la estructura de Cofounder (Mobbin): cielo pixel despejado arriba
-// a la izquierda para el titular, montañas de Antioquia abajo a la derecha y,
-// apoyado en ellas, el celular de teclas. Los mensajes del agente salen como
-// nubes de píxeles. Foto base: Juan Nino en Unsplash (licencia Unsplash).
+// a la izquierda para el titular y, abajo a la derecha, el prado con el árbol
+// donde se apoya el celular. Los mensajes del agente salen como nubes de
+// píxeles. El paisaje es pixel art propio en bucle (scripts/paisaje-hero):
+// tiemblan las hojas, se mece el pasto y vuela una mariposa morfo.
 
 // Silueta de nube pixelada (filas escalonadas) usada como globo de mensaje.
 const NUBE = 'M5 0h6v1h2v1h3v1h1v1h1v3h-1v1H1V7H0V4h1V3h1V2h2V1h1z';
@@ -47,42 +50,52 @@ const NubeMensaje = ({ titulo, texto }: { titulo: string; texto: string }) => (
   </div>
 );
 
+// Los tres mensajes del guion salen uno tras otro en su propia nube y se
+// quedan; al reiniciar el guion se van y vuelven a salir.
+const MENSAJES = [
+  {
+    desde: PASOS.consultando,
+    titulo: 'Pedido por SMS',
+    texto: '"necesito la pastilla de la presion"',
+    posicion: '-top-6 right-[78%]',
+  },
+  {
+    desde: PASOS.oferta,
+    titulo: 'El agente encontró',
+    texto: 'Losartán a $12.000, a 3 cuadras.',
+    posicion: 'top-[24%] right-[84%]',
+  },
+  {
+    desde: PASOS.pagado,
+    titulo: 'Pagado · $3,00',
+    texto: 'Directo a la farmacia. Retiro 4821.',
+    posicion: 'top-[50%] right-[90%]',
+  },
+];
+
 const MensajesEnNube = ({ paso }: { paso: number }) => {
   const reduceMotion = useReducedMotion();
-  const mensaje =
-    paso >= PASOS.pagado
-      ? {
-          titulo: 'Pagado · $3,00',
-          texto: 'Directo a la farmacia. Retiro 4821.',
-        }
-      : paso >= PASOS.oferta
-        ? {
-            titulo: 'El agente encontró',
-            texto: 'Losartán a $12.000, a 3 cuadras.',
-          }
-        : paso >= PASOS.consultando
-          ? {
-              titulo: 'Pedido por SMS',
-              texto: '"necesito la pastilla de la presion"',
-            }
-          : null;
   return (
-    <div
-      aria-live="polite"
-      className="pointer-events-none absolute -top-6 right-[78%] z-20 hidden md:block"
-    >
-      <AnimatePresence mode="wait">
-        {mensaje && (
+    <div aria-live="polite" className="pointer-events-none hidden md:contents">
+      <AnimatePresence>
+        {MENSAJES.filter((m) => paso >= m.desde).map((m) => (
           <motion.div
-            key={mensaje.titulo}
-            initial={reduceMotion ? false : { opacity: 0, x: 24, y: 6 }}
-            animate={{ opacity: 1, x: 0, y: 0 }}
-            exit={reduceMotion ? undefined : { opacity: 0, x: -16 }}
+            key={m.titulo}
+            className={`absolute z-20 ${m.posicion}`}
+            initial={
+              reduceMotion ? false : { opacity: 0, x: 24, y: 6, scale: 0.9 }
+            }
+            animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+            exit={
+              reduceMotion
+                ? undefined
+                : { opacity: 0, y: -10, scale: 0.85, filter: 'blur(4px)' }
+            }
             transition={{ duration: 0.5, ease: [0.3, 0.7, 0.2, 1] }}
           >
-            <NubeMensaje {...mensaje} />
+            <NubeMensaje titulo={m.titulo} texto={m.texto} />
           </motion.div>
-        )}
+        ))}
       </AnimatePresence>
     </div>
   );
@@ -97,7 +110,7 @@ export type HeroPaisajeProps = {
 // inclinada en 3D asoma ~70px más) y lo que ocupa el resto del hero en
 // pantallas angostas (menú, titular, botón, márgenes).
 const ALTO_TELEFONO = 490;
-const RESTO_DEL_HERO = 440;
+const RESTO_DEL_HERO = 330;
 
 // Escala del celular según el alto visible. Por debajo de lg se achica para
 // que quepa; en escritorio crece hasta 1,25 si hay alto (deja ~300px: el
@@ -111,7 +124,7 @@ const useEscalaTelefono = () => {
         Math.max(1, (window.innerHeight - 300) / ALTO_TELEFONO),
       );
     const libre = window.innerHeight - RESTO_DEL_HERO;
-    return Math.min(1, Math.max(0.35, libre / ALTO_TELEFONO));
+    return Math.min(1, Math.max(0.6, libre / ALTO_TELEFONO));
   };
   const [escala, setEscala] = React.useState(calcular);
   React.useEffect(() => {
@@ -149,13 +162,29 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
         className="absolute inset-0 -z-10 overflow-hidden"
         style={reduceMotion ? undefined : { y: paisajeY }}
       >
-        <img
-          src={paisaje}
-          alt=""
-          width={320}
-          height={180}
-          className="h-full w-full animate-paneo object-cover object-[60%_100%] pixelado motion-reduce:animate-none"
-        />
+        {reduceMotion ? (
+          <img
+            src={poster}
+            alt=""
+            width={640}
+            height={360}
+            className="h-full w-full object-cover object-[28%_100%] pixelado lg:object-[62%_100%]"
+          />
+        ) : (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster={poster}
+            width={640}
+            height={360}
+            className="h-full w-full object-cover object-[28%_100%] pixelado lg:object-[62%_100%]"
+          >
+            <source src={paisajeWebm} type="video/webm" />
+            <source src={paisajeMp4} type="video/mp4" />
+          </video>
+        )}
       </motion.div>
 
       <div className="mx-auto grid min-h-[calc(100svh+14px)] w-full max-w-[1400px] grid-rows-[auto_1fr] gap-6 px-4 pt-28 sm:min-h-[calc(100svh+30px)] sm:px-6 lg:grid-cols-12 lg:px-10 lg:pt-32">
@@ -206,7 +235,7 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
         {/* El objeto, apoyado en las montañas */}
         <div className="relative flex items-end justify-center pb-12 lg:col-span-5 lg:col-start-8 lg:row-span-2 lg:row-start-1 lg:justify-end lg:pb-40">
           <motion.div
-            className="relative w-[min(260px,72vw)] lg:w-[270px]"
+            className="relative w-[min(300px,82vw)] lg:w-[270px]"
             initial={reduceMotion ? false : { opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{

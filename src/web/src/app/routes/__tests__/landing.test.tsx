@@ -11,11 +11,18 @@ test('renders the hero and every section of the landing', async () => {
       name: /pagar no debería necesitar internet/i,
     }),
   ).toBeInTheDocument();
-  // Hero y cierre llevan a Juan.
+  // El hero lleva a Juan; el footer no tiene botones, solo enlaces.
   expect(
     screen.getAllByRole('link', { name: /entrar a mi mandato/i }),
-  ).toHaveLength(2);
-  expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(
-    5,
-  );
+  ).toHaveLength(1);
+  expect(
+    screen.getByRole('heading', {
+      level: 2,
+      name: /controla cada peso que gasta tu agente/i,
+    }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Mi cuenta' })).toBeInTheDocument();
+  // Qué es, problema, cómo funciona, sin señal y agentes.
+  expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(5);
 });

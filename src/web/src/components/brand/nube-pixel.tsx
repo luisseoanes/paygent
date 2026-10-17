@@ -59,13 +59,13 @@ const FORMAS = {
     asoma: 0.4,
     relleno: 'px-6 py-7 sm:px-9 sm:py-9',
   },
-  // Nube chica (el logo): base plana y bultos arriba, como una nube suelta
+  // Nube chica (el logo): bultos bajos alrededor
   sm: {
     clase: '[--px:3px]',
     esquina: 2,
-    bultos: { arriba: 6, abajo: 0, izquierda: 1, derecha: 1 },
-    diametros: [10, 12, 11, 10, 12, 10],
-    asoma: 0.25,
+    bultos: { arriba: 6, abajo: 5, izquierda: 1, derecha: 1 },
+    diametros: [8, 9, 8, 7, 9, 8],
+    asoma: 0.15,
     relleno: 'px-3 pt-1 pb-1.5',
   },
 } satisfies Record<string, Forma>;
@@ -136,14 +136,36 @@ const Silueta = ({
 export const NubePixel = ({
   children,
   tamano = 'md',
+  opacidad,
   className,
 }: {
   children: React.ReactNode;
   tamano?: keyof typeof FORMAS;
+  // Transparencia solo de la nube; el contenido queda nítido
+  opacidad?: number;
   className?: string;
 }) => {
   const forma: Forma = FORMAS[tamano];
   const bultos = repartir(forma);
+  if (opacidad !== undefined)
+    return (
+      <div className={cn('relative isolate', forma.clase, className)}>
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10"
+          style={{ opacity: opacidad }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{ transform: `translateY(${px(tamano === 'sm' ? 1 : 2)})` }}
+          >
+            <Silueta forma={forma} bultos={bultos} className="bg-firma-tint" />
+          </div>
+          <Silueta forma={forma} bultos={bultos} className="bg-paper-raised" />
+        </div>
+        <div className={cn('relative', forma.relleno)}>{children}</div>
+      </div>
+    );
   return (
     <div className={cn('relative isolate', forma.clase, className)}>
       {/* Panza: la misma silueta, 2 pixeles más abajo y azulada */}

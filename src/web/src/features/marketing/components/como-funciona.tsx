@@ -12,20 +12,48 @@ import { Container } from '@/components/layouts';
 import { cn } from '@/utils/cn';
 import { formatCurrency } from '@/utils/format';
 
-import { createDemoTree } from '../utils/demo-data';
+import { type MandateNode } from '../types/paygent';
+import { categoryLabels, createDemoTree } from '../utils/demo-data';
 import { applyDebit } from '../utils/rules';
 
 import { Etiqueta, TituloDosTonos } from './titulo-dos-tonos';
 
 // "Cómo funciona", fijada al scroll (referencias en Mobbin: la línea de pasos
 // de Giga y el flujo pixel de Wild). A la izquierda, cuatro pasos; a la
-// derecha, el árbol del mandato se construye según el paso. Los números salen
-// de las reglas reales del gateway: applyDebit debita la rama Y la raíz, así
-// que en el paso 3 las dos reglas suben juntas.
+// derecha, Juan reparte su mandato entre tres familiares, como en /cuenta:
+// a cada uno un tope, sus categorías, sus formas de pagar y su PIN. Los
+// números salen de las reglas reales del gateway: applyDebit debita la rama Y
+// la raíz, así que en el paso 3 las dos reglas suben juntas.
 
 const PAGO = 3; // losartán: 12.000 COP ≈ $3 USD
-const antes = createDemoTree();
-const despues = applyDebit(antes, 'asistente', PAGO);
+
+// Árbol de la familia de Juan sobre los nodos de la demo
+const arbolFamilia = () => {
+  const demo = createDemoTree();
+  const rama = (
+    id: string,
+    name: string,
+    limit: number,
+    categories: MandateNode['categories'],
+  ): MandateNode => ({
+    ...demo.maria!,
+    id,
+    name,
+    holder: name,
+    limit,
+    signedLimit: limit,
+    spent: 0,
+    categories,
+  });
+  return {
+    root: { ...demo.root!, spent: 0 },
+    maria: rama('maria', 'María', 150, ['mercado', 'farmacia']),
+    ana: rama('ana', 'Ana', 80, ['mercado', 'efectivo']),
+    pedro: rama('pedro', 'Pedro', 40, ['efectivo']),
+  };
+};
+const antes = arbolFamilia();
+const despues = applyDebit(antes, 'maria', PAGO);
 
 const pasos = [
   {
@@ -34,14 +62,14 @@ const pasos = [
       'El titular aprueba en su billetera un permiso de Open Payments con tope y renovación: $300 al mes.',
   },
   {
-    titulo: 'Se reparte en ramas',
+    titulo: 'Lo repartes en tu familia',
     texto:
-      'El gateway lo divide en sub-mandatos firmados. Ninguna rama puede gastar más que la de arriba.',
+      'Juan delega a su mamá, su hermana y su hijo: a cada uno un tope, sus categorías y su PIN. Ninguna rama gasta más que la de arriba.',
   },
   {
     titulo: 'Cada quien paga',
     texto:
-      'El agente compra la medicina dentro de su rama. El pago descuenta su tope y el de la raíz a la vez.',
+      'María compra la medicina con su celular. El pago descuenta su tope y el de la raíz a la vez.',
   },
   {
     titulo: 'Llega directo',
@@ -51,15 +79,28 @@ const pasos = [
 ];
 
 const ramas = [
-  { id: 'maria', nombre: 'Familiar', x: 18, tono: 'firma' as const },
   {
-    id: 'asistente',
-    nombre: 'Agente de compras',
-    x: 50,
-    tono: 'agente' as const,
+    id: 'maria',
+    nombre: 'María',
+    relacion: 'su mamá',
+    modos: 'Celular · Asistente · SMS',
+    pin: 'PIN sobre $10',
   },
-  { id: 'guardian', nombre: 'Guardián', x: 82, tono: 'anulado' as const },
-];
+  {
+    id: 'ana',
+    nombre: 'Ana',
+    relacion: 'su hermana',
+    modos: 'Celular · sin señal',
+    pin: 'PIN sobre $20',
+  },
+  {
+    id: 'pedro',
+    nombre: 'Pedro',
+    relacion: 'su hijo',
+    modos: 'Celular',
+    pin: 'Siempre con PIN',
+  },
+] as const;
 
 // Conector del árbol. Va en el flujo del layout (no en un SVG aparte), así
 // que siempre toca las tarjetas; todas las líneas tienen el mismo grosor.
@@ -163,7 +204,7 @@ const Arbol = ({ paso }: { paso: number }) => {
       >
         <div className="flex items-baseline justify-between gap-2">
           <p className="font-geist text-base font-semibold text-grafito">
-            Mandato raíz
+            Mandato raíz · Juan
           </p>
           <p className="font-geist text-base font-semibold text-grafito tabular-nums">
             $300 / mes
@@ -209,8 +250,7 @@ const Arbol = ({ paso }: { paso: number }) => {
             eje="y"
             left={CENTROS[i]}
             visible={ramasVisibles}
-            activo={pagando && r.id === 'asistente'}
-            discontinua={r.id === 'guardian'}
+            activo={pagando && r.id === 'maria'}
             delay={0.35}
           />
         ))}
@@ -220,55 +260,70 @@ const Arbol = ({ paso }: { paso: number }) => {
       <div className="grid w-full grid-cols-3">
         {ramas.map((r, i) => {
           const nodo = arbol[r.id]!;
-          const esAgente = r.id === 'asistente';
+          const paga = r.id === 'maria';
           return (
             <div key={r.id} className="px-1.5 sm:px-2">
               <motion.div
                 className={cn(
                   'relative h-full rounded-lg border bg-paper-raised p-3 shadow-sm sm:p-5',
-                  esAgente && pagando ? 'border-agente/50' : 'border-hueso-2',
+                  paga && pagando ? 'border-firma/50' : 'border-hueso-2',
                 )}
                 initial={false}
                 animate={{
                   opacity: ramasVisibles ? 1 : 0,
                   y: ramasVisibles ? 0 : 12,
-                  scale: esAgente && pagando && !llego ? 1.04 : 1,
+                  scale: paga && pagando && !llego ? 1.04 : 1,
                 }}
                 transition={{ ...t, delay: reduceMotion ? 0 : 0.4 + i * 0.08 }}
               >
-                <p
-                  className={cn(
-                    'font-geist text-sm leading-tight font-semibold sm:text-base',
-                    r.tono === 'agente' && 'text-agente',
-                    r.tono === 'anulado' && 'text-anulado',
-                    r.tono === 'firma' && 'text-grafito',
-                  )}
-                >
-                  {r.nombre}
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-firma-tint font-geist text-sm font-semibold text-firma sm:flex"
+                  >
+                    {r.nombre[0]}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-geist text-sm leading-tight font-semibold text-grafito sm:text-base">
+                      {r.nombre}
+                    </p>
+                    <p className="font-geist text-[0.6875rem] text-grafito-2 sm:text-xs">
+                      {r.relacion}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-2 font-geist text-[0.8125rem] text-grafito/75 tabular-nums sm:text-sm">
+                  Tope{' '}
+                  <span className="font-semibold text-grafito">
+                    {formatCurrency(nodo.limit)}
+                  </span>
+                  <span className="text-grafito-2"> / mes</span>
                 </p>
-                <p className="mt-1 font-geist text-[0.8125rem] text-grafito/75 tabular-nums sm:text-sm">
-                  {r.id === 'guardian' ? (
-                    'Solo restringe'
-                  ) : (
-                    <>
-                      Tope{' '}
-                      <span className="font-semibold text-grafito">
-                        {formatCurrency(nodo.limit)}
-                      </span>
-                    </>
-                  )}
+                <ReglaDeConsumo
+                  spent={nodo.spent}
+                  limit={nodo.limit}
+                  size="sm"
+                  tone="firma"
+                  className="mt-2"
+                  label={`Consumo de ${r.nombre}`}
+                />
+                <div className="mt-2.5 flex flex-wrap gap-1">
+                  {nodo.categories.map((c) => (
+                    <span
+                      key={c}
+                      className="rounded bg-hueso px-1.5 py-0.5 font-geist text-[0.625rem] text-grafito sm:text-[0.6875rem]"
+                    >
+                      {categoryLabels[c]}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 hidden font-geist text-xs text-grafito-2 sm:block">
+                  {r.modos}
                 </p>
-                {r.id !== 'guardian' && (
-                  <ReglaDeConsumo
-                    spent={nodo.spent}
-                    limit={nodo.limit}
-                    size="sm"
-                    tone={r.tono === 'agente' ? 'agente' : 'firma'}
-                    className="mt-2.5"
-                    label={`Consumo de ${r.nombre}`}
-                  />
-                )}
-                {esAgente && llego && (
+                <p className="mt-1 hidden font-geist text-xs text-grafito-2 sm:block">
+                  {r.pin}
+                </p>
+                {paga && llego && (
                   <motion.span
                     className="absolute -top-7 -right-5"
                     initial={
@@ -288,18 +343,18 @@ const Arbol = ({ paso }: { paso: number }) => {
         })}
       </div>
 
-      {/* Del agente a la farmacia */}
+      {/* De María a la farmacia */}
       <div className="relative h-14 w-full">
         <Linea
           eje="y"
           visible={llego}
           activo
           color="var(--liquidado)"
-          className="left-1/2"
+          left={CENTROS[0]}
         />
       </div>
       <motion.p
-        className="rounded-full border border-liquidado/40 bg-liquidado-tint px-4 py-2 text-center font-geist text-sm font-medium text-liquidado"
+        className="self-start rounded-full border border-liquidado/40 bg-liquidado-tint px-4 py-2 text-center font-geist text-sm font-medium text-liquidado"
         initial={false}
         animate={{ opacity: llego ? 1 : 0, y: llego ? 0 : 8 }}
         transition={{ ...t, delay: reduceMotion ? 0 : 0.3 }}

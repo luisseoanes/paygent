@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Atardecer del cierre · generador</title>
+<style>
+  @font-face { font-family: 'Pixelify Sans'; src: url('../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
+  body { margin: 0; background: #111; display: grid; place-items: center; min-height: 100vh; }
+  canvas { width: min(100vw, 1920px); image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="lienzo" width="640" height="300"></canvas>
+<script src="pixel.js"></script>
+<script>
+// Cierre de la portada: el mismo paisaje al caer el día. "PAYGENT" se pone
+// como un sol detrás de la cordillera; titilan estrellas y luciérnagas.
+const W = 640, H = 300, CUADROS = 30;
+const lienzo = document.getElementById('lienzo');
+const ctx = lienzo.getContext('2d');
+
+const P = {
+  cielo: ['#141d57', '#18256c', '#1f3fae', '#2f3fa8', '#4a3f9e', '#6b4198', '#8f4790', '#b4508a', '#d55f7c', '#ec7a68', '#f59a62', '#f8b86c'],
+  sol: ['#ffb067', '#ff9358', '#f9764e', '#e85d4a'],
+  letra: ['#fff6dc', '#ffe8b8', '#ffd28f', '#fbb36e'],
+  sierra1: ['#8c4a8f', '#7a4287', '#693a7d'],
+  sierra2: ['#4f3479', '#45306f', '#3b2b64'],
+  sierra3: ['#2b2759', '#25234f', '#1f1f46'],
+  borde: '#f49a72',
+  loma: ['#183a4c', '#143444', '#112d3c'],
+  pino: ['#0c2633', '#0f2d3b', '#123444'],
+  prado: ['#11364a', '#0f3142', '#0d2b39', '#0b2633', '#0a222d'],
+  pasto: ['#1d4a52', '#26585e'],
+  finca: { muro: '#c9b9c8', muroS: '#a596ad', teja: '#7a3346', luz: '#ffd27a' },
+  estrella: ['#ffffff', '#cfd8ff', '#8e9be0'],
+  luciernaga: ['#f4ff9a', '#d6f26b', '#8fb04a'],
+};
+
+let buf;
+const pon = (x, y, h) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const k = (y * W + x) * 4, [r, g, b] = hex(h); buf[k] = r; buf[k + 1] = g; buf[k + 2] = b; buf[k + 3] = 255; };
+const mezcla = (x, y, h, a) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const k = (y * W + x) * 4, [r, g, b] = hex(h); buf[k] += (r - buf[k]) * a; buf[k + 1] += (g - buf[k + 1]) * a; buf[k + 2] += (b - buf[k + 2]) * a; };
+
+const HORIZONTE = 248;
+const FONDO = '#0a222d';
+const SOL = { x: 320, y: 214, r: 40 };
+
+function cielo() {
+  for (let y = 0; y < HORIZONTE + 20; y++) for (let x = 0; x < W; x++) pon(x, y, tono(P.cielo, (y / (HORIZONTE + 10)) ** 1.25, x, y, 0.18));
+  // resplandor alrededor del sol
+  for (let y = 100; y < HORIZONTE; y++) for (let x = 120; x < 520; x++) {
+    const d = Math.hypot((x - SOL.x) / 1.6, y - SOL.y) / 140;
+    if (d < 1 && umbral(x, y) < (1 - d) * 0.9) mezcla(x, y, '#ffcf8a', 0.18 * (1 - d));
+  }
+}
+
+function sol() {
+  for (let y = -SOL.r; y <= SOL.r; y++) for (let x = -SOL.r; x <= SOL.r; x++) {
+    const d = Math.hypot(x, y) / SOL.r; if (d > 1) continue;
+    // bandas horizontales en la mitad baja, como un sol de pixel art
+    if (y > 8 && (y % 7) < 2) continue;
+    pon(SOL.x + x, SOL.y + y, tono(P.sol, d * 0.6 + Math.max(0, y) / SOL.r * 0.5, x, y, 0.2));
+  }
+}
+
+// "PAYGENT" en letras pixel: se dibuja con la fuente y se binariza.
+function marca() {
+  const c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
+  const g = c2.getContext('2d');
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.font = '700 112px "Pixelify Sans"';
+  g.fillText('PAYGENT', W / 2, 234);
+  const d = g.getImageData(0, 0, W, H).data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (d[(y * W + x) * 4 + 3] < 128) continue;
+    // sombra de 2 px abajo a la derecha para separarla del cielo
+    pon(x + 2, y + 2, '#3a2a6a');
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (d[(y * W + x) * 4 + 3] < 128) continue;
+    pon(x, y, tono(P.letra, (y - 165) / 70, x, y, 0.25));
+  }
+}
+
+function sierra(base, amp, escala, semilla, rampa, borde) {
+  const n = ruido1(semilla);
+  const hs = Array.from({ length: W + 16 }, (_, i) => base - (fbm(n, (i - 8) / escala, 5) ** 1.5) * amp);
+  for (let x = 0; x < W; x++) {
+    const h = hs[x + 8], pend = (hs[x + 12] - hs[x + 4]) / 8;
+    for (let y = Math.floor(h); y < H; y++) {
+      const prof = y - h;
+      // luz de contorno en las laderas que miran al sol
+      const haciaSol = (x < SOL.x ? pend > 0.2 : pend < -0.2);
+      if (borde && prof < 1.5 && haciaSol && Math.abs(x - SOL.x) < 260) { pon(x, y, borde); continue; }
+      pon(x, y, tono(rampa, Math.min(1, prof / 60), x, y, 0.25));
+    }
+  }
+  return (x) => hs[Math.max(0, Math.min(W - 1, Math.round(x))) + 8];
+}
+
+function prado() {
+  for (let y = HORIZONTE; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = (y - HORIZONTE) / (H - 14 - HORIZONTE);
+    pon(x, y, t >= 1 ? FONDO : tono(P.prado, t, x, y, 0.3));
+  }
+}
+
+function finca(x, y) {
+  const f = P.finca;
+  for (let j = 0; j < 7; j++) for (let i = 0; i < 14; i++) pon(x + i, y - j, i > 10 ? f.muroS : f.muro);
+  for (let j = 0; j < 4; j++) for (let i = -2 - j; i < 16 + j; i++) pon(x + i, y - 7 - (3 - j), f.teja);
+  // ventanas encendidas al caer la tarde
+  for (const vx of [3, 8]) { pon(x + vx, y - 4, f.luz); pon(x + vx + 1, y - 4, f.luz); pon(x + vx, y - 3, f.luz); pon(x + vx + 1, y - 3, f.luz); }
+  for (let y2 = y - 8; y2 < y + 2; y2++) for (let x2 = x - 6; x2 < x + 20; x2++) mezcla(x2, y2, '#ffd27a', 0.05);
+}
+
+// ─── animado ───
+const ra = azar(41);
+const ESTRELLAS = Array.from({ length: 70 }, () => ({ x: ra() * W, y: ra() ** 1.5 * 110, b: ra() < 0.2 ? 0 : 1, fase: Math.floor(ra() * CUADROS) }));
+const PINOS = Array.from({ length: 30 }, () => ({ x: ra() * W, alto: 18 + ra() * 30, fase: ra() * 6.28 })).filter((p) => p.x < 230 || p.x > 410).sort((a, b) => a.alto - b.alto);
+const LUCES = Array.from({ length: 30 }, () => ({ x: ra() * W, y: HORIZONTE - 6 + ra() * 20, fase: ra() * 6.28, r: 2 + ra() * 4 }));
+const MECHONES = Array.from({ length: 140 }, () => ({ x: ra() * W, y: HORIZONTE + 4 + ra() ** 1.6 * 14, fase: ra() * 6.28 }));
+
+function estrellas(t) {
+  const i = Math.floor(t * CUADROS);
+  for (const e of ESTRELLAS) {
+    const brillo = (i + e.fase) % 10 < 2 ? 0 : (i + e.fase) % 10 < 4 ? 2 : 1;
+    pon(e.x, e.y, P.estrella[e.b ? brillo : 2]);
+    if (!e.b && brillo === 0) { pon(e.x - 1, e.y, P.estrella[2]); pon(e.x + 1, e.y, P.estrella[2]); pon(e.x, e.y - 1, P.estrella[2]); pon(e.x, e.y + 1, P.estrella[2]); }
+  }
+}
+
+function pinos(t, cresta) {
+  for (const q of PINOS) {
+    const base = cresta(q.x) + 6;
+    for (let j = 0; j < q.alto; j++) {
+      const u = j / q.alto; const ancho = Math.max(0.5, (1 - u) * q.alto * 0.3 * (0.6 + 0.4 * ((j % 6) / 6)));
+      const lean = u > 0.7 ? Math.round(Math.sin(t * Math.PI * 4 + q.fase) * (u - 0.7) * 4) : 0;
+      for (let x = Math.floor(q.x - ancho); x <= q.x + ancho; x++) pon(x + lean, base - j, P.pino[x < q.x ? 1 : 0]);
+    }
+  }
+}
+
+function mechones(t) {
+  for (const m of MECHONES) {
+    const lean = Math.round(Math.sin(t * Math.PI * 2 + m.fase) * 1.2);
+    for (const [ox, h] of [[-1, 2], [0, 4], [1, 3]]) for (let k = 0; k < h; k++) pon(m.x + ox + (k >= h - 1 ? lean : 0), m.y - k, P.pasto[k === h - 1 ? 1 : 0]);
+  }
+}
+
+function luciernagas(t) {
+  for (const l of LUCES) {
+    const a = t * Math.PI * 2 + l.fase;
+    const x = l.x + Math.sin(a) * l.r * 2, y = l.y + Math.sin(a * 2) * l.r;
+    const encendida = Math.sin(a * 2 + l.fase) > -0.2;
+    if (!encendida) continue;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const d = Math.hypot(dx, dy); if (d <= 4) mezcla(x + dx, y + dy, P.luciernaga[1], 0.3 * (1 - d / 4.2)); }
+    pon(x, y, P.luciernaga[0]); pon(x + 1, y, P.luciernaga[0]); pon(x, y + 1, P.luciernaga[1]); pon(x + 1, y + 1, P.luciernaga[1]);
+  }
+}
+
+let base = null, crestaCerca = null;
+function fondo() {
+  buf = new Uint8ClampedArray(W * H * 4);
+  cielo();
+  sol();
+  marca();
+  sierra(234, 30, 120, 11, P.sierra1, P.borde);
+  sierra(242, 18, 80, 22, P.sierra2, null);
+  crestaCerca = sierra(250, 9, 55, 33, P.sierra3, null);
+  prado();
+  finca(470, crestaCerca(477) + 4);
+  base = buf;
+}
+
+function dibujar(i) {
+  if (!base) fondo();
+  const t = i / CUADROS;
+  buf = new Uint8ClampedArray(base);
+  estrellas(t);
+  pinos(t, crestaCerca);
+  mechones(t);
+  luciernagas(t);
+  ctx.putImageData(new ImageData(buf, W, H), 0, 0);
+}
+
+window.CUADROS = CUADROS;
+window.listo = document.fonts.load('700 132px "Pixelify Sans"').then(() => { window.dibujar = dibujar; });
+window.listo.then(() => { if (!new URLSearchParams(location.search).has('quieto')) { let i = 0; setInterval(() => dibujar(i++ % CUADROS), 100); } else dibujar(0); });
+</script>
+</body>
+</html>

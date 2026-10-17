@@ -1,112 +1,135 @@
-import { Button } from '@/components/ui/button';
+import { useReducedMotion } from 'motion/react';
+
 import { Link } from '@/components/ui/link';
-import { Heading } from '@/components/ui/typography';
 import { paths } from '@/config/paths';
 
-import paisaje from '../assets/paisaje.png';
+import poster from '../assets/hero/atardecer-poster.png';
+import atardecerMp4 from '../assets/hero/atardecer.mp4';
+import atardecerWebm from '../assets/hero/atardecer.webm';
 
 import { PastoPixel } from './pasto-pixel';
 
-// Cierre con la estructura del footer de Cofounder (Mobbin): titular en dos
-// tonos, enlaces, tarjeta de vidrio sobre una ilustración pixel y la franja
-// de pasto pixelado al final.
+// Footer: el paisaje del hero al caer el día (pixel art propio en bucle,
+// scripts/paisaje-hero/atardecer.html). "PAYGENT" se pone como un sol detrás
+// de la cordillera; arriba se deshace en píxeles como el hero y la pradera
+// baja en degradado hasta el pie de página.
 
-// MOCK: solo "Árbol de mandatos" e "Iniciar sesión" son pantallas reales;
-// el resto apunta a secciones de esta portada hasta que existan.
-const enlaces = [
-  [
-    { label: 'Árbol de mandatos', href: paths.cuenta.getHref() },
-    { label: 'Cómo funciona', href: '#como-funciona' },
-    { label: 'Agentes', href: '#agentes' },
-  ],
-  [
-    { label: 'Sin señal', href: '#sin-senal' },
-    { label: 'Iniciar sesión', href: paths.auth.login.getHref() },
-  ],
+// MOCK: pie de página de muestra; solo las rutas de la app son reales, el
+// resto vuelve a la portada.
+const columnas = [
+  {
+    titulo: 'Producto',
+    enlaces: [
+      { label: 'Mi cuenta', href: paths.cuenta.getHref() },
+      { label: 'Billetera', href: paths.billetera.getHref() },
+      { label: 'Caja del tendero', href: paths.tendero.getHref() },
+      { label: 'Celular por SMS', href: paths.celular.getHref() },
+    ],
+  },
+  {
+    titulo: 'Paygent',
+    enlaces: [
+      { label: 'Qué es', href: paths.home.getHref('que-es') },
+      { label: 'Cómo funciona', href: paths.home.getHref('como-funciona') },
+      { label: 'Sin señal', href: paths.home.getHref('sin-senal') },
+      { label: 'Agentes', href: paths.home.getHref('agentes') },
+    ],
+  },
+  {
+    titulo: 'Recursos',
+    enlaces: [
+      { label: 'Documentación', href: paths.home.getHref() },
+      { label: 'Open Payments', href: paths.home.getHref() },
+      { label: 'Interledger', href: paths.home.getHref() },
+    ],
+  },
 ];
 
+const legales = ['Términos', 'Privacidad', 'Estado del servicio'];
+
+const Atardecer = () => {
+  const reduceMotion = useReducedMotion();
+  const clase = 'block h-full w-full object-cover object-bottom pixelado';
+  return reduceMotion ? (
+    <img src={poster} alt="" width={640} height={300} className={clase} />
+  ) : (
+    <video
+      autoPlay
+      muted
+      loop
+      playsInline
+      poster={poster}
+      width={640}
+      height={300}
+      className={clase}
+    >
+      <source src={atardecerWebm} type="video/webm" />
+      <source src={atardecerMp4} type="video/mp4" />
+    </video>
+  );
+};
+
 export const Cierre = () => (
-  <section aria-labelledby="cierre-title" className="bg-hueso">
-    <div className="mx-auto grid max-w-5xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2 lg:items-center lg:px-8">
-      <div>
-        <Heading
-          level="h2"
-          id="cierre-title"
-          className="font-geist text-[clamp(1.75rem,3vw,2.25rem)] leading-[1.15] tracking-[-0.02em]"
-          style={{ fontWeight: 400 }}
-        >
-          <span className="text-grafito">Un solo permiso,</span>{' '}
-          <span className="text-grafito-2">
-            repartido entre personas y agentes.
-          </span>
-        </Heading>
-        <p className="mt-6 font-geist text-[0.8125rem] text-grafito-2">
-          Cómo <span className="text-grafito">Con datos</span> ·{' '}
-          <span className="text-grafito">Sin señal</span> ·{' '}
-          <span className="text-grafito">Por SMS</span>
-        </p>
-        <nav
-          aria-label="Enlaces de la portada"
-          className="mt-6 grid max-w-sm grid-cols-2 gap-x-8 gap-y-2"
-        >
-          {enlaces.map((col, i) => (
-            <ul key={i} className="space-y-2">
-              {col.map((e) => (
-                <li key={e.href}>
+  <footer className="relative isolate overflow-hidden bg-noche-prado text-paper-raised">
+    {/* La escena; abajo termina en el color del pie de página */}
+    <div
+      aria-hidden="true"
+      className="relative aspect-[32/15] max-h-[640px] w-full"
+    >
+      <Atardecer />
+      <PastoPixel
+        variante="disolver"
+        className="absolute inset-x-0 top-0 z-10 rotate-180"
+      />
+      <span className="absolute inset-x-0 bottom-0 h-6 bg-linear-to-b from-transparent to-noche-prado" />
+    </div>
+
+    {/* Pie de página corto bajo las colinas */}
+    <div className="mx-auto max-w-6xl px-4 pt-4 pb-6 sm:px-6">
+      <div className="grid gap-8 sm:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))]">
+        <div>
+          <p className="font-pixel text-lg tracking-wide">Paygent</p>
+          <p className="mt-2 max-w-[28ch] font-geist text-[0.8125rem] leading-snug text-paper-raised/60">
+            Un permiso. Muchas manos. Cualquier señal.
+          </p>
+        </div>
+        {columnas.map((c) => (
+          <nav key={c.titulo} aria-label={c.titulo}>
+            <p className="font-mono text-[0.6875rem] tracking-wider text-paper-raised/45 uppercase">
+              {c.titulo}
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {c.enlaces.map((e) => (
+                <li key={e.label}>
                   <Link
                     variant="unstyled"
                     to={e.href}
-                    className="font-geist text-[0.8125rem] text-grafito hover:underline"
+                    className="font-geist text-[0.8125rem] text-paper-raised/75 transition-colors hover:text-paper-raised"
                   >
                     {e.label}
                   </Link>
                 </li>
               ))}
             </ul>
-          ))}
-        </nav>
-        <p className="mt-8 font-geist text-xs text-grafito-2">
-          Sobre{' '}
-          <span className="rounded border border-hueso-2 px-1.5 py-0.5 text-grafito">
-            Open Payments
-          </span>{' '}
-          · red de prueba de Interledger
-        </p>
+          </nav>
+        ))}
       </div>
-
-      <div className="relative mx-auto w-full max-w-sm rounded-2xl border border-hueso-2 bg-paper-raised p-2 shadow-[0_30px_60px_-40px_rgb(28_34_48/0.45)]">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-xl">
-          <img
-            src={paisaje}
-            alt=""
-            width={320}
-            height={180}
-            className="absolute inset-0 h-full w-full object-cover object-[30%_60%] pixelado"
-          />
-          <div className="absolute inset-x-3 bottom-3 rounded-xl border border-vidrio-borde bg-vidrio p-4 backdrop-blur-md">
-            <p className="font-geist text-lg leading-snug font-medium text-grafito">
-              Paygent es una red de permisos delegables{' '}
-              <span className="text-grafito/60">
-                para pagar donde no llega internet.
-              </span>
-            </p>
-            <Button
-              size="sm"
-              asChild
-              className="mt-4 rounded-lg bg-paper-raised font-geist text-grafito shadow-sm hover:bg-hueso"
-            >
-              <Link variant="unstyled" to={paths.cuenta.getHref()}>
-                Entrar a mi mandato
+      <div className="mt-8 flex flex-col gap-3 border-t border-paper-raised/10 pt-4 font-geist text-[0.75rem] text-paper-raised/50 sm:flex-row sm:items-center sm:justify-between">
+        <p>© 2026 Paygent · Hecho en Medellín · Hackathon Open Payments</p>
+        <ul className="flex gap-4">
+          {legales.map((l) => (
+            <li key={l}>
+              <Link
+                variant="unstyled"
+                to={paths.home.getHref()}
+                className="hover:text-paper-raised"
+              >
+                {l}
               </Link>
-            </Button>
-          </div>
-        </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
-
-    <p className="pb-2 text-center font-geist text-[0.6875rem] text-grafito-2">
-      Hecho en Medellín · Hackathon 2026
-    </p>
-    <PastoPixel variante="pasto" />
-  </section>
+  </footer>
 );

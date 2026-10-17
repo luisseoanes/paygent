@@ -1,9 +1,9 @@
 import { Head } from '@/components/seo';
 import { Revelar } from '@/components/ui/revelar';
 import { CelularAutoplay } from '@/features/celular/components/celular-autoplay';
+import { AgentesControl } from '@/features/marketing/components/agentes-control';
 import { Cierre } from '@/features/marketing/components/cierre';
 import { ComoFunciona } from '@/features/marketing/components/como-funciona';
-import { GatewayDecide } from '@/features/marketing/components/gateway-decide';
 import { HeroPaisaje } from '@/features/marketing/components/hero-paisaje';
 import { Problema } from '@/features/marketing/components/problema';
 import { QueEs } from '@/features/marketing/components/que-es';
@@ -41,12 +41,10 @@ const LandingRoute = () => {
       </div>
       <div id="agentes" className="scroll-mt-16">
         <Revelar desde="derecha">
-          <GatewayDecide />
+          <AgentesControl />
         </Revelar>
       </div>
-      <Revelar desde="escala">
-        <Cierre />
-      </Revelar>
+      <Cierre />
     </div>
   );
 };
