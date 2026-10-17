@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { amount as A, type MandateNode } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
 import { seed } from '../src/demo/seed.ts'
-import { getMandate, treeOf } from '../src/gateway/mandates.ts'
+import { findMandate, getMandate, treeOf } from '../src/gateway/mandates.ts'
+import { getUserWithPassword } from '../src/store/accounts.ts'
 
 // Si el titular vuelve a firmar su mandato raíz por MENOS de lo que ya repartió, el árbol baja en proporción
 // (en cascada) para que la suma de los hijos nunca supere al padre.
 const app = await buildApp({ logger: false })
 await seed({ keepGrant: false })
 
-const post = (url: string, payload: object) => app.inject({ method: 'POST', url, payload })
+let headers = {}
+const post = (url: string, payload: object) => app.inject({ method: 'POST', url, payload, headers })
 const titular = (
   await post('/auth/register/titular', {
     documento: '92000001', nombre: 'Pedro', apellido: 'Gómez', email: 'pedro.grant@correo.co', telefono: '+573009990002',
@@ -17,6 +19,7 @@ const titular = (
   })
 ).json()
 const raiz = titular.rootMandateId as string
+headers = { authorization: `Bearer ${titular.token}` }
 
 /** Firma el grant de la raíz por `pesos` (mock: la billetera aprueba lo pedido y vuelve a /callback). */
 const firmar = async (pesos: number) => {
@@ -55,7 +58,7 @@ describe('Grant nuevo menor que lo repartido', () => {
     expect(A.lte(cel.offlineCapCeiling!, cel.maxDebit)).toBe(true)
     expect(sumaCumple(await treeOf(raiz))).toBe(true)
 
-    const feed = (await app.inject({ method: 'GET', url: `/feed?root=${raiz}` })).json() as { reason?: string }[]
+    const feed = (await app.inject({ method: 'GET', url: `/feed?root=${raiz}`, headers })).json() as { reason?: string }[]
     expect(feed.some((e) => /bajaron en proporción/.test(e.reason ?? ''))).toBe(true)
   })
 
@@ -63,5 +66,37 @@ describe('Grant nuevo menor que lo repartido', () => {
     const antes = (await treeOf(raiz)).children.map((c) => c.maxDebit.value)
     await firmar(2_000_000)
     expect((await treeOf(raiz)).children.map((c) => c.maxDebit.value)).toEqual(antes)
+  })
+
+  it('si el titular revocó su raíz, al volver a firmar arranca sin beneficiarios y puede registrarlos de nuevo', async () => {
+    const hija = (
+      await post(`/mandates/${raiz}/beneficiaries`, { alias: 'Hija', maxDebit: A.cop(100_000), offlineCap: A.cop(50_000), pin: '246810' })
+    ).json()
+    const cuenta = {
+      documento: '92000077', nombre: 'Hija', email: 'hija.grant@correo.co', telefono: '+573009990077', password: 'clave-segura',
+    }
+    expect((await post('/auth/register/beneficiario', { ...cuenta, mandateId: hija.code })).statusCode).toBe(201)
+
+    expect((await post(`/mandates/${raiz}/revoke`, {})).statusCode).toBe(200)
+    expect((await treeOf(raiz)).children.every((c) => c.revoked)).toBe(true)
+    expect((await firmar(1_000_000)).headers.location).toMatch(/ok=1/)
+
+    const arbol = await treeOf(raiz)
+    expect(arbol.revoked).toBe(false)
+    expect(arbol.children).toEqual([])
+    expect(await findMandate(hija.mandateId)).toBeUndefined()
+    // Su cuenta se quedó sin rama: se borra para poder registrarla otra vez con el mismo correo.
+    expect(await getUserWithPassword(cuenta.email)).toBeUndefined()
+    const nueva = (
+      await post(`/mandates/${raiz}/beneficiaries`, { alias: 'Hija', maxDebit: A.cop(100_000), offlineCap: A.cop(50_000), pin: '246810' })
+    ).json()
+    expect((await post('/auth/register/beneficiario', { ...cuenta, mandateId: nueva.code })).statusCode).toBe(201)
+  })
+
+  it('un grant que se vuelve a firmar sin haber revocado conserva los beneficiarios', async () => {
+    const antes = (await treeOf(raiz)).children.map((c) => c.id)
+    expect(antes.length).toBeGreaterThan(0)
+    await firmar(1_000_000)
+    expect((await treeOf(raiz)).children.map((c) => c.id)).toEqual(antes)
   })
 })
