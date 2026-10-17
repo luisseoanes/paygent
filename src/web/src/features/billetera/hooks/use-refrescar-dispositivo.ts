@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { useOnline } from '@/hooks/use-online';
+import { getFx } from '@/lib/catalogo';
 
 import {
   getMandatoDispositivo,
@@ -17,7 +18,8 @@ const CADA_MINUTO = 60_000;
 
 // Con señal: trae el saldo real del periodo y pide un certificado nuevo si María
 // ya gastó sin señal, si el certificado está por vencer o si el Guardián cambió
-// el tope sin señal. Si la rama está congelada, deja de firmar vales.
+// el tope sin señal. Si la rama está congelada o ya no existe, deja de firmar
+// vales. La TRM se actualiza en cada revisión: un vale nunca sale con la de ayer.
 // `activo` en falso (un celular de otra cuenta) no lo toca.
 export const useRefrescarDispositivo = ({ activo = true } = {}) => {
   const online = useOnline();
@@ -53,18 +55,26 @@ export const useRefrescarDispositivo = ({ activo = true } = {}) => {
           ? vincularDispositivo({ mandateId: d.mandateId, previo: d }).then(
               (n) => ({ ...n, congelado: false }),
             )
-          : saldoDePersona(d.mandateId, m).then((remaining) => ({
+          : Promise.all([
+              saldoDePersona(d.mandateId, m),
+              getFx().catch(() => undefined),
+            ]).then(([remaining, fx]) => ({
               ...d,
               categories: m.categories,
               remaining,
               remainingAt: new Date().toISOString(),
               topeMaximo: m.offlineCapCeiling,
+              ...(fx && { fx: fx.copPerUsd, fxFecha: fx.fecha }),
             }));
       })
       .then((siguiente) => {
         if (!cancelado) guardar(siguiente);
       })
-      .catch(() => {});
+      .catch((err: { response?: { status?: number } }) => {
+        // La rama se borró (la raíz se volvió a aprobar sin beneficiarios): su certificado ya no se cobra.
+        if (!cancelado && err.response?.status === 404)
+          guardar({ ...d, congelado: true });
+      });
     return () => {
       cancelado = true;
     };
