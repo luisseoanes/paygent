@@ -164,7 +164,11 @@ export const treeOf = async (id: string): Promise<MandateNode> => {
 export type DelegateInput = Partial<Omit<Mandate, 'parentId' | 'signature' | 'spentInPeriod' | 'periodStart'>> &
   Pick<Mandate, 'holderType' | 'holderId' | 'maxDebit'>
 
+/** Bloquea al padre hasta el fin de la transacción: dos repartos a la vez no pueden leer el mismo «libre». */
+const lockParent = (parentId: string, conn?: Sql) => s(conn).query(`select id from mandates where id = $1 for update`, [parentId])
+
 export const delegate = async (parentId: string, input: DelegateInput, conn?: Sql): Promise<Mandate> => {
+  await lockParent(parentId, conn)
   const parent = await getMandate(parentId, conn)
   if (parent.revoked) throw forbidden('El mandato padre está revocado')
 
@@ -251,6 +255,7 @@ export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineC
   if (!valid(patch.maxDebit) || !valid(patch.offlineCap)) throw badRequest(`Los topes van en ${m.maxDebit.assetCode}`)
   const next = { ...m }
   if (patch.maxDebit) {
+    await lockParent(m.parentId, conn)
     const parent = await getMandate(m.parentId, conn)
     const live = (ms: Mandate[]) => ms.filter((c) => !c.revoked)
     const siblings = live(await childrenOf(parent.id, conn)).filter((c) => c.id !== m.id)

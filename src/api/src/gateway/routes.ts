@@ -240,7 +240,8 @@ export default async function gatewayRoutes(app: FastifyInstance) {
     await requireTitularOf(req, req.params.id)
     const { maxDebit, offlineCap } = req.body ?? {}
     if (!maxDebit && !offlineCap) throw badRequest('Falta el tope nuevo (maxDebit u offlineCap)')
-    const m = await setLimits(req.params.id, { maxDebit, offlineCap })
+    // En transacción: el bloqueo del padre dura hasta guardar.
+    const m = await sql().tx((tx) => setLimits(req.params.id, { maxDebit, offlineCap }, tx))
     await emit({
       mandateId: m.id,
       actor: { type: 'person', name: await titularDe(m.id) },
