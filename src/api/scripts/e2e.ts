@@ -62,7 +62,7 @@ const { cert } = await call<{ cert: DeviceCert }>('/mandates/maria-device/device
 const merchants = await call<any[]>('/merchants')
 const tienda = merchants.find((m) => m.id === 'tienda')
 // 20.000 COP en la moneda raíz (la del tope del certificado)
-const valeMonto = A.fromCop(20_000, A.assetOf(cert.offlineCap), env.FX_COP_PER_USD)
+const valeMonto = A.fromCop(20_000, A.assetOf(cert.offlineCap), (await call<{ copPerUsd: number }>('/fx')).copPerUsd)
 const voucher: Voucher = signVoucher(
   {
     voucherId: randomId('v_'),

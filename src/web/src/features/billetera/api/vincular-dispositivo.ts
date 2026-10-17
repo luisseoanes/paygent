@@ -7,8 +7,9 @@ import {
 import { useMutation } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
-import { getFxCopPerUsd, getMerchants } from '@/lib/catalogo';
+import { getFx, getMerchants } from '@/lib/catalogo';
 import { type MutationConfig } from '@/lib/react-query';
+import { type ModesResponse } from '@/types/api';
 
 import {
   type Dispositivo,
@@ -33,6 +34,18 @@ export const getMandatoDispositivo = (
   mandateId: string,
 ): Promise<MandatoDispositivo> => api.get(`/mandates/${mandateId}`);
 
+const getModos = (mandateId: string): Promise<ModesResponse> =>
+  api.get(`/mandates/${mandateId}/modes`);
+
+// Lo que la persona puede gastar entre todos sus modos; sin modos, lo de la rama.
+export const saldoDePersona = async (
+  mandateId: string,
+  mandato?: MandatoDispositivo,
+): Promise<Amount | undefined> => {
+  const modos = await getModos(mandateId).catch(() => undefined);
+  return modos?.remaining ?? mandato?.remaining;
+};
+
 export const vincularDispositivo = async ({
   mandateId,
   previo,
@@ -51,9 +64,10 @@ export const vincularDispositivo = async ({
   );
   const [merchants, fx, mandato] = await Promise.all([
     getMerchants(),
-    getFxCopPerUsd(),
+    getFx(),
     getMandatoDispositivo(mandateId).catch(() => undefined),
   ]);
+  const remaining = await saldoDePersona(mandateId, mandato);
   return {
     mandateId,
     ...keys,
@@ -62,9 +76,10 @@ export const vincularDispositivo = async ({
     counter: 0,
     cumulativeCents: 0,
     merchants,
-    fx,
+    fx: fx.copPerUsd,
+    fxFecha: fx.fecha,
     categories: mandato?.categories,
-    remaining: mandato?.remaining,
+    remaining,
     topeMaximo: mandato?.offlineCapCeiling,
     remainingAt: mandato ? new Date().toISOString() : undefined,
     vales: previo?.mandateId === mandateId ? previo.vales : [],

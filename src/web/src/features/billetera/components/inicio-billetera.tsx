@@ -5,13 +5,19 @@ import type * as React from 'react';
 import { ReglaDeConsumo } from '@/components/brand/regla-consumo';
 import { Button } from '@/components/ui/button';
 import { useOnline } from '@/hooks/use-online';
-import { formatCop, formatDate, formatTime } from '@/utils/format';
+import { etiquetaTasa } from '@/lib/catalogo';
+import {
+  formatCop,
+  formatCurrency,
+  formatDate,
+  formatTime,
+} from '@/utils/format';
 
 import { type Dispositivo } from '../stores/dispositivo-store';
 import { disponibleSinSenalCop } from '../utils/vale';
 
-// Inicio de María: cuánto puede gastar (este mes y sin señal) y un solo
-// botón grande para pagar. Debajo, los vales que ha firmado.
+// Inicio de María: cuánto puede gastar (este mes, entre todas sus formas de
+// pagar, y sin señal) y un solo botón grande para pagar. Debajo, sus vales.
 
 export const InicioBilletera = ({
   dispositivo: d,
@@ -47,6 +53,9 @@ export const InicioBilletera = ({
           </h1>
           <p className="cifra text-[2.75rem] leading-none font-light tracking-[-0.03em] text-grafito">
             {delMes !== undefined ? formatCop(delMes) : '—'}
+          </p>
+          <p className="mt-1.5 text-xs text-ink-2">
+            Entre todas tus formas de pagar.
           </p>
           {!online && d.remainingAt && (
             <p className="mt-1.5 text-xs text-ink-2">
@@ -157,7 +166,9 @@ export const InicioBilletera = ({
       {/* Solo si Juan paga en USD: en COP no hay conversión. */}
       {d.cert.offlineCap.assetCode !== 'COP' && (
         <p className="mt-auto text-center text-xs text-ink-2">
-          Tasa de referencia: 1 USD = {formatCop(d.fx)}
+          1 USD ={' '}
+          {formatCurrency(d.fx, 'COP', { maximumFractionDigits: 2 })} ·{' '}
+          {etiquetaTasa(d.fxFecha)}
         </p>
       )}
       {desvincular}

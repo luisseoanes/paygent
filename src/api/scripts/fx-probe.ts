@@ -6,6 +6,7 @@
  */
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { env } from '../src/env.ts'
+import { refreshFx } from '../src/fx/trm.ts'
 import { getClient, getWallet } from '../src/op/client.ts'
 
 const pesos = Number(process.argv[2] ?? 12_000)
@@ -37,7 +38,7 @@ try {
   const receive = Number(quote.receiveAmount.value) / 10 ** quote.receiveAmount.assetScale
   console.log(`${receiver.id} recibe ${receive} ${quote.receiveAmount.assetCode}`)
   console.log(`${sender.id} paga   ${debit} ${quote.debitAmount.assetCode}`)
-  console.log(`Tasa efectiva: ${(receive / debit).toFixed(2)} ${quote.receiveAmount.assetCode} por ${quote.debitAmount.assetCode} (referencia: FX_COP_PER_USD=${env.FX_COP_PER_USD})`)
+  console.log(`Tasa efectiva: ${(receive / debit).toFixed(2)} ${quote.receiveAmount.assetCode} por ${quote.debitAmount.assetCode} (referencia: ${(await refreshFx()).copPerUsd})`)
 } finally {
   await client.incomingPayment.complete({ url: incoming.id, accessToken: incomingToken }).catch(() => {})
 }

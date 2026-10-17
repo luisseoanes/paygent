@@ -1,6 +1,6 @@
 import { amount as A, decodeVoucherSms } from '@openroute/shared'
 import { certsById, listMerchants } from '../db.ts'
-import { env } from '../env.ts'
+import { fxRate } from '../fx/trm.ts'
 import { settleVouchers } from '../vouchers/settle.ts'
 
 const MOTIVOS: Record<string, string> = { replay: 'este vale ya se había cobrado' }
@@ -21,6 +21,6 @@ export const settleVoucherSms = async (text: string): Promise<string> => {
   const [r] = await settleVouchers([voucher])
   if (r?.status === 'rejected') return `Vale rechazado: ${MOTIVOS[r.reason ?? ''] ?? r.reason}`
   const comercio = merchants.find((m) => m.wallet === voucher.merchantWallet)?.name ?? 'el comercio'
-  const monto = A.formatCop(A.toCop(voucher.amount, env.FX_COP_PER_USD))
+  const monto = A.formatCop(A.toCop(voucher.amount, fxRate()))
   return `Vale liquidado: ${monto} a ${comercio}${r?.status === 'flagged' ? ' (el Guardián lo marcó para revisión)' : ''}`
 }

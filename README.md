@@ -108,13 +108,13 @@ Telnyx no tiene números colombianos con SMS. [SMS Gateway for Android](https://
 
 ## Datos de la demo (semillas)
 
-- Moneda: la de la wallet de Juan (tabla `payers`); en mock, COP. Las semillas están en pesos y, si Juan paga en USD, se convierten con `FX_COP_PER_USD`.
+- Moneda: la de la wallet de Juan (tabla `payers`); en mock, COP. Las semillas están en pesos y, si Juan paga en USD, se convierten con la TRM del día (`GET /fx`).
 - Árbol: Juan $1.200.000/mes → María $1.000.000 (celular $400.000 con tope offline $80.000, techo $200.000; SMS $200.000 con PIN siempre; Asistente de María $160.000/mes con PIN si > $40.000, el del chat de su app) · Asistente $160.000/semana (PIN si > $40.000) → Inventario $2.000 · Guardián $0.
 - Umbral de PIN del Asistente: **$10** (decisión del equipo). El losartán (≈ $3) se paga sin PIN; la insulina (≈ $21) lo pide.
 - Cobro de los comercios: **Tienda Doña Rosa no tiene wallet** y cobra por Puntored a su llave Bre-B (`3105550101`): el pago real va a la wallet del comercio Puntored (tabla `merchants`) con el comercio y la llave en el `metadata`. Farmacia San José y Minimercado El Paisa cobran directo a su wallet. El tendero lo cambia en `/tendero`.
 - Entrega: el Asistente pregunta "1 recoger / 2 enviar". Con domicilio paga producto + envío en un solo pago a la tienda, a la dirección que registró Juan (por defecto: casa de María, Vereda La Palma). El costo de envío de cada comercio está en `src/agents/inventory/merchants.csv` (0 = no hace domicilios).
 - PIN de la demo: **1234** · Teléfono de la mamá (Doña Carmen): **+573001112233**.
-- Tasa de referencia simulada: 1 USD = 4.000 COP (`FX_COP_PER_USD`); solo se usa si Juan paga en USD.
+- Tasa COP/USD: la TRM del día de la Superfinanciera (datos.gov.co), que la api consulta una vez al día; si no hay red, la última conocida o `FX_COP_PER_USD` (respaldo; `MOCK_FX=1` la fija). Solo se usa si Juan paga en USD.
 - Estado en **Postgres** (`DATABASE_URL`; en Railway, el servicio Postgres). Sin `DATABASE_URL` se usa PGlite en `src/api/.data/pglite` (borrarlo = empezar de cero). El esquema está en `src/api/src/store/migrations.ts`. El reset no borra el grant de Juan (`root_grants`) ni la llave del gateway (`gateway_keys`), para no invalidar los certificados de los celulares.
 - Cuentas de demo (contraseña `paygent123`): `juan@paygent.dev` (delega), `maria@paygent.dev` (recibe la delegación), `tendero@paygent.dev` (cobra). Doña Carmen no tiene correo: entra por SMS. Login: `POST /auth/login`.
 

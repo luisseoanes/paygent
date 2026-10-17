@@ -5,8 +5,10 @@ import {
   buildInterval,
   disponibleParaDelegar,
   intervalLabel,
+  modoDe,
   nextRenewal,
   parseMoney,
+  quedanEnCadena,
   ramasDelegables,
   toAmount,
   usd,
@@ -69,4 +71,23 @@ test('parses Colombian thousands separators', () => {
   expect(parseMoney('40.000')).toBe(40_000);
   expect(parseMoney('12,50')).toBe(12.5);
   expect(parseMoney('12.50')).toBe(12.5);
+});
+
+// La persona gastó por SMS: su celular no puede prometer más de lo que le queda a ella.
+test('lo que le queda a una rama es el mínimo a lo largo de su cadena, como lo cobra el gateway', () => {
+  const celular = { ...rama('maria-cel', 400), holderType: 'device' as const, mode: 'celular' as const };
+  const maria = { ...rama('maria', 1000), spentInPeriod: usd(900), children: [celular] };
+  const root = { ...rama('root', 1200), spentInPeriod: usd(900), children: [maria] };
+  expect(quedanEnCadena(root, 'maria-cel')).toBe(100);
+  expect(quedanEnCadena(root, 'maria')).toBe(100);
+  expect(quedanEnCadena(root, 'root')).toBe(300);
+  expect(quedanEnCadena(root, 'otra')).toBe(0);
+});
+
+test('reconoce las ramas de modo, también las de antes de los modos', () => {
+  expect(modoDe({ ...rama('a', 1), mode: 'asistente' })).toBe('asistente');
+  expect(modoDe({ ...rama('b-cel', 1), holderType: 'device' })).toBe('celular');
+  expect(modoDe({ ...rama('sms_b', 1), holderType: 'agent' })).toBe('sms');
+  expect(modoDe({ ...rama('guardian', 0), holderType: 'agent' })).toBeUndefined();
+  expect(modoDe(rama('hijo', 1))).toBeUndefined();
 });

@@ -3,7 +3,7 @@ import { amount as A, type Amount } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
 import { seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
-import { delegate, getMandate } from '../src/gateway/mandates.ts'
+import { delegate, getMandate, putMandate, rollPeriod } from '../src/gateway/mandates.ts'
 import { sql } from '../src/store/sql.ts'
 
 // Modos de consumo: al registrar un beneficiario quedan habilitados celular (vale QR, con o sin señal), Asistente
@@ -312,5 +312,26 @@ describe('La demo de María', () => {
     ])
     expect(modos[2].phone).toBe('+573001110002')
     expect(await getMandate('maria-sms')).toMatchObject({ holderType: 'agent', holderId: 'asistente' })
+  })
+})
+
+// La billetera enlaza el celular, pero lo que la persona puede gastar es su rama entera (todos sus modos).
+describe('Lo que le queda a la persona (remaining de GET /mandates/:id/modes)', () => {
+  it('desde la rama del celular se ve el saldo de la persona, no solo el del celular', async () => {
+    const res = (await get('/mandates/maria-device/modes')).json()
+    expect(res.personaId).toBe('maria')
+    expect(res.remaining).toEqual(A.cop(1_000_000))
+    expect(res.modes[0]).toMatchObject({ mode: 'celular', remaining: A.cop(400_000) })
+  })
+
+  it('descuenta lo gastado por cualquier modo y nunca supera lo que le queda a quien la delegó', async () => {
+    const { code, mandateId } = (await alta('Abuela', 10_000, 100_000)).json()
+    const persona = rollPeriod(await getMandate(mandateId))
+    await putMandate({ ...persona, spentInPeriod: A.cop(30_000) })
+    expect((await get(`/mandates/${code}/modes`)).json().remaining).toEqual(A.cop(70_000))
+    const root = rollPeriod(await getMandate(titular.rootMandateId))
+    await putMandate({ ...root, spentInPeriod: A.sub(root.maxDebit, A.cop(5_000)) })
+    expect((await get(`/mandates/${code}/modes`)).json().remaining).toEqual(A.cop(5_000))
+    await putMandate(root)
   })
 })

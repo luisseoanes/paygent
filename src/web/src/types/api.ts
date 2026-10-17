@@ -87,6 +87,8 @@ export type ModesResponse = {
   // Hasta dónde puede subir la persona con lo libre de su titular
   budgetMax: Amount;
   reserved: Amount;
+  // Lo que la persona aún puede gastar entre todos sus modos
+  remaining: Amount;
   modes: ModeView[];
 };
 
@@ -137,4 +139,6 @@ export type User = {
   rootMandateId: string | null;
   // Rama a la que quedó enlazado el beneficiario (el código que le dieron)
   mandateId?: string;
+  // Todas sus ramas (la de la persona y la de su celular)
+  mandateIds?: string[];
 };

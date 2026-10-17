@@ -24,8 +24,8 @@ const step = (name: string, ok: boolean, detail = '') => {
   console.log(`${ok ? '✅' : '❌'} ${name}${detail ? `  — ${detail}` : ''}`)
 }
 
-const asset = (await call<{ asset: A.Asset }>('/demo/status')).asset
-const pesos = (cop: number): Amount => A.fromCop(cop, asset, env.FX_COP_PER_USD)
+const { asset, fxCopPerUsd } = await call<{ asset: A.Asset; fxCopPerUsd: number }>('/demo/status')
+const pesos = (cop: number): Amount => A.fromCop(cop, asset, fxCopPerUsd)
 const merchants = await call<any[]>('/merchants')
 const tienda = merchants.find((m) => m.id === 'tienda').wallet // donde María compra siempre
 const nueva = merchants.find((m) => m.id === 'minimercado')?.wallet ?? 'https://ilp.interledger-test.dev/otra-tienda'

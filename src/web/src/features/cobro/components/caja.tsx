@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { useNotifications } from '@/components/ui/notifications';
 import { env } from '@/config/env';
+import { etiquetaTasa } from '@/lib/catalogo';
 import { cn } from '@/utils/cn';
-import { formatCop, formatDate, formatTime } from '@/utils/format';
+import { formatCop, formatCurrency, formatDate, formatTime } from '@/utils/format';
 
 import { cobrarVales } from '../api/cobrar-vales';
 import { type ValeRecibido, useCobroStore } from '../stores/cobro-store';
@@ -42,6 +43,7 @@ const DetalleVale = ({
   online: boolean;
 }) => {
   const addNotification = useNotifications((s) => s.addNotification);
+  const fxFecha = useCobroStore((s) => s.fxFecha);
   const [reenviando, setReenviando] = React.useState(false);
   const cobroSms =
     vale.status === 'pending'
@@ -73,9 +75,18 @@ const DetalleVale = ({
         <p className="cifra text-5xl leading-none font-light tracking-[-0.03em] text-grafito">
           {formatCop(A.toCop(vale.voucher.amount, fx))}
         </p>
-        <p className="mt-2 text-sm text-ink-2">
-          ≈ US${A.toNumber(vale.voucher.amount).toFixed(2)} · tasa de referencia
-        </p>
+        {/* En COP no hay conversión: el vale ya viene en pesos. */}
+        {vale.voucher.amount.assetCode !== 'COP' && (
+          <p className="mt-2 text-sm text-ink-2">
+            ≈{' '}
+            {formatCurrency(
+              A.toNumber(vale.voucher.amount),
+              vale.voucher.amount.assetCode,
+              { currencyDisplay: 'code' },
+            )}{' '}
+            · {etiquetaTasa(fxFecha)}
+          </p>
+        )}
       </div>
       <Chip vale={vale} />
       {vale.reason && (

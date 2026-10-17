@@ -1,4 +1,5 @@
 import {
+  amount as A,
   type Merchant,
   type Voucher,
   type VoucherSettleResult,
@@ -23,18 +24,24 @@ type Datos = {
   merchantId?: string;
   merchants: Merchant[];
   gatewayPublicKey?: string;
+  // TRM con que se muestran en pesos los vales en USD, y su día (null = respaldo)
   fx: number;
+  fxFecha?: string | null;
   vales: ValeRecibido[];
 };
 
 const KEY = 'tendero';
-const VACIO: Datos = { merchants: [], fx: 4000, vales: [] };
+const VACIO: Datos = {
+  merchants: [],
+  fx: A.DEFAULT_FX_COP_PER_USD,
+  vales: [],
+};
 
 type CobroStore = Datos & {
   cargado: boolean;
   cargar: () => Promise<void>;
   configurar: (
-    datos: Pick<Datos, 'merchants' | 'gatewayPublicKey' | 'fx'>,
+    datos: Pick<Datos, 'merchants' | 'gatewayPublicKey' | 'fx' | 'fxFecha'>,
   ) => Promise<void>;
   elegirTienda: (merchantId: string | undefined) => Promise<void>;
   recibir: (voucher: Voucher) => Promise<void>;
@@ -44,12 +51,14 @@ type CobroStore = Datos & {
 export const useCobroStore = create<CobroStore>((set, get) => {
   const persistir = async (cambios: Partial<Datos>) => {
     set(cambios);
-    const { merchantId, merchants, gatewayPublicKey, fx, vales } = get();
+    const { merchantId, merchants, gatewayPublicKey, fx, fxFecha, vales } =
+      get();
     await offlineStore.set(KEY, {
       merchantId,
       merchants,
       gatewayPublicKey,
       fx,
+      fxFecha,
       vales,
     });
   };

@@ -31,7 +31,11 @@ export const env = {
   /** Contenido de private.key (PEM o PEM en base64). Si está, tiene prioridad sobre OP_PRIVATE_KEY_PATH. Para Railway. */
   OP_PRIVATE_KEY: str('OP_PRIVATE_KEY'),
 
+  /** Respaldo si la TRM del día no se puede consultar (y la tasa fija con MOCK_FX=1). */
   FX_COP_PER_USD: Number(str('FX_COP_PER_USD', '4000')),
+  /** 1 = no consulta la TRM y usa FX_COP_PER_USD. En los tests vale 1 por defecto. */
+  MOCK_FX: flag('MOCK_FX', !!process.env.VITEST),
+  FX_TRM_URL: str('FX_TRM_URL', 'https://www.datos.gov.co/resource/32sa-8pi3.json'),
 
   /** Credencial única del servicio de agentes (src/agents). Los agentes son filas de la tabla agents. */
   AGENT_SERVICE_KEY: str('AGENT_SERVICE_KEY', 'dev-agents-key'),

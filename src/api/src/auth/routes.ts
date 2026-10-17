@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { amount as A, monthly, randomId, type Mandate } from '@openroute/shared'
 import { getPayer, getUser, getUserWithPassword, insertPayer, insertUser, type User } from '../db.ts'
 import { env } from '../env.ts'
+import { fxRate } from '../fx/trm.ts'
 import { HttpError, badRequest } from '../gateway/errors.ts'
 import { findMandate, linkHolderUser, putMandate } from '../gateway/mandates.ts'
 import { linkModeProfiles } from '../gateway/modes.ts'
@@ -110,9 +111,9 @@ export default async function authRoutes(app: FastifyInstance) {
       holderType: 'person',
       holderId: userId,
       holderName: b.nombre,
-      maxDebit: A.fromCop(TOPE_INICIAL_COP, asset, env.FX_COP_PER_USD),
+      maxDebit: A.fromCop(TOPE_INICIAL_COP, asset, fxRate()),
       interval: monthly(now),
-      spentInPeriod: A.zero(A.fromCop(0, asset, env.FX_COP_PER_USD)),
+      spentInPeriod: A.zero(A.fromCop(0, asset, fxRate())),
       periodStart: '',
       categories: ['mercado', 'farmacia', 'efectivo', 'datos'],
       canSpend: true,

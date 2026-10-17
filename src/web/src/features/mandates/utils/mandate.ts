@@ -3,6 +3,7 @@ import {
   type Category,
   type HolderType,
   type MandateTree,
+  type SpendMode,
 } from '@/types/api';
 import { formatCurrency, formatDate } from '@/utils/format';
 
@@ -177,6 +178,33 @@ export const quedanDe = (
     0,
     amountToNumber(node.maxDebit) - amountToNumber(node.spentInPeriod),
   );
+
+// Ramas de la raíz hasta `id`, incluidas; vacío si no está en el árbol.
+export const cadenaDe = (root: MandateTree, id: string): MandateTree[] => {
+  if (root.id === id) return [root];
+  for (const child of root.children) {
+    const resto = cadenaDe(child, id);
+    if (resto.length) return [root, ...resto];
+  }
+  return [];
+};
+
+// Lo que de verdad le queda a una rama: el mínimo a lo largo de su cadena
+// (si su persona ya gastó por otro modo, su celular tampoco puede).
+export const quedanEnCadena = (root: MandateTree, id: string) => {
+  const cadena = cadenaDe(root, id);
+  return cadena.length ? Math.min(...cadena.map(quedanDe)) : 0;
+};
+
+// El modo de consumo de una rama; también las de antes de los modos (un
+// celular sin `mode` o la hoja sms_ de PUT /mandates/:id/sms).
+export const modoDe = (node: MandateTree): SpendMode | undefined =>
+  node.mode ??
+  (node.holderType === 'device'
+    ? 'celular'
+    : node.holderType === 'agent' && node.id.startsWith('sms_')
+      ? 'sms'
+      : undefined);
 
 export type TramoDeGasto = {
   id: string;

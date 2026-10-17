@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { useOnline } from '@/hooks/use-online';
 import {
-  getFxCopPerUsd,
+  getFx,
   getGatewayPublicKey,
   getMerchants,
 } from '@/lib/catalogo';
@@ -30,9 +30,14 @@ export const useCaja = () => {
 
   React.useEffect(() => {
     if (!online || !cargado) return;
-    Promise.all([getMerchants(), getGatewayPublicKey(), getFxCopPerUsd()])
+    Promise.all([getMerchants(), getGatewayPublicKey(), getFx()])
       .then(([merchants, gatewayPublicKey, fx]) =>
-        configurar({ merchants, gatewayPublicKey, fx }),
+        configurar({
+          merchants,
+          gatewayPublicKey,
+          fx: fx.copPerUsd,
+          fxFecha: fx.fecha,
+        }),
       )
       .catch(() => {});
   }, [online, cargado, configurar]);

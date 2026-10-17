@@ -1,12 +1,14 @@
 import { ChevronRight, Plus } from 'lucide-react';
 
 import { Sello } from '@/components/brand/sello';
+import { modoInfo, MODOS } from '@/config/modos';
 import { type MandateTree } from '@/types/api';
 import { cn } from '@/utils/cn';
 
 import {
   amountToNumber,
   categoryLabels,
+  modoDe,
   money,
   quedanDe,
   statusOf,
@@ -15,8 +17,9 @@ import {
 import { Avatar } from './avatar';
 
 // Los delegados como una lista de personas: quién, cuánto le queda y en qué
-// puede gastar. Las sub-ramas cuelgan de su rama con una línea. Al final,
-// "Delegar a alguien más"; el Guardián va aparte porque no gasta.
+// puede gastar. Sus modos (celular, Asistente, SMS) son un reparto de su tope,
+// no dinero aparte: van como chips bajo la persona. Otras sub-ramas cuelgan
+// con una línea. Al final, "Delegar a alguien más"; el Guardián va aparte.
 
 const subtitulo = (node: MandateTree) => {
   if (node.holderType === 'device')
@@ -27,20 +30,78 @@ const subtitulo = (node: MandateTree) => {
   return node.holderType === 'agent' ? `Agente · ${categorias}` : categorias;
 };
 
+// Lo que le queda a una rama sin pasar de lo que le queda a quien la delegó.
+const quedan = (node: MandateTree, techo: number) =>
+  Math.min(quedanDe(node), techo);
+
+// Las formas de pagar de una persona: un reparto de su tope.
+const ModosDePersona = ({
+  persona,
+  modos,
+  techo,
+  onOpen,
+}: {
+  persona: MandateTree;
+  modos: MandateTree[];
+  techo: number;
+  onOpen: (id: string) => void;
+}) => (
+  <div className="mb-2 ml-[1.85rem] border-l-2 border-rule pl-3 sm:pl-4">
+    <p className="pb-1.5 text-xs text-ink-2">Lo reparte entre:</p>
+    <ul
+      aria-label={`Formas de pagar de ${persona.holderName}`}
+      className="flex flex-wrap gap-1.5"
+    >
+      {modos.map((m) => {
+        const info = modoInfo[modoDe(m)!];
+        const resto = quedan(m, techo);
+        const activo = statusOf(m) === 'active';
+        return (
+          <li key={m.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(m.id)}
+              aria-label={`${info.etiqueta} de ${persona.holderName}: quedan ${money(resto)} de ${money(amountToNumber(m.maxDebit))}, ver detalle`}
+              className={cn(
+                'inline-flex min-h-9 items-center gap-1.5 rounded-full border border-rule bg-paper px-3 text-xs text-grafito transition-colors hover:bg-paper-sunken/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                !activo && 'opacity-55',
+              )}
+            >
+              <span>{info.etiqueta}</span>
+              <span className="cifra text-ink-2">{money(resto)}</span>
+              {!activo && <span className="text-anulado">· en pausa</span>}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+);
+
 const FilaRama = ({
   node,
   onOpen,
   nivel = 0,
+  techo = Infinity,
 }: {
   node: MandateTree;
   onOpen: (id: string) => void;
   nivel?: number;
+  // Lo que le queda a quien la delegó (el gateway cobra el mínimo de la cadena)
+  techo?: number;
 }) => {
   const status = statusOf(node);
   const limit = amountToNumber(node.maxDebit);
   const spent = amountToNumber(node.spentInPeriod);
   const pct = limit > 0 ? Math.min(100, (spent / limit) * 100) : 0;
-  const hijos = node.children.filter((c) => c.canSpend);
+  const resto = quedan(node, techo);
+  // Solo una persona reparte su tope en modos.
+  const esModo = (c: MandateTree) =>
+    node.holderType === 'person' && !!modoDe(c);
+  const modos = node.children
+    .filter((c) => c.canSpend && !c.revoked && esModo(c))
+    .sort((a, b) => MODOS.indexOf(modoDe(a)!) - MODOS.indexOf(modoDe(b)!));
+  const hijos = node.children.filter((c) => c.canSpend && !esModo(c));
 
   return (
     <li>
@@ -71,7 +132,7 @@ const FilaRama = ({
               {node.holderName}
             </span>
             <span className="cifra shrink-0 text-[0.9375rem] text-grafito">
-              {money(quedanDe(node))}
+              {money(resto)}
             </span>
           </span>
           <span className="flex items-baseline justify-between gap-3 text-xs text-ink-2">
@@ -101,6 +162,14 @@ const FilaRama = ({
           aria-hidden="true"
         />
       </button>
+      {modos.length > 0 && (
+        <ModosDePersona
+          persona={node}
+          modos={modos}
+          techo={resto}
+          onOpen={onOpen}
+        />
+      )}
       {hijos.length > 0 && (
         <ul className="ml-[1.85rem] border-l-2 border-rule pl-1 sm:pl-2">
           {hijos.map((hijo) => (
@@ -109,6 +178,7 @@ const FilaRama = ({
               node={hijo}
               onOpen={onOpen}
               nivel={nivel + 1}
+              techo={resto}
             />
           ))}
         </ul>
@@ -129,7 +199,12 @@ export const Delegados = ({ root, onOpen, onDelegar }: DelegadosProps) => {
   return (
     <ul className="rounded-3xl bg-paper-raised p-1.5 shadow-[0_1px_2px_rgb(28_34_48/0.04),0_12px_32px_-22px_rgb(28_34_48/0.3)]">
       {ramas.map((node) => (
-        <FilaRama key={node.id} node={node} onOpen={onOpen} />
+        <FilaRama
+          key={node.id}
+          node={node}
+          onOpen={onOpen}
+          techo={quedanDe(root)}
+        />
       ))}
       {onDelegar && (
         <li>

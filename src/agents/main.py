@@ -1,5 +1,6 @@
 """Servicio de agentes de Paygent.  uv run python main.py  (puerto según AGENTS_URL del .env)"""
 
+import asyncio
 import logging
 import os
 from urllib.parse import urlparse
@@ -21,9 +22,13 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # OpenStreetMap tarda ~50 s por zona: se precalienta la de la demo para que el primer SMS ya tenga distancias.
+    from common import fx
+    from common.api_client import api
     from inventory import nearby
+    tasa = asyncio.create_task(fx.keep_fresh(api))
     await nearby.places_near(DEMO_LOCATION)
     yield
+    tasa.cancel()
 
 
 DEMO_LOCATION = {"lat": 6.0, "lng": -75.43}  # la mamá en la demo (semilla de la api)

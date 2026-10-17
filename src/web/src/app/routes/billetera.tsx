@@ -16,6 +16,7 @@ import { ValeQr } from '@/features/billetera/components/vale-qr';
 import { Vincular } from '@/features/billetera/components/vincular';
 import { useRefrescarDispositivo } from '@/features/billetera/hooks/use-refrescar-dispositivo';
 import { useDispositivoStore } from '@/features/billetera/stores/dispositivo-store';
+import { esDeLaCuenta } from '@/features/billetera/utils/cuenta';
 import { useModes } from '@/features/mandates/api/modes';
 import { HistorialRama } from '@/features/mandates/components/historial-rama';
 import { useMediaQuery } from '@/hooks/use-media-query';
@@ -34,7 +35,10 @@ const BilleteraApp = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useUser().data;
   const cargado = useDispositivoStore((s) => s.cargado);
-  const dispositivo = useDispositivoStore((s) => s.dispositivo);
+  const guardado = useDispositivoStore((s) => s.dispositivo);
+  // Otro beneficiario pudo enlazar su celular en este navegador: ese no se muestra.
+  const dispositivo =
+    guardado && esDeLaCuenta(guardado, user) ? guardado : null;
   const cargar = useDispositivoStore((s) => s.cargar);
   const olvidar = useDispositivoStore((s) => s.olvidar);
   const [vista, setVista] = React.useState<Vista>({ tipo: 'inicio' });
@@ -58,7 +62,7 @@ const BilleteraApp = () => {
   // La rama de la persona: abarca su celular, su Asistente y su SMS.
   const ramaHistorial =
     modosQuery.data?.personaId ?? user?.mandateId ?? dispositivo?.mandateId;
-  useRefrescarDispositivo();
+  useRefrescarDispositivo({ activo: !!dispositivo });
 
   React.useEffect(() => {
     cargar();

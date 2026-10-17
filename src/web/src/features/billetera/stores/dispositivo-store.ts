@@ -30,9 +30,12 @@ export type Dispositivo = {
   counter: number;
   cumulativeCents: number;
   merchants: Merchant[];
+  // COP por USD con que se convierte (la TRM que dio la api al enlazar o renovar)
   fx: number;
+  // Día de esa TRM; null o ausente si era la tasa de respaldo
+  fxFecha?: string | null;
   categories?: Category[];
-  // Saldo del periodo de la rama la última vez que hubo señal
+  // Lo que la persona puede gastar en el periodo (todos sus modos), la última vez que hubo señal
   remaining?: Amount;
   remainingAt?: string;
   vales: ValeEmitido[];

@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from common.money import COP, from_cop, of, to_cop
@@ -18,3 +20,35 @@ def test_en_usd_convierte_con_la_tasa_de_referencia():
 def test_moneda_sin_tasa_falla():
     with pytest.raises(ValueError, match="MXN"):
         from_cop(1000, {"assetCode": "MXN", "assetScale": 2})
+
+
+def test_sin_tasa_explicita_usa_la_trm_vigente():
+    from common import fx
+
+    antes = fx.rate()
+    try:
+        fx.set_rate(3200)
+        assert from_cop(16_000, USD) == of(USD, 5)
+        assert to_cop(of(USD, 5)) == 16_000
+    finally:
+        fx.set_rate(antes)
+
+
+def test_refresh_toma_la_tasa_de_la_api_y_sin_api_conserva_la_ultima():
+    from common import fx
+
+    class Api:
+        def __init__(self, resp):
+            self.resp = resp
+
+        async def fx(self):
+            if isinstance(self.resp, Exception):
+                raise self.resp
+            return self.resp
+
+    antes = fx.rate()
+    try:
+        assert asyncio.run(fx.refresh(Api({"copPerUsd": 3170.46, "fecha": "2026-10-16", "fuente": "trm"}))) == 3170.46
+        assert asyncio.run(fx.refresh(Api(RuntimeError("sin api")))) == 3170.46
+    finally:
+        fx.set_rate(antes)

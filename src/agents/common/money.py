@@ -3,7 +3,7 @@
 Los agentes piensan en pesos; los montos viajan en la moneda de la wallet de Juan (COP o USD).
 """
 
-from .config import FX_COP_PER_USD
+from . import fx
 
 Amount = dict
 COP = {"assetCode": "COP", "assetScale": 2}  # como el Test Wallet
@@ -29,13 +29,13 @@ def _cop_per_unit(asset_code: str, rate: float) -> float:
     raise ValueError(f"Sin tasa de referencia para {asset_code}: Juan debe pagar en COP o USD")
 
 
-def from_cop(cop: float, asset: dict, rate: float = FX_COP_PER_USD) -> Amount:
-    """Pesos → moneda raíz. En COP no hay conversión."""
-    return of(asset, cop / _cop_per_unit(asset["assetCode"], rate))
+def from_cop(cop: float, asset: dict, rate: float | None = None) -> Amount:
+    """Pesos → moneda raíz con la TRM vigente. En COP no hay conversión."""
+    return of(asset, cop / _cop_per_unit(asset["assetCode"], rate or fx.rate()))
 
 
-def to_cop(a: Amount, rate: float = FX_COP_PER_USD) -> int:
-    return round(to_float(a) * _cop_per_unit(a["assetCode"], rate))
+def to_cop(a: Amount, rate: float | None = None) -> int:
+    return round(to_float(a) * _cop_per_unit(a["assetCode"], rate or fx.rate()))
 
 
 def fmt_cop(cop: float) -> str:

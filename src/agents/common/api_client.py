@@ -29,6 +29,10 @@ class Api:
             self._asset = (await self._get("/demo/status"))["asset"]
         return self._asset
 
+    async def fx(self) -> dict:
+        """TRM vigente: {copPerUsd, fecha, fuente}."""
+        return await self._get("/fx")
+
     async def mandate(self, mandate_id: str) -> dict:
         return await self._get(f"/mandates/{mandate_id}")
 

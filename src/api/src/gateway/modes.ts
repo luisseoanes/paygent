@@ -1,6 +1,6 @@
 import { amount as A, randomId, type Amount, type Mandate, type SpendMode } from '@openroute/shared'
 import { insertProfile } from '../db.ts'
-import { env } from '../env.ts'
+import { fxRate } from '../fx/trm.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { OFFLINE_START_PCT } from './devices.ts'
 import { badRequest } from './errors.ts'
@@ -26,7 +26,7 @@ const SUFFIX: Record<SpendMode, string> = { celular: 'cel', asistente: 'ag', sms
 const pct = (a: Amount, p: number): Amount => ({ ...a, value: String((BigInt(a.value) * BigInt(p)) / 100n) })
 const min = (a: Amount, b: Amount) => (A.lte(a, b) ? a : b)
 const max = (a: Amount, b: Amount) => (A.lte(a, b) ? b : a)
-const cop = (pesos: number, like: Amount) => A.fromCop(pesos, A.assetOf(like), env.FX_COP_PER_USD)
+const cop = (pesos: number, like: Amount) => A.fromCop(pesos, A.assetOf(like), fxRate())
 
 const free = async (persona: Mandate, conn: Sql) =>
   (await childrenOf(persona.id, conn))
@@ -213,7 +213,8 @@ const sumOf = (ms: Mandate[], like: Amount) => ms.filter((c) => !c.revoked).redu
 
 /**
  * Los modos vivos de la persona dueña de `id` (la persona o cualquiera de sus ramas de modo), con lo que hace falta
- * para repartir su tope: `budget` (el de la persona) y `reserved` (lo que tienen sus otras ramas, que no son modos).
+ * para repartir su tope: `budget` (el de la persona), `reserved` (lo que tienen sus otras ramas, que no son modos) y
+ * `remaining` (lo que aún puede gastar la persona).
  */
 export const listModes = async (id: string) => {
   const m = await getMandate(id)
@@ -249,7 +250,9 @@ export const listModes = async (id: string) => {
   const parent = await getMandate(persona.parentId!)
   const siblings = (await childrenOf(parent.id)).filter((c) => c.id !== persona.id)
   const budgetMax = A.sub(parent.maxDebit, sumOf(siblings, persona.maxDebit))
-  return { personaId, personaName: persona.holderName, budget: persona.maxDebit, budgetMax, reserved, modes: views }
+  // Lo que la persona puede gastar entre todos sus modos (mínimo en la cadena, como lo cobra el gateway).
+  const remaining = await remainingOf(personaId)
+  return { personaId, personaName: persona.holderName, budget: persona.maxDebit, budgetMax, reserved, remaining, modes: views }
 }
 
 /**

@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
+import { etiquetaTasa } from '@/lib/catalogo';
 import { formatCop, formatCurrency } from '@/utils/format';
 
 import {
@@ -116,7 +117,7 @@ export const Pagar = ({
             {formatCurrency(A.toNumber(enRaiz), enRaiz.assetCode, {
               currencyDisplay: 'code',
             })}{' '}
-            · tasa de referencia
+            · {etiquetaTasa(d.fxFecha)}
           </p>
         )}
         <p

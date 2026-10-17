@@ -118,6 +118,9 @@ const modesOf = (id: string): ModesResponse => {
     reserved: minor(
       sumMinor(persona.children.filter((c) => !vivos.includes(c))),
     ),
+    remaining: minor(
+      Number(persona.maxDebit.value) - Number(persona.spentInPeriod.value),
+    ),
     modes,
   };
 };
@@ -180,6 +183,15 @@ export const mandatesHandlers = [
     return HttpResponse.json(db.feed);
   }),
 
+  http.get(apiUrl('/fx'), async () => {
+    await networkDelay();
+    return HttpResponse.json({
+      copPerUsd: 4000,
+      fecha: null,
+      fuente: 'respaldo',
+    });
+  }),
+
   http.get(apiUrl('/demo/status'), async () => {
     await networkDelay();
     return HttpResponse.json({
@@ -187,6 +199,7 @@ export const mandatesHandlers = [
       mockSms: true,
       rootGrant: db.rootGrant,
       fxCopPerUsd: 4000,
+      fx: { copPerUsd: 4000, fecha: null, fuente: 'respaldo' },
       asset: {
         assetCode: db.tree.maxDebit.assetCode,
         assetScale: db.tree.maxDebit.assetScale,

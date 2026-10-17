@@ -1,6 +1,6 @@
 import { amount as A, randomId, type Mandate } from '@openroute/shared'
 import { insertProfile, type PhoneProfile } from '../db.ts'
-import { env } from '../env.ts'
+import { fxRate } from '../fx/trm.ts'
 import { sql, type Row, type Sql } from '../store/sql.ts'
 import { badRequest, HttpError, notFound } from './errors.ts'
 import { chainOf, childrenOf, delegate, revoke, type DelegateInput } from './mandates.ts'
@@ -64,7 +64,7 @@ export const conectarSms = async (fromId: string, c: CanalSms, tx: Sql) => {
       holderType: 'agent',
       holderId: ASISTENTE_ID,
       holderName: `${asistente.holderName} → Inventario`,
-      maxDebit: A.fromCop(TOPE_DATOS_COP, A.assetOf(asistente.maxDebit), env.FX_COP_PER_USD),
+      maxDebit: A.fromCop(TOPE_DATOS_COP, A.assetOf(asistente.maxDebit), fxRate()),
       categories: ['datos'],
       ...c.datos,
     },
@@ -159,7 +159,7 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
       .filter((h) => !h.revoked)
       .reduce((acc, h) => A.add(acc, h.maxDebit), A.zero(rama.maxDebit))
     const libre = A.sub(rama.maxDebit, repartido)
-    if (A.toCop(libre, env.FX_COP_PER_USD) <= TOPE_DATOS_COP)
+    if (A.toCop(libre, fxRate()) <= TOPE_DATOS_COP)
       throw new HttpError(409, `${rama.holderName} ya repartió todo su cupo. Actívalo en la rama que lo tiene (su celular).`)
     if (!rama.categories.includes('datos')) throw badRequest('La rama necesita la categoría datos para que el Asistente consulte precios')
 

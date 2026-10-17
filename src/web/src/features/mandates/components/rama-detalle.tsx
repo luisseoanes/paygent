@@ -31,7 +31,7 @@ import {
   intervalLabel,
   money,
   nextRenewal,
-  quedanDe,
+  quedanEnCadena,
   statusOf,
   subtreeIds,
   toAmount,
@@ -199,7 +199,7 @@ export const RamaDetalle = ({
   const offlineCap = node.offlineCap
     ? amountToNumber(node.offlineCap)
     : undefined;
-  const parentRemaining = parent ? quedanDe(parent) : undefined;
+  const parentRemaining = parent ? quedanEnCadena(root, parent.id) : undefined;
   const renueva = nextRenewal(node.interval);
   // El SMS lo usa una persona (o el celular de una persona), nunca un agente ni la raíz.
   const puedeSms =
@@ -252,7 +252,7 @@ export const RamaDetalle = ({
           <div>
             <p className="text-sm text-ink-2">Quedan</p>
             <p className="cifra text-5xl leading-none font-light tracking-[-0.03em] text-grafito">
-              {money(quedanDe(node))}
+              {money(quedanEnCadena(root, node.id))}
             </p>
             <p className="mt-2 text-sm text-ink-2">
               de <span className="cifra">{money(limit)}</span>{' '}

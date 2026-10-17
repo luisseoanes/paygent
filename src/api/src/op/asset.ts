@@ -1,6 +1,7 @@
 import { amount as A } from '@openroute/shared'
 import { DEMO_WALLETS } from '../demo/wallets.ts'
 import { env } from '../env.ts'
+import { fxRate } from '../fx/trm.ts'
 import { getWallet } from './client.ts'
 
 // Moneda raíz: la de la wallet de quien delega (tabla payers). Todo mandato y pago del árbol va en ella.
@@ -20,4 +21,4 @@ export const resolveRootAsset = async (payerWallet?: string) => {
 }
 
 /** Pesos → moneda raíz (sin conversión si Juan paga en COP). */
-export const pesos = (cop: number) => A.fromCop(cop, rootAsset, env.FX_COP_PER_USD)
+export const pesos = (cop: number) => A.fromCop(cop, rootAsset, fxRate())

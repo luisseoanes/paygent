@@ -22,6 +22,7 @@ Producción: **https://paygent.up.railway.app**. Proyecto de Railway con cuatro 
 |---|---|---|
 | api | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (red privada) |
 | api | `MOCK_OP=0` | Dinero real. En la demo, siempre 0 |
+| api | `MOCK_FX` (vacío = 0), `FX_COP_PER_USD` | Trae la TRM del día de datos.gov.co; `FX_COP_PER_USD` es el respaldo sin red |
 | api | `OP_CLIENT_WALLET`, `OP_KEY_ID`, `OP_PRIVATE_KEY` | Identidad de Paygent ante Open Payments. `OP_PRIVATE_KEY` = contenido de `private.key` (PEM o base64): en Railway no hay fichero |
 | api | `AGENT_SERVICE_KEY` | Secreto aleatorio. Agents lo toma por referencia |
 | api | `PUBLIC_API_URL`, `WEB_URL`, `AGENTS_URL` | `https://paygent.up.railway.app/api`, `https://paygent.up.railway.app`, `http://agents.railway.internal:8000` |

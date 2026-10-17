@@ -4,6 +4,7 @@ import { useOnline } from '@/hooks/use-online';
 
 import {
   getMandatoDispositivo,
+  saldoDePersona,
   vincularDispositivo,
 } from '../api/vincular-dispositivo';
 import {
@@ -17,7 +18,8 @@ const CADA_MINUTO = 60_000;
 // Con señal: trae el saldo real del periodo y pide un certificado nuevo si María
 // ya gastó sin señal, si el certificado está por vencer o si el Guardián cambió
 // el tope sin señal. Si la rama está congelada, deja de firmar vales.
-export const useRefrescarDispositivo = () => {
+// `activo` en falso (un celular de otra cuenta) no lo toca.
+export const useRefrescarDispositivo = ({ activo = true } = {}) => {
   const online = useOnline();
   const dispositivo = useDispositivoStore((s) => s.dispositivo);
   const guardar = useDispositivoStore((s) => s.guardar);
@@ -32,7 +34,7 @@ export const useRefrescarDispositivo = () => {
 
   React.useEffect(() => {
     const d = useDispositivoStore.getState().dispositivo;
-    if (!online || !d) return;
+    if (!online || !d || !activo) return;
     let cancelado = false;
     getMandatoDispositivo(d.mandateId)
       .then((m): Dispositivo | Promise<Dispositivo> => {
@@ -51,13 +53,13 @@ export const useRefrescarDispositivo = () => {
           ? vincularDispositivo({ mandateId: d.mandateId, previo: d }).then(
               (n) => ({ ...n, congelado: false }),
             )
-          : {
+          : saldoDePersona(d.mandateId, m).then((remaining) => ({
               ...d,
               categories: m.categories,
-              remaining: m.remaining,
+              remaining,
               remainingAt: new Date().toISOString(),
               topeMaximo: m.offlineCapCeiling,
-            };
+            }));
       })
       .then((siguiente) => {
         if (!cancelado) guardar(siguiente);
@@ -66,5 +68,5 @@ export const useRefrescarDispositivo = () => {
     return () => {
       cancelado = true;
     };
-  }, [online, certId, guardar, pulso]);
+  }, [online, activo, certId, guardar, pulso]);
 };

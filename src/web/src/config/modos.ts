@@ -7,20 +7,23 @@ export const MODOS: SpendMode[] = ['celular', 'asistente', 'sms'];
 
 export const modoInfo: Record<
   SpendMode,
-  { nombre: string; corto: string; como: string }
+  { nombre: string; etiqueta: string; corto: string; como: string }
 > = {
   celular: {
     nombre: 'Celular (vale QR)',
+    etiqueta: 'Celular',
     corto: 'Paga con un QR, con o sin señal',
     como: 'En Mi billetera toca Pagar, elige la tienda y el monto, y muestra el QR. Con señal el tendero cobra al instante; sin señal, hasta el tope sin señal.',
   },
   asistente: {
     nombre: 'Asistente en la app',
+    etiqueta: 'Asistente',
     corto: 'Pide en el chat y el Asistente compra',
     como: 'En Mi billetera toca Hablar con el asistente y pide lo que necesitas. Busca dónde hay, te propone la compra y paga; por encima del umbral te pide el PIN.',
   },
   sms: {
     nombre: 'SMS',
+    etiqueta: 'SMS',
     corto: 'Compra por mensaje de texto, sin internet',
     como: 'Desde el celular registrado, aunque sea de teclas, escribe un SMS al número de Paygent con lo que necesitas. Cada compra se confirma con el PIN.',
   },
