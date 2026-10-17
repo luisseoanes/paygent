@@ -7,47 +7,13 @@ import {
   type Mandate,
   type MandateNode,
 } from '@openroute/shared'
-import { sql, type Row, type Sql } from '../store/sql.ts'
+import { chainRows, childrenOf, descendantsOf, findMandate, lockMandates, upsertMandateRow } from '../store/mandates.ts'
+import { sql, type Sql } from '../store/sql.ts'
 import { badRequest, forbidden, notFound } from './errors.ts'
 import { gatewayKey } from './keys.ts'
 
-export const ROOT_ID = 'root'
-
-// ─── Fila ↔ Mandate. Todos los montos de un mandato van en su activo (asset_code/asset_scale). ───
-const toMandate = (r: Row): Mandate => {
-  const amt = (v: unknown): Amount => ({ value: String(v), assetCode: r.asset_code, assetScale: r.asset_scale })
-  const opt = (v: unknown) => (v === null || v === undefined ? undefined : amt(v))
-  const m: Mandate = {
-    id: r.id,
-    parentId: r.parent_id,
-    holderType: r.holder_type,
-    holderId: r.holder_id,
-    holderName: r.holder_name,
-    maxDebit: amt(r.max_debit),
-    interval: r.interval,
-    spentInPeriod: amt(r.spent_in_period),
-    periodStart: r.period_start,
-    categories: r.categories,
-    pinThreshold: opt(r.pin_threshold),
-    offlineCap: opt(r.offline_cap),
-    offlineCapCeiling: opt(r.offline_cap_ceiling),
-    canSpend: r.can_spend,
-    expiresAt: r.expires_at,
-    revoked: r.revoked,
-    frozen: r.frozen,
-    mode: r.mode ?? undefined,
-    signature: r.signature,
-  }
-  for (const k of ['pinThreshold', 'offlineCap', 'offlineCapCeiling', 'mode'] as const) if (m[k] === undefined) delete m[k]
-  return m
-}
-
-const s = (conn?: Sql) => conn ?? sql()
-
-export const findMandate = async (id: string, conn?: Sql) => {
-  const [r] = await s(conn).query(`select * from mandates where id = $1`, [id])
-  return r ? toMandate(r) : undefined
-}
+// Reglas del árbol de mandatos (GW-03/07/08): delegar, revocar, restringir y topes. La fila está en store/mandates.ts.
+export { childrenOf, descendantsOf, findMandate, linkHolderUser, offlineDevices } from '../store/mandates.ts'
 
 export const getMandate = async (id: string, conn?: Sql) => {
   const m = await findMandate(id, conn)
@@ -58,77 +24,16 @@ export const getMandate = async (id: string, conn?: Sql) => {
 /** Guarda el mandato re-firmado. Toda mutación de un mandato pasa por aquí. */
 export const putMandate = async (m: Mandate, conn?: Sql) => {
   const signed = signMandate(m, gatewayKey.secretKey)
-  const v = (a?: Amount) => (a ? a.value : null)
-  await s(conn).query(
-    `insert into mandates (id, parent_id, holder_type, holder_id, holder_name, asset_code, asset_scale, max_debit,
-       spent_in_period, interval, period_start, categories, pin_threshold, offline_cap, offline_cap_ceiling, can_spend,
-       expires_at, revoked, frozen, signature, mode)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21)
-     on conflict (id) do update set parent_id = $2, holder_type = $3, holder_id = $4, holder_name = $5, asset_code = $6,
-       asset_scale = $7, max_debit = $8, spent_in_period = $9, interval = $10, period_start = $11, categories = $12::text[],
-       pin_threshold = $13, offline_cap = $14, offline_cap_ceiling = $15, can_spend = $16, expires_at = $17,
-       revoked = $18, frozen = $19, signature = $20, mode = $21`,
-    [
-      signed.id,
-      signed.parentId,
-      signed.holderType,
-      signed.holderId,
-      signed.holderName,
-      signed.maxDebit.assetCode,
-      signed.maxDebit.assetScale,
-      signed.maxDebit.value,
-      signed.spentInPeriod.value,
-      signed.interval,
-      signed.periodStart,
-      signed.categories,
-      v(signed.pinThreshold),
-      v(signed.offlineCap),
-      v(signed.offlineCapCeiling),
-      signed.canSpend,
-      signed.expiresAt,
-      signed.revoked,
-      signed.frozen,
-      signed.signature,
-      signed.mode ?? null,
-    ],
-  )
+  await upsertMandateRow(signed, conn)
   return signed
 }
 
-/** Une el mandato con la cuenta de la persona titular (para el login y los perfiles). */
-export const linkHolderUser = async (mandateId: string, userId: string, conn?: Sql) => {
-  await s(conn).query(`update mandates set holder_user_id = $2 where id = $1`, [mandateId, userId])
-}
-
-export const childrenOf = async (id: string, conn?: Sql) =>
-  (await s(conn).query(`select * from mandates where parent_id = $1 order by id`, [id])).map(toMandate)
-
 /** Cadena hoja → raíz. */
 export const chainOf = async (id: string, conn?: Sql): Promise<Mandate[]> => {
-  const rows = await s(conn).query(
-    `with recursive chain as (
-       select m.*, 0 as depth from mandates m where m.id = $1
-       union all
-       select p.*, c.depth + 1 from mandates p join chain c on p.id = c.parent_id
-     ) select * from chain order by depth`,
-    [id],
-  )
-  if (!rows.length) throw notFound(`Mandato ${id}`)
-  return rows.map(toMandate)
+  const chain = await chainRows(id, conn)
+  if (!chain.length) throw notFound(`Mandato ${id}`)
+  return chain
 }
-
-/** Todos los mandatos que cuelgan de `id` (sin incluirlo). */
-export const descendantsOf = async (id: string, conn?: Sql): Promise<Mandate[]> =>
-  (
-    await s(conn).query(
-      `with recursive sub as (
-         select m.* from mandates m where m.parent_id = $1
-         union all
-         select c.* from mandates c join sub on c.parent_id = sub.id
-       ) select * from sub`,
-      [id],
-    )
-  ).map(toMandate)
 
 /** Reinicia el gasto si cambió la ventana del interval (renovación mensual / PT5M en la demo). En memoria. */
 export const rollPeriod = (m: Mandate, now = new Date()) => {
@@ -165,7 +70,7 @@ export type DelegateInput = Partial<Omit<Mandate, 'parentId' | 'signature' | 'sp
   Pick<Mandate, 'holderType' | 'holderId' | 'maxDebit'>
 
 /** Bloquea al padre hasta el fin de la transacción: dos repartos a la vez no pueden leer el mismo «libre». */
-const lockParent = (parentId: string, conn?: Sql) => s(conn).query(`select id from mandates where id = $1 for update`, [parentId])
+const lockParent = (parentId: string, conn?: Sql) => lockMandates([parentId], conn)
 
 export const delegate = async (parentId: string, input: DelegateInput, conn?: Sql): Promise<Mandate> => {
   await lockParent(parentId, conn)
@@ -229,7 +134,7 @@ export const setFrozen = async (id: string, frozen: boolean) => putMandate({ ...
 // ─── GW-08: monotonía. Solo restringe; nunca amplía más allá de lo que Juan autorizó. ───
 export const restrict = async (id: string, patch: { offlineCap?: Amount; frozen?: boolean }) => {
   const m = await getMandate(id)
-  if (patch.frozen === false) throw forbidden('Restrict no puede descongelar: solo Juan (POST /mandates/:id/unfreeze)')
+  if (patch.frozen === false) throw forbidden('Restrict no puede descongelar: solo el titular (POST /mandates/:id/unfreeze)')
   const next = { ...m }
   if (patch.frozen) next.frozen = true
   if (patch.offlineCap) {
@@ -304,16 +209,3 @@ export const fitChildren = async (id: string, conn?: Sql): Promise<Mandate[]> =>
   return changed
 }
 
-/** Suma el gasto en toda la cadena (GW-05), en una transacción: o se cuenta en todas las ramas o en ninguna. */
-export const applySpend = async (mandateId: string, amount: Amount) =>
-  sql().tx(async (tx) => {
-    await tx.query(`select id from mandates where id = any($1::text[]) for update`, [(await chainOf(mandateId, tx)).map((m) => m.id)])
-    for (const m of await chainOf(mandateId, tx)) {
-      rollPeriod(m)
-      await putMandate({ ...m, spentInPeriod: A.add(m.spentInPeriod, amount) }, tx)
-    }
-  })
-
-/** Mandatos de dispositivos con tope offline y sin revocar (GRD-02). */
-export const offlineDevices = async () =>
-  (await sql().query(`select * from mandates where holder_type = 'device' and offline_cap is not null and not revoked`)).map(toMandate)

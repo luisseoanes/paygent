@@ -1,5 +1,7 @@
 import { amount as A, randomId, type Amount, type Mandate, type SpendMode } from '@openroute/shared'
-import { insertProfile } from '../db.ts'
+import { holderContact } from '../store/accounts.ts'
+import { mandateExists } from '../store/mandates.ts'
+import { channelOwner, channelsOf, deleteProfile, insertProfile, relinkProfile } from '../store/profiles.ts'
 import { fxRate } from '../fx/trm.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { OFFLINE_START_PCT } from './devices.ts'
@@ -34,7 +36,7 @@ const free = async (persona: Mandate, conn: Sql) =>
     .reduce((left, c) => A.sub(left, c.maxDebit), persona.maxDebit)
 
 /** Un id libre: el de siempre o, si ya hubo uno (revocado), otro nuevo. */
-const freeId = async (base: string, conn: Sql) => ((await conn.query(`select 1 from mandates where id = $1`, [base])).length ? randomId(`${base}-`) : base)
+const freeId = async (base: string, conn: Sql) => ((await mandateExists(base, conn)) ? randomId(`${base}-`) : base)
 
 /** El modo de una rama sin `mode`: un celular de antes de los modos, o la hoja que crea PUT /mandates/:id/sms. */
 const legacyMode = (c: Mandate): SpendMode | undefined =>
@@ -50,21 +52,9 @@ export const modesOf = async (personaId: string, conn: Sql = sql()) => {
   return out
 }
 
-/** Dentro de la transacción: getProfile() iría por otra conexión. */
-const profileIn = async (channel: string, conn: Sql) =>
-  (await conn.query<{ user_id: string | null; mandate_id: string }>(`select user_id, mandate_id from profiles where channel = $1`, [channel]))[0]
-
 /** Perfil del Asistente para un modo: el chat de la app (`app:<persona>`) o el número del SMS. */
 const ensureProfile = async (persona: Mandate, agent: Mandate, channel: string, userId: string | null, conn: Sql) => {
-  if (await profileIn(channel, conn)) {
-    await conn.query(`update profiles set mandate_id = $2, data_mandate_id = $3, user_id = coalesce(user_id, $4) where channel = $1`, [
-      channel,
-      agent.id,
-      `${agent.id}-datos`,
-      userId,
-    ])
-    return
-  }
+  if (await channelOwner(channel, conn)) return relinkProfile(channel, agent.id, `${agent.id}-datos`, userId, conn)
   const rootId = (await chainOf(persona.id, conn)).at(-1)!.id
   await insertProfile(
     {
@@ -82,10 +72,7 @@ const ensureProfile = async (persona: Mandate, agent: Mandate, channel: string, 
 }
 
 const holderOf = async (personaId: string, conn: Sql) => {
-  const [r] = await conn.query<{ id: string | null; phone: string | null }>(
-    `select u.id, u.phone from mandates m left join users u on u.id = m.holder_user_id where m.id = $1`,
-    [personaId],
-  )
+  const r = await holderContact(personaId, conn)
   // El SMS entra en E.164: un celular guardado sin indicativo no encontraría su perfil.
   return { userId: r?.id ?? null, phone: (r?.phone && normalizarCelular(r.phone)) || null }
 }
@@ -179,15 +166,13 @@ export const linkModeProfiles = async (personaId: string, conn: Sql = sql()) => 
   const chat = modes.get('asistente')
   if (chat) await ensureProfile(persona, chat, `app:${persona.id}`, userId, conn)
   const sms = modes.get('sms')
-  const owner = phone ? await profileIn(phone, conn) : undefined
+  const owner = phone ? await channelOwner(phone, conn) : undefined
   // Un número que ya habla con otra persona (la demo) no se pisa.
   if (sms && phone && (!owner || owner.user_id === userId)) {
-    const channels = (await conn.query<{ channel: string }>(`select channel from profiles where mandate_id = $1 and chat_for is null`, [sms.id])).map(
-      (r) => r.channel,
-    )
+    const channels = await channelsOf(sms.id, { smsOnly: true }, conn)
     // El mismo número guardado sin indicativo se cambia por el bueno; otro número lo eligió el titular y se respeta.
     for (const raw of channels.filter((c) => c !== phone && normalizarCelular(c) === phone))
-      await conn.query(`delete from profiles where channel = $1`, [raw])
+      await deleteProfile(raw, conn)
     if (!channels.some((c) => normalizarCelular(c) !== phone)) await ensureProfile(persona, sms, phone, userId, conn)
   }
 }
@@ -223,9 +208,7 @@ export const listModes = async (id: string) => {
   const modes = await modesOf(personaId)
   // El número con el que habla su hoja SMS (el de la cuenta o el que eligió el titular).
   const smsLeaf = modes.get('sms')
-  const [sms] = smsLeaf
-    ? await sql().query<{ channel: string }>(`select channel from profiles where mandate_id = $1 and chat_for is null limit 1`, [smsLeaf.id])
-    : []
+  const [smsChannel] = smsLeaf ? await channelsOf(smsLeaf.id, { smsOnly: true }) : []
   const modeIds = new Set([...modes.values()].map((b) => b.id))
   const reserved = sumOf((await childrenOf(personaId)).filter((c) => !modeIds.has(c.id)), persona.maxDebit)
   const views: ModeView[] = []
@@ -243,7 +226,7 @@ export const listModes = async (id: string) => {
       offlineCapCeiling: b.offlineCapCeiling,
       pinThreshold: b.pinThreshold,
       frozen: b.frozen,
-      phone: mode === 'sms' ? sms?.channel : undefined,
+      phone: mode === 'sms' ? smsChannel : undefined,
     })
   }
   // Hasta dónde puede subir la persona: el tope de su padre menos lo que tienen sus hermanos.

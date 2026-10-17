@@ -1,6 +1,6 @@
 import { isVoucherSms } from '@openroute/shared'
 import type { FastifyInstance } from 'fastify'
-import { getProfile } from '../db.ts'
+import { getProfile } from '../store/profiles.ts'
 import { env } from '../env.ts'
 import { smsReply } from './dispatch.ts'
 import { logSender } from './sender.ts'
