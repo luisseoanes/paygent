@@ -4,7 +4,15 @@ import { renderApp, screen, userEvent, within } from '@/testing/test-utils';
 import { SmsRama } from '../sms-rama';
 
 const abrir = async () => {
-  sessionStorage.setItem('paygent-session', 'juan');
+  sessionStorage.setItem(
+    'paygent-session',
+    JSON.stringify({
+      id: 'juan',
+      role: 'titular',
+      rootMandateId: 'root',
+      token: 'mock.juan',
+    }),
+  );
   await renderApp(<SmsRama mandateId="mnd_rosa" nombre="Doña Rosa" />);
   return screen.findByRole('region', { name: /sms/i });
 };

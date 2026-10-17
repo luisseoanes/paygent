@@ -141,4 +141,6 @@ export type User = {
   mandateId?: string;
   // Todas sus ramas (la de la persona y la de su celular)
   mandateIds?: string[];
+  // Token de sesión firmado por la api (Authorization: Bearer)
+  token?: string;
 };

@@ -16,6 +16,9 @@ const buscar = (email: string) => {
   return registradas.find((c) => c.user.email === correo);
 };
 
+// El mock no firma nada: basta con que la web reenvíe el token en Authorization.
+const conToken = (user: User): User => ({ ...user, token: `mock.${user.id}` });
+
 const conflicto = (message: string) =>
   HttpResponse.json({ error: message }, { status: 409 });
 
@@ -32,7 +35,7 @@ export const authHandlers = [
         { error: 'Correo o contraseña incorrectos' },
         { status: 401 },
       );
-    return HttpResponse.json(cuenta.user);
+    return HttpResponse.json(conToken(cuenta.user));
   }),
 
   http.post(apiUrl('/auth/register/titular'), async ({ request }) => {
@@ -53,7 +56,7 @@ export const authHandlers = [
       rootMandateId: `root_${id}`,
     };
     registradas.push({ user, password: d.password! });
-    return HttpResponse.json(user, { status: 201 });
+    return HttpResponse.json(conToken(user), { status: 201 });
   }),
 
   http.post(apiUrl('/auth/register/beneficiario'), async ({ request }) => {
@@ -72,6 +75,6 @@ export const authHandlers = [
       mandateId: d.mandateId,
     };
     registradas.push({ user, password: d.password! });
-    return HttpResponse.json(user, { status: 201 });
+    return HttpResponse.json(conToken(user), { status: 201 });
   }),
 ];

@@ -12,45 +12,19 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Link } from '@/components/ui/link';
 import { Spinner } from '@/components/ui/spinner';
-import { demoUsers, homeHref, rolLabel } from '@/config/demo-users';
+import { homeHref, rolLabel } from '@/config/demo-users';
 import { paths } from '@/config/paths';
 import { api } from '@/lib/api-client';
+import { readSession, writeSession } from '@/lib/session';
 import { type Rol, type User } from '@/types/api';
 
-// Cuentas en src/api (Postgres): POST /auth/login y /auth/register/*. La api devuelve la cuenta con su rol y su
-// mandato (raíz del titular o rama del beneficiario); la sesión guarda esa cuenta en sessionStorage. La api todavía
-// no emite token: la sesión es la cuenta que devolvió el login.
-
-const SESSION_KEY = 'paygent-session';
-
-const readSession = (): User | null => {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    if (raw.startsWith('{')) return JSON.parse(raw) as User;
-    // Sesión de la versión anterior (solo el id de una cuenta de demo).
-    return demoUsers.find((u) => u.id === raw) ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const writeSession = (user: User | null) => {
-  try {
-    if (user) sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    else sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    // sin almacenamiento: la sesión dura hasta recargar
-  }
-};
+// Cuentas en src/api (Postgres): POST /auth/login y /auth/register/*. La api devuelve la cuenta con su rol, su
+// mandato (raíz del titular o rama del beneficiario) y su token de sesión; api-client lo manda en cada petición.
 
 const getUser = async (): Promise<User | null> => readSession();
 
 /** Raíz del titular con sesión: la api atiende a cada titular por su raíz (grant, estado y feed). */
 export const currentRootMandateId = () => readSession()?.rootMandateId ?? null;
-
-/** Cuenta con sesión: la api la pide en x-user-id para lo que solo decide el titular. */
-export const currentUserId = () => readSession()?.id ?? null;
 
 export const getUserQueryOptions = () =>
   queryOptions({ queryKey: ['auth-user'], queryFn: getUser });

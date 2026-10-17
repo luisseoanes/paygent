@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { env } from '@/config/env';
 import { currentRootMandateId } from '@/lib/auth';
+import { currentToken } from '@/lib/session';
 import { type FeedEvent } from '@/types/api';
 
 // GET /feed/stream (SSE) — la libreta en vivo. Cada mensaje es un FeedEvent
@@ -25,10 +26,13 @@ export const useFeedStream = ({
     if (!enabled || typeof EventSource === 'undefined') return;
 
     // Cada titular ve solo los eventos de su árbol.
+    // EventSource no admite cabeceras: el token va en la query.
+    const params = new URLSearchParams();
     const root = currentRootMandateId();
-    const source = new EventSource(
-      `${env.API_URL}/feed/stream${root ? `?root=${encodeURIComponent(root)}` : ''}`,
-    );
+    if (root) params.set('root', root);
+    const token = currentToken();
+    if (token) params.set('token', token);
+    const source = new EventSource(`${env.API_URL}/feed/stream?${params}`);
     source.onopen = () => setStatus('open');
     source.onerror = () =>
       setStatus(
