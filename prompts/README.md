@@ -16,6 +16,10 @@ Lo declara [`AI_USAGE.md`](../AI_USAGE.md).
 
 Prompts de otros miembros del equipo: [prompts_carlos_florez.md](prompts_carlos_florez.md) (Carlos Flórez, frontend).
 
+Reconstrucciones (los prompts no se conservaron; cada entrada sale del commit que produjo y **no es texto literal**):
+[reconstruidos-rosvend.md](reconstruidos-rosvend.md) (Rosvend: SMS, documentación técnica, estructura del repo) y
+[reconstruidos-luis-16-10.md](reconstruidos-luis-16-10.md) (Luis, 16/10: agentes, Guardián, Puntored, billetera).
+
 Cada prompt indica su sesión y su hora:
 
 | Sesión | Fecha y hora | Áreas |

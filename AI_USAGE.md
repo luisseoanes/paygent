@@ -181,3 +181,8 @@ Paygent llama a la API de Claude en tiempo de ejecución. Esto es parte de la so
 La carpeta [`/prompts`](prompts/) contiene el texto literal de los prompts de programación, un fichero por área de
 trabajo (índice en [`prompts/README.md`](prompts/README.md)). Los datos personales y de
 autorización están sustituidos por `[…]`.
+
+Son literales los de Pedro (S1–S6), Carlos y Luis del 17/10 (S7). Los de Rosvend y los de Luis del 16/10 no se
+conservaron: están **reconstruidos** a partir de cada commit, marcados como tales y con el hash para contrastarlos con
+`git log` ([`reconstruidos-rosvend.md`](prompts/reconstruidos-rosvend.md),
+[`reconstruidos-luis-16-10.md`](prompts/reconstruidos-luis-16-10.md)).
