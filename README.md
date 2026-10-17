@@ -4,8 +4,7 @@
 </p>
 
 <h3 align="center">
-Delegable payment power for people and their AI agents, even without internet or a smartphone.
-Built on Open Payments for the Interledger hackathon.
+Pay(A)gents
 </h3>
 
 <p align="center">
@@ -18,7 +17,10 @@ Built on Open Payments for the Interledger hackathon.
   <a href="https://openpayments.dev"><b>Open Payments</b></a>
 </p>
 
-## Paygent
+## Overview
+
+Pay(A)gents is a delegable payment power for people and their AI agents, even without internet or a smartphone.
+Built on Open Payments for the Interledger hackathon.
 
 Open Payments assumes the payer has internet, a smartphone and their own wallet. Paygent removes all
 three with one primitive: the **delegable mandate**. Juan, abroad, approves **one** grant in his
@@ -26,8 +28,6 @@ wallet. His family, their phones and AI agents spend inside signed sub-mandates 
 online by QR, with no signal through signed offline vouchers, or from a feature phone by texting an
 AI Assistant and confirming with a PIN. **The gateway decides every spend, never the model**, and
 each payment goes straight from Juan's wallet to the merchant: nobody in the middle holds money.
-
----
 
 ## Architecture
 
@@ -52,9 +52,7 @@ deterministic fallback.
 → **[Architecture](https://luisseoanes.github.io/paygent/architecture/)** and
 **[Payment flow](https://luisseoanes.github.io/paygent/payment-flow/)** for the full picture.
 
----
-
-## Getting started
+## Getting started 🚀
 
 ### The application
 
@@ -82,29 +80,10 @@ Open <http://localhost:5173> and log in as `juan@paygent.dev` / `paygent123` (de
 → [Deployment](https://luisseoanes.github.io/paygent/deployment/) for Railway (production:
 <https://paygent.up.railway.app>).
 
+### Docs
 The docs site is built with [Zensical](https://zensical.org) from [`site-docs/`](site-docs/):
 
 ```bash
 pnpm docs:dev            # http://localhost:8001
 pnpm docs:build          # ./site
 ```
-
-### Working with an agent
-
-This repository is built with coding agents (Claude Code). Each area has a context file the agent
-reads first, and `TODO <ID>` markers in the code point at backlog tasks.
-
-| File | When it matters |
-| ---- | --------------- |
-| [`CLAUDE.md`](CLAUDE.md) | Every session: invariants, commands, layout |
-| [`src/web/CLAUDE.md`](src/web/CLAUDE.md) | Any web change (Bulletproof React rules, [`BRAND.md`](src/web/BRAND.md)) |
-| [`src/agents/README.md`](src/agents/README.md) | Assistant, Inventory, Guardian rules |
-| [`docs/producto/backlog.md`](docs/producto/backlog.md) | Contracts, endpoints and task IDs |
-| [`docs/producto/context.md`](docs/producto/context.md) | The idea, the demo script and judge Q&A |
-| [`AI_USAGE.md`](AI_USAGE.md), [`prompts/`](prompts/) | Hackathon AI-usage declaration and prompt log |
-
-The team docs in [`docs/`](docs/) are in Spanish; the [docs site](https://luisseoanes.github.io/paygent/)
-is their English, technical counterpart. New logic ships with a test, and money only moves through
-the gateway.
-
----
