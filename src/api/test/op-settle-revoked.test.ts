@@ -32,6 +32,6 @@ describe('OP-07: pagar con el mandato raíz revocado', () => {
          access_token, manage_url)
        values ('g1', 'root', 'active', 'https://w/juan', '{}'::jsonb, 'P1M', 'c', 'ct', 'viejo', 'm')`,
     )
-    await expect(settle({ merchantWallet: 'https://w/tienda', amount: A.USD(1) })).rejects.toThrow(/revocado o venció/)
+    await expect(settle({ rootId: 'root', merchantWallet: 'https://w/tienda', amount: A.USD(1) })).rejects.toThrow(/revocado o venció/)
   }, 20_000) // arranca PGlite dentro del test: con la suite en paralelo tarda más de los 5 s por defecto
 })

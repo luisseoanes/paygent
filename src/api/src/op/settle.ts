@@ -1,24 +1,22 @@
 import { OpenPaymentsClientError } from '@interledger/open-payments'
 import { randomId, type Amount } from '@openroute/shared'
-import { getActiveGrant } from '../db.ts'
+import { getActiveGrant } from '../store/grants.ts'
 import { env } from '../env.ts'
 import { getClient, getWallet } from './client.ts'
 import { rotateRootToken } from './grants.ts'
 
-const ROOT_ID = 'root'
-
 export interface SettleInput {
   merchantWallet: string
-  /** Monto a debitar de la wallet de Juan (moneda de Juan). Con `price`, es solo el estimado. */
+  /** Monto a debitar de la wallet del titular (en su moneda). Con `price`, es solo el estimado. */
   amount: Amount
   /**
    * Precio que cobra el comercio en SU moneda. Si coincide con la moneda de su wallet, el comercio recibe
    * exactamente eso y Open Payments cotiza cuánto le cuesta a Juan con el cambio real.
    */
   price?: Amount
-  /** Se llama con el débito real cotizado ANTES de mover el dinero; si lanza, no se paga. */
   /** Raíz del árbol que paga: su grant es el que mueve el dinero (un titular por raíz). */
-  rootId?: string
+  rootId: string
+  /** Se llama con el débito real cotizado ANTES de mover el dinero; si lanza, no se paga. */
   confirmDebit?: (debit: Amount) => void | Promise<void>
   /** OP-06: si settle respondió sin confirmar la llegada (`confirmed: false`), se llama cuando se sabe. */
   onLateOutcome?: (outcome: PaymentOutcome) => void | Promise<void>
@@ -87,8 +85,8 @@ export const explainOpError = (err: unknown): string => {
   if (err instanceof OpenPaymentsClientError) {
     const text = `${err.message} ${err.description ?? ''}`.toLowerCase()
     if (err.status === 401) return 'Token inválido o vencido'
-    if (text.includes('insufficient')) return 'Saldo insuficiente en la wallet de Juan'
-    if (text.includes('limit') || text.includes('exceed')) return 'Excede el límite del grant de Juan'
+    if (text.includes('insufficient')) return 'Saldo insuficiente en la wallet del titular'
+    if (text.includes('limit') || text.includes('exceed')) return 'Excede el límite del grant del titular'
     if (text.includes('expired')) return 'La cotización venció'
     return `Open Payments: ${err.description || err.message} (${err.status ?? '?'})`
   }
@@ -130,7 +128,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     await input.confirmDebit?.(input.amount) // en mock el débito real es el estimado
     return { outgoingPaymentId: randomId('mock_op_'), debitAmount: input.amount, receiveAmount: input.price ?? input.amount, confirmed: true }
   }
-  const rootId = input.rootId ?? ROOT_ID
+  const { rootId } = input
   const root = await getActiveGrant(rootId)
   if (!root) throw new SettleError('El titular todavía no aprobó el mandato raíz en su billetera')
 
@@ -190,7 +188,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
     )
     // El pago suele completar en 1-4 s. Si tarda más, se responde y el cierre sigue en segundo plano.
     const outcome = await Promise.race([finished, sleep(SETTLE_WAIT_MS).then(() => 'timeout' as const)])
-    if (outcome === 'failed') throw new SettleError('El pago no llegó al comercio: revisa el saldo de la wallet de Juan')
+    if (outcome === 'failed') throw new SettleError('El pago no llegó al comercio: revisa el saldo de la wallet del titular')
     const confirmed = outcome === 'completed'
     if (!confirmed)
       void finished
@@ -201,9 +199,9 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
   } catch (err) {
     if (err instanceof SettleError) throw err
     if (!retried && isExpiredToken(err)) {
-      // OP-07: si Juan revocó el mandato en su billetera, tampoco se puede rotar el token.
+      // OP-07: si el titular revocó el mandato en su billetera, tampoco se puede rotar el token.
       await rotateRootToken(rootId).catch(() => {
-        throw new SettleError('El mandato de Juan fue revocado o venció en su billetera: tiene que volver a firmarlo')
+        throw new SettleError('El mandato del titular fue revocado o venció en su billetera: tiene que volver a firmarlo')
       })
       return settle(input, true)
     }

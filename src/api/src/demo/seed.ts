@@ -1,9 +1,14 @@
 import { monthly, weekly, type Mandate } from '@openroute/shared'
-import { insertPayer, insertProfile, insertUser, putAddress, setMeta, upsertMerchant, type User } from '../db.ts'
-import { delegate, linkHolderUser, putMandate, ROOT_ID } from '../gateway/mandates.ts'
+import { insertPayer, insertUser, payerOfRoot, type User } from '../store/accounts.ts'
+import { upsertMerchant } from '../store/merchants.ts'
+import { getMeta, setMeta } from '../store/meta.ts'
+import { insertProfile, putAddress } from '../store/profiles.ts'
+import { delegate, findMandate, linkHolderUser, putMandate } from '../gateway/mandates.ts'
 import { hashSecret, setPin } from '../gateway/pin.ts'
 import { conectarSms, UBICACION_POR_DEFECTO } from '../gateway/sms-canal.ts'
-import { getRootAsset, pesos } from '../op/asset.ts'
+import { getRootAsset, pesos, resolveRootAsset } from './asset.ts'
+import { DEMO_ROOT_ID as ROOT_ID } from './constants.ts'
+import { importLegacyGrant } from '../store/legacy.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { DEMO_WALLETS } from './wallets.ts'
 
@@ -243,3 +248,22 @@ export const seed = async ({ keepGrant = true } = {}) =>
     await putAddress(ROOT_ID, { recipientName: 'María', address: 'Vereda La Palma, casa 12, junto a la escuela' }, tx)
     await setMeta('seed_version', SEED_VERSION, tx)
   })
+
+/** Al arrancar: siembra la demo si falta, si Juan cambió de moneda o si la semilla cambió de versión. */
+export const ensureDemoSeed = async () => {
+  const asset = await resolveRootAsset((await payerOfRoot(ROOT_ID))?.walletAddress)
+  const root = await findMandate(ROOT_ID)
+  if (!root) {
+    await importLegacyGrant(ROOT_ID)
+    await seed()
+  } else if (root.maxDebit.assetCode !== asset.assetCode || root.maxDebit.assetScale !== asset.assetScale) {
+    // Si Juan cambió de moneda, el árbol y el grant guardados ya no sirven.
+    await seed({ keepGrant: false })
+  } else {
+    const stored = await getMeta('seed_version')
+    if (stored !== SEED_VERSION) {
+      console.log(`[seed] semilla ${stored ?? 'sin versión'} → ${SEED_VERSION}: se vuelve a sembrar (el grant de Juan se conserva)`)
+      await seed({ keepGrant: true })
+    }
+  }
+}

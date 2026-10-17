@@ -1,10 +1,10 @@
 import { amount as A } from '@openroute/shared'
-import { DEMO_WALLETS } from '../demo/wallets.ts'
+import { DEMO_WALLETS } from './wallets.ts'
 import { env } from '../env.ts'
 import { fxRate } from '../fx/trm.ts'
-import { getWallet } from './client.ts'
+import { getWallet } from '../op/client.ts'
 
-// Moneda raíz: la de la wallet de quien delega (tabla payers). Todo mandato y pago del árbol va en ella.
+// Moneda de la raíz de la demo: la de la wallet de Juan. Cada titular registrado guarda la suya en payers.
 
 let rootAsset: A.Asset = A.COP_ASSET
 
