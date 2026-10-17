@@ -17,6 +17,10 @@ Pay(A)gents
   <a href="https://openpayments.dev"><b>Open Payments</b></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/luisseoanes/paygent/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/luisseoanes/paygent/actions/workflows/ci.yml/badge.svg"></a>
+</p>
+
 ## Overview
 
 Pay(A)gents is a delegable payment power for people and their AI agents, even without internet or a smartphone.
@@ -79,6 +83,37 @@ security model and known trade-offs: [`docs/arquitectura.md`](docs/arquitectura.
 
 → **[Architecture](https://luisseoanes.github.io/paygent/architecture/)** and
 **[Payment flow](https://luisseoanes.github.io/paygent/payment-flow/)** for the full picture.
+
+## Quality
+
+[CI](.github/workflows/ci.yml) runs `pnpm typecheck` and every test suite on each push and PR, with Open Payments and
+the LLM simulated (no secrets needed).
+
+| Suite | Tests | Line coverage |
+| ----- | ----: | ------------: |
+| api (`src/api/test/`) | 272 | ≈ 93 % (87 % branches) |
+| web (`src/web/src/**/__tests__/`) | 82 | ≈ 79 % |
+| shared (`src/shared/`) | 22 | ≈ 88 % |
+| agents (`src/agents/tests/`) | 92 | ≈ 84 % |
+
+Coverage was measured locally on 17 Oct with vitest (v8) and pytest-cov; CI does not enforce a threshold.
+
+What the tests pin down, because a rule that only lives in a prompt is not enforced:
+
+- **Money invariants in the gateway:** children never exceed their parent, permissions only narrow, PIN above the
+  threshold, revoked/frozen/expired branches cannot spend (`gateway.test.ts`, `modes.test.ts`, `grant-menor.test.ts`).
+- **Concurrency:** two spends or two limit edits at once cannot break a limit; a failed payment releases its
+  reservation (`pay-concurrente`, `mandato-escritura-concurrente`, `pay-reserva-falla`, `pay-pin-doble`).
+- **Offline vouchers:** replay, per-certificate cap and validity window (`offline-cap`, `vale-tope-cert`, `sms-vale`).
+- **Access:** the permissions matrix of every route (`auth.test.ts`), one payer never sees another's tree
+  (`multi-payer`, `feed-stream`), and the layer rules on the real imports (`arquitectura.test.ts`).
+- **Agents:** the PIN never reaches the LLM (`test_assistant.py`), the Guardian can only restrict (`test_guardian.py`).
+- Every bugfix ships a regression test that fails on the code before the fix.
+
+Not covered by unit tests: the real Open Payments adapter (`op/client.ts`, `op/grants.ts`). It is exercised end to end
+against the Test Wallet with `pnpm op:smoke` (`MOCK_OP=0`, needs keys). Known trade-offs and risks are listed in
+[`docs/arquitectura.md` §6](docs/arquitectura.md#6-compromisos-y-riesgos-conocidos) (Spanish). Known debt: the
+`@openroute/*` package scope is the project's former name, and a few web components are over 400 lines.
 
 ## Getting started 🚀
 

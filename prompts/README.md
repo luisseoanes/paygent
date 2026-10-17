@@ -9,9 +9,11 @@ Lo declara [`AI_USAGE.md`](../AI_USAGE.md).
 | [backend-gateway-y-persistencia.md](backend-gateway-y-persistencia.md) | Gateway, modelo de datos en Postgres, titulares y beneficiarios, modos de consumo, topes | 16 |
 | [frontend-pwa.md](frontend-pwa.md) | PWA: vales sin señal, reparto de topes, cierre de sesión, caja del tendero, enlace con código | 18 |
 | [sms-y-agentes.md](sms-y-agentes.md) | Pagar sin datos, proveedores de SMS, tope y PIN del Asistente | 9 |
-| [arquitectura-y-calidad.md](arquitectura-y-calidad.md) | Arquitectura por capas del backend y auditoría del código | 6 |
+| [arquitectura-y-calidad.md](arquitectura-y-calidad.md) | Arquitectura por capas del backend, auditoría del código, CI y cobertura | 8 |
 | [despliegue-y-entorno.md](despliegue-y-entorno.md) | Railway, variables de entorno, workflow de la documentación, `.gitignore` | 13 |
 | [documentacion-y-politica-ia.md](documentacion-y-politica-ia.md) | `AI_USAGE.md`, este registro, `CLAUDE.md`, `docs/` y `README.md` | 16 |
+
+Prompts de otros miembros del equipo: [prompts_carlos_florez.md](prompts_carlos_florez.md) (Carlos Flórez, frontend).
 
 Cada prompt indica su sesión y su hora:
 
@@ -22,7 +24,7 @@ Cada prompt indica su sesión y su hora:
 | S3 | 16/10, 17:19–20:49 | Modos de consumo y topes, frontend, documentación |
 | S4 | 16/10 21:17 – 17/10 06:46 | Arquitectura, workflow de documentación, frontend del tendero y del vale |
 | S5 | 17/10, 07:44–08:34 | Auditoría del código |
-| S6 | 17/10, 09:35–09:44 | Este registro y `AI_USAGE.md` |
+| S6 | 17/10, 09:35–09:53 | Este registro, `AI_USAGE.md`, CI y cobertura |
 
 Cómo leerlos:
 

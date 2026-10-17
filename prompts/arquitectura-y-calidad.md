@@ -1,8 +1,8 @@
 # Arquitectura y calidad del código
 
-6 prompts · sesiones S4, S5 · Claude Code (Claude Opus 5.5).
+8 prompts · sesiones S4, S5, S6 · Claude Code (Claude Opus 5.5).
 
-Diagnóstico de la arquitectura del backend y su reorganización por capas (autenticación incluida), y auditoría de bugs, código repetido y código muerto con sus correcciones.
+Diagnóstico de la arquitectura del backend y su reorganización por capas (autenticación incluida), y auditoría de bugs, código repetido y código muerto con sus correcciones; CI con tests y typecheck, cobertura y sección de calidad del README.
 
 Código afectado: `src/api/src/` (capas y guards), `docs/arquitectura.md`, `src/api/test/`.
 
@@ -31,3 +31,11 @@ Arregla todo sin romper nada, con cuidado y verificado, adicionalmente escanea q
 ## 6. S5 · 17/10 08:34
 
 no hagas C1, decidimos que C1 se queda así, es cómo lo necesitamos, pushea a main
+
+## 7. S6 · 17/10 09:50
+
+Que podríamos hacer para qué el código tenga más madurez y puntúe mejor en un code review
+
+## 8. S6 · 17/10 09:53
+
+sí, haz el 1 mirando que las pruebas tengan buena cobertura y ver si es necesario agregar más y el 2, luego commit y push

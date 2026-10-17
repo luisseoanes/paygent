@@ -1,0 +1,43 @@
+# Tests y typecheck en cada push y PR. Open Payments y el LLM van simulados: no hacen falta secretos.
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  typescript:
+    name: TypeScript (shared, api, web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      # De uno en uno: en paralelo la carga de CPU hace fallar los waitFor de la web.
+      - run: pnpm -r --workspace-concurrency=1 test
+        env:
+          MOCK_OP: '1'
+  agents:
+    name: Python (agents)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/agents
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+        env:
+          MOCK_LLM: '1'

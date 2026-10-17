@@ -60,6 +60,9 @@ detallado abajo, con sus ficheros; sus prompts literales están en [`/prompts`](
     (`app.ts`) y un monto en otra moneda se rechaza (razón `currency` en `src/shared/src/types.ts`, `monedas.test.ts`).
   * Fuera código muerto: `store/legacy.ts` y la ruta `/callback` sin `rootId`, entre otros.
   * Los tests de regresión se ejecutaron también sobre el código anterior y fallan allí, salvo los casos de control.
+* Claude Code (S6): CI con typecheck y todos los tests en cada push (`.github/workflows/ci.yml`, verificado en un clon
+  limpio con Node 22), medición de cobertura y un test del feed en vivo: un titular no recibe los eventos de otro árbol
+  (`test/feed-stream.test.ts`, que falla si se quita el filtro). Sección *Quality* del `README.md`.
 * [COMPLETAR: lo hecho por el resto del equipo en el gateway, los vales y `src/shared/`, y con qué herramienta]
 
 ### 3. Agentes (`src/agents/`)
