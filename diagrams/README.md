@@ -20,3 +20,5 @@ Speaker note (~30 s):
 > voucher. The gateway decides, and the Guardian can only tighten limits. Open Payments then creates
 > the incoming payment, the quote and the outgoing payment from Juan's wallet. The merchant gets paid
 > and Juan sees why in his feed. With no signal, the signed voucher is checked offline and settled later."
+
+Light/dark transparent PNGs for the README: `python3 diagrams/variants.py diagrams/<name>.svg <out_dir>`, then render each SVG with headless Chrome (`--default-background-color=00000000`).

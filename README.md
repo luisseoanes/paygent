@@ -29,10 +29,35 @@ online by QR, with no signal through signed offline vouchers, or from a feature 
 AI Assistant and confirming with a PIN. **The gateway decides every spend, never the model**, and
 each payment goes straight from Juan's wallet to the merchant: nobody in the middle holds money.
 
+## How it works
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="diagrams/payment-flow-dark.png">
+    <img alt="Life of one payment" src="diagrams/payment-flow-light.png" width="100%">
+  </picture>
+</p>
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="site-docs/assets/screenshots/1-payer.png" width="240"><br><sub><b>Juan</b> approves one grant and sees who spent what.</sub></td>
+    <td align="center" width="33%"><img src="site-docs/assets/screenshots/3-wallet.png" width="240"><br><sub><b>María</b> spends inside her sub-mandate, with an offline budget.</sub></td>
+    <td align="center" width="33%"><img src="site-docs/assets/screenshots/4-offline-voucher.png" width="240"><br><sub>No signal: her phone signs a voucher the shop verifies offline.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="site-docs/assets/screenshots/5-shopkeeper.png" width="240"><br><sub><b>The shopkeeper</b> scans vouchers and gets paid, online or by SMS.</sub></td>
+    <td align="center"><img src="site-docs/assets/screenshots/6-feature-phone.png" width="240"><br><sub><b>Doña Carmen</b> texts the AI Assistant; purchases need her PIN.</sub></td>
+    <td align="center"><img src="site-docs/assets/screenshots/2-feed.png" width="240"><br><sub>Every payment lands in Juan's feed with its <i>why</i>.</sub></td>
+  </tr>
+</table>
+
 ## Architecture
 
 <p align="center">
-  <img alt="Paygent architecture" src="diagrams/architecture.png" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture-dark.png">
+    <img alt="Paygent architecture" src="diagrams/architecture-light.png" width="100%">
+  </picture>
 </p>
 
 A Fastify api holds the **Mandate Gateway**: every spend — person, device or agent — goes through
