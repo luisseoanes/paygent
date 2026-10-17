@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Paygent · video</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Geist"; src: url("assets/fonts/geist-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+      @font-face { font-family: "Pixelify Sans"; src: url("assets/fonts/pixelify-sans-latin-500-normal.woff2") format("woff2"); font-weight: 400 700; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #0d1230; }
+      #root {
+        position: relative; width: 100%; height: 100%; overflow: hidden;
+        font-family: "Geist", "Inter", system-ui, sans-serif; color: #1d1e22;
+      }
+      .scene { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; overflow: hidden; opacity: 0; }
+      #s1 { opacity: 1; }
+      .claro { background: #f3f2ee; }
+      .oscuro { background: #0d1230; color: #f3f2ee; }
+      .azul { background: #1f3fae; color: #f3f2ee; }
+      .centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 36px; }
+      .px { font-family: "Pixelify Sans", monospace; letter-spacing: 0; }
+      .h1 { font-size: 150px; font-weight: 300; letter-spacing: -0.045em; line-height: 1.05; }
+      .h2 { font-size: 104px; font-weight: 300; letter-spacing: -0.04em; line-height: 1.08; text-align: center; }
+      .h3 { font-size: 60px; font-weight: 500; letter-spacing: -0.02em; }
+      .sub { font-size: 40px; font-weight: 300; color: #626368; }
+      .oscuro .sub, .azul .sub { color: #c9d2f5; }
+      .linea { display: block; overflow: hidden; padding-bottom: 6px; }
+      .linea > span { display: block; }
+      .chip { display: flex; align-items: center; gap: 22px; padding: 26px 40px; border-radius: 999px; background: #fff; font-size: 44px; font-weight: 500; box-shadow: 0 20px 50px -30px rgba(13,18,48,.45); }
+      .chip svg { width: 52px; height: 52px; }
+      .card { width: 460px; padding: 48px; border-radius: 40px; background: #fff; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 30px 70px -40px rgba(13,18,48,.5); position: relative; }
+      .card b { font-size: 52px; font-weight: 500; letter-spacing: -0.02em; }
+      .card .ic { width: 110px; height: 110px; border-radius: 32px; display: grid; place-items: center; background: #fbe6e3; color: #c2362b; }
+      .card .ic svg { width: 60px; height: 60px; }
+      .tachon { position: absolute; left: 40px; right: 40px; top: 60%; height: 10px; border-radius: 6px; background: #c2362b; transform-origin: left center; }
+      .tel { width: 380px; padding: 14px; border-radius: 56px; background: #15161a; box-shadow: 0 50px 90px -40px rgba(0,0,0,.6); }
+      .tel img { display: block; width: 100%; border-radius: 44px; }
+      .burbuja { font-size: 46px; line-height: 1.25; padding: 30px 42px; border-radius: 40px; max-width: 900px; background: #fff; }
+      .yo { align-self: flex-end; background: #e9e2f7; color: #2c1e52; }
+      .nodo { position: absolute; display: flex; align-items: center; gap: 24px; padding: 26px 36px; border-radius: 34px; background: #fff; font-size: 40px; font-weight: 500; box-shadow: 0 24px 60px -36px rgba(13,18,48,.5); }
+      .nodo small { display: block; font-size: 28px; font-weight: 400; color: #626368; }
+      .punto { width: 34px; height: 34px; border-radius: 50%; flex: none; }
+      .regla { padding: 22px 40px; border-radius: 999px; border: 3px solid rgba(255,255,255,.4); font-size: 44px; }
+      .paso { display: flex; flex-direction: column; align-items: center; gap: 22px; width: 330px; text-align: center; font-size: 42px; font-weight: 500; }
+      .paso .ic { width: 140px; height: 140px; border-radius: 40px; display: grid; place-items: center; background: #1b2557; }
+      .paso .ic svg { width: 70px; height: 70px; }
+      .paso small { font-size: 28px; font-weight: 400; color: #c9d2f5; }
+      .barra { position: absolute; left: 0; bottom: 0; height: 8px; width: 1920px; background: linear-gradient(90deg, #1f3fae, #5a3e9e, #1e7a4c); transform-origin: left center; z-index: 50; }
+      .qr { display: grid; grid-template-columns: repeat(9, 38px); gap: 6px; padding: 30px; background: #fff; border-radius: 30px; }
+      .qr i { width: 38px; height: 38px; border-radius: 6px; background: #1d1e22; display: block; }
+      .qr i.v { background: transparent; }
+      .sello { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+      .sello svg { width: 84px; height: 84px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="46" data-width="1920" data-height="1080">
+
+      <!-- 1 · Logo -->
+      <div id="s1" class="scene claro">
+        <div class="centro">
+          <div style="display:flex;align-items:center;gap:56px">
+            <svg id="logo" viewBox="0 0 48 48" width="260" height="260" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path id="logo-p" d="M12 40V14a5 5 0 0 1 5-5h6a9.5 9.5 0 0 1 0 19h-3" stroke="#1d1e22" stroke-width="4.5" />
+              <path id="logo-r" d="M32.5 18.5H38" stroke="#1d1e22" stroke-width="4.5" />
+              <circle id="logo-d1" cx="12" cy="40" r="4.8" fill="#1f3fae" />
+              <circle id="logo-d2" cx="18" cy="28" r="3.6" fill="#1e7a4c" />
+              <circle id="logo-d3" cx="40" cy="18.5" r="3.8" fill="#5a3e9e" />
+            </svg>
+            <div class="linea" style="font-size:200px;font-weight:500;letter-spacing:-0.05em"><span id="s1-nombre">Paygent</span></div>
+          </div>
+          <div class="linea sub" style="font-size:52px"><span id="s1-tag">Pagar no debería necesitar <b class="px" style="color:#1f3fae;font-weight:500">internet.</b></span></div>
+        </div>
+      </div>
+
+      <!-- 2 · Juan y su mamá -->
+      <div id="s2" class="scene oscuro">
+        <svg style="position:absolute;inset:0" width="1920" height="1080">
+          <path id="s2-ruta" d="M370 640 C 760 300, 1160 300, 1550 640" fill="none" stroke="#3d4a8f" stroke-width="6" stroke-dasharray="4 22" stroke-linecap="round" />
+          <circle id="s2-pago" cx="370" cy="640" r="22" fill="#5fc48f" />
+        </svg>
+        <div id="s2-a" style="position:absolute;left:150px;top:690px;width:440px;text-align:center">
+          <div class="h3">Juan</div><div class="sub">trabaja en Texas</div>
+        </div>
+        <div id="s2-b" style="position:absolute;left:1330px;top:690px;width:440px;text-align:center">
+          <div class="h3">Su mamá</div><div class="sub">una vereda de Antioquia</div>
+        </div>
+        <div class="linea h2" style="position:absolute;left:0;right:0;top:150px"><span id="s2-t">El dinero cruza. <b class="px" style="color:#9fb1ff;font-weight:500">Gastarlo, no.</b></span></div>
+      </div>
+
+      <!-- 3 · Los muros -->
+      <div id="s3" class="scene claro">
+        <div class="centro" style="gap:80px">
+          <div class="linea h2"><span id="s3-t">Hoy, pagar exige</span></div>
+          <div style="display:flex;gap:56px">
+            <div class="card" id="s3-c1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h.01M8.5 16.4a5 5 0 0 1 7 0M2 8.8a15 15 0 0 1 4.2-2.6M5 12.9a10 10 0 0 1 5.2-2.8M19 12.9a10 10 0 0 0-2-1.5M22 8.8A15 15 0 0 0 10.7 5M2 2l20 20"/></svg></div><b>Internet</b><div class="tachon" id="s3-x1"></div></div>
+            <div class="card" id="s3-c2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 18h.01"/></svg></div><b>Smartphone</b><div class="tachon" id="s3-x2"></div></div>
+            <div class="card" id="s3-c3"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></svg></div><b>Wallet propia</b><div class="tachon" id="s3-x3"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 · El árbol -->
+      <div id="s4" class="scene claro">
+        <svg style="position:absolute;inset:0" width="1920" height="1080" fill="none" stroke-linecap="round">
+          <path id="s4-l1" d="M960 470 C 960 620, 420 600, 420 770" stroke="#1e7a4c" stroke-width="8" />
+          <path id="s4-l2" d="M960 470 L 960 770" stroke="#c98a1e" stroke-width="8" />
+          <path id="s4-l3" d="M960 470 C 960 620, 1500 600, 1500 770" stroke="#5a3e9e" stroke-width="8" />
+        </svg>
+        <div class="linea h2" style="position:absolute;left:0;right:0;top:90px"><span id="s4-t">Juan firma <b class="px" style="color:#1f3fae;font-weight:500">una vez.</b></span></div>
+        <div class="nodo" id="s4-r" style="left:690px;top:330px;width:540px"><span class="punto" style="background:#1f3fae"></span><div>Juan · $300/mes<small>un grant en su wallet</small></div></div>
+        <div class="nodo" id="s4-n1" style="left:200px;top:770px;width:440px"><span class="punto" style="background:#1e7a4c"></span><div>Su mamá<small>mercado, farmacia</small></div></div>
+        <div class="nodo" id="s4-n2" style="left:740px;top:770px;width:440px"><span class="punto" style="background:#c98a1e"></span><div>Su celular<small>paga sin señal</small></div></div>
+        <div class="nodo" id="s4-n3" style="left:1280px;top:770px;width:440px"><span class="punto" style="background:#5a3e9e"></span><div>Un agente<small>compra por ella</small></div></div>
+      </div>
+
+      <!-- 5 · Con datos -->
+      <div id="s5" class="scene claro">
+        <div class="tel" id="s5-tel" style="position:absolute;left:1220px;top:110px"><img src="assets/billetera-movil.png" alt="" /></div>
+        <div style="position:absolute;left:150px;top:300px;width:1000px">
+          <div class="chip" id="s5-chip" style="width:fit-content;color:#1f3fae"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h.01M2 8.8a15 15 0 0 1 20 0M5 12.9a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/></svg>Con datos</div>
+          <div class="linea h2" style="text-align:left;margin-top:50px"><span id="s5-t">Paga con QR.</span></div>
+          <div class="linea h2" style="text-align:left"><span id="s5-t2" style="color:#1e7a4c">Cobra al instante.</span></div>
+        </div>
+      </div>
+
+      <!-- 6 · Sin señal -->
+      <div id="s6" class="scene oscuro">
+        <div style="position:absolute;left:150px;top:250px;width:1000px">
+          <div class="chip" id="s6-chip" style="width:fit-content;color:#9a6410"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h.01M8.5 16.4a5 5 0 0 1 7 0M2 8.8a15 15 0 0 1 4.2-2.6M5 12.9a10 10 0 0 1 5.2-2.8M19 12.9a10 10 0 0 0-2-1.5M22 8.8A15 15 0 0 0 10.7 5M2 2l20 20"/></svg>Sin señal</div>
+          <div class="linea h2" style="text-align:left;margin-top:50px"><span id="s6-t">Un vale firmado.</span></div>
+          <div class="linea h2" style="text-align:left"><span id="s6-t2" class="px" style="color:#ffc861">Se verifica offline.</span></div>
+          <div class="sub" id="s6-s" style="margin-top:36px">y se cobra solo al volver la señal</div>
+        </div>
+        <div class="qr" id="s6-qr" style="position:absolute;left:1240px;top:290px"></div>
+        <div class="sello" id="s6-ok" style="position:absolute;left:1590px;top:620px;background:#1e7a4c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg></div>
+      </div>
+
+      <!-- 7 · Por SMS -->
+      <div id="s7" class="scene claro">
+        <div class="tel" id="s7-tel" style="position:absolute;left:150px;top:110px"><img src="assets/celular-movil.png" alt="" /></div>
+        <div style="position:absolute;left:700px;top:170px;width:1080px;display:flex;flex-direction:column;gap:30px">
+          <div class="chip" id="s7-chip" style="width:fit-content;color:#5a3e9e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Por SMS, con un agente</div>
+          <div class="burbuja yo" id="s7-b1">necesito la pastilla de la presión</div>
+          <div class="burbuja" id="s7-b2">Farmacia San José tiene losartán. Responda con su PIN.</div>
+          <div class="burbuja yo" id="s7-b3" style="letter-spacing:.3em">● ● ● ●</div>
+          <div class="burbuja" id="s7-b4" style="background:#e2f0e7;color:#14563a">Pagado. Código de retiro 4821.</div>
+        </div>
+      </div>
+
+      <!-- 8 · El gateway decide -->
+      <div id="s8" class="scene azul">
+        <div class="centro" style="gap:30px">
+          <div class="linea h1"><span id="s8-t1">El agente propone.</span></div>
+          <div class="linea h1"><span id="s8-t2" class="px">El gateway decide.</span></div>
+          <div style="display:flex;gap:28px;margin-top:40px">
+            <div class="regla" id="s8-r1">Tope</div><div class="regla" id="s8-r2">Categoría</div><div class="regla" id="s8-r3">PIN</div><div class="regla" id="s8-r4">Revocar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 9 · Open Payments -->
+      <div id="s9" class="scene oscuro">
+        <div class="linea h2" style="position:absolute;left:0;right:0;top:120px"><span id="s9-t">Sobre <b style="font-weight:500;color:#9fb1ff">Open Payments</b></span></div>
+        <svg style="position:absolute;inset:0" width="1920" height="1080"><path d="M330 520 H 1590" stroke="#3d4a8f" stroke-width="6" stroke-dasharray="4 20" stroke-linecap="round" fill="none"/><circle id="s9-dot" cx="330" cy="520" r="20" fill="#5fc48f"/></svg>
+        <div style="position:absolute;left:0;right:0;top:380px;display:flex;justify-content:space-around;padding:0 120px">
+          <div class="paso" id="s9-p1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#9fb1ff" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><circle cx="10" cy="15" r="2"/><path d="M12 13l3-3"/></svg></div>Grant<small>una vez, con tope</small></div>
+          <div class="paso" id="s9-p2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#9fb1ff" stroke-width="2" stroke-linecap="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg></div>Quote<small>el débito real</small></div>
+          <div class="paso" id="s9-p3"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#9fb1ff" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>Outgoing<small>de Juan a la tienda</small></div>
+          <div class="paso" id="s9-p4"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#5fc48f" stroke-width="2" stroke-linecap="round"><path d="M18 6L7 17l-5-5M22 10l-7.5 7.5L13 16"/></svg></div>Llegó<small>nadie guarda el dinero</small></div>
+        </div>
+      </div>
+
+      <!-- 10 · Cierre -->
+      <div id="s10" class="scene claro">
+        <div class="centro" id="s10-c" style="gap:30px">
+          <div class="linea h2"><span id="s10-t1">Un permiso. Muchas manos.</span></div>
+          <div class="linea h2"><span id="s10-t2" class="px" style="color:#1f3fae">Cualquier señal.</span></div>
+          <div id="s10-logo" style="display:flex;align-items:center;gap:30px;margin-top:70px">
+            <svg viewBox="0 0 48 48" width="120" height="120" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 40V14a5 5 0 0 1 5-5h6a9.5 9.5 0 0 1 0 19h-3" stroke="#1d1e22" stroke-width="4.5"/><path d="M32.5 18.5H38" stroke="#1d1e22" stroke-width="4.5"/><circle cx="12" cy="40" r="4.8" fill="#1f3fae"/><circle cx="18" cy="28" r="3.6" fill="#1e7a4c"/><circle cx="40" cy="18.5" r="3.8" fill="#5a3e9e"/></svg>
+            <span style="font-size:110px;font-weight:500;letter-spacing:-0.05em">Paygent</span>
+          </div>
+          <div class="sub" id="s10-url">paygent.up.railway.app · Open Payments · Interledger</div>
+        </div>
+      </div>
+
+      <div class="barra" id="barra"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      // QR fijo (sin azar, para que cada render sea idéntico)
+      const QR = '111110111100010101101111101010101101110011000101011101111110100101001100011101111101101011';
+      const qr = document.getElementById('s6-qr');
+      QR.slice(0, 81).split('').forEach((b) => { const i = document.createElement('i'); if (b === '0') i.className = 'v'; qr.appendChild(i); });
+
+      const tl = gsap.timeline({ paused: true });
+      const E = 'power3.out';
+      // Inicio de cada escena (s) y duración total
+      const T = [0, 4.2, 8.6, 13, 17.6, 22, 27, 32, 36.4, 41];
+      const FIN = 46;
+      const S = (i) => `#s${i + 1}`;
+      const largo = (id) => document.getElementById(id).getTotalLength();
+
+      // El entrante empuja al saliente en el mismo instante: la transición es la salida
+      const empujar = (a, b, t, eje = 'x') => {
+        const d = eje === 'x' ? 1920 : 1080;
+        tl.to(S(a), { [eje]: -d, duration: 0.55, ease: 'power3.inOut' }, t);
+        tl.fromTo(S(b), { [eje]: d, opacity: 1 }, { [eje]: 0, opacity: 1, duration: 0.55, ease: 'power3.inOut' }, t);
+      };
+      const zoom = (a, b, t) => {
+        tl.to(S(a), { scale: 1.6, opacity: 0, filter: 'blur(14px)', duration: 0.5, ease: 'power3.in' }, t);
+        tl.fromTo(S(b), { scale: 0.7, opacity: 0, filter: 'blur(14px)' }, { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.55, ease: 'power3.out' }, t + 0.15);
+      };
+      const subir = (sel, t, d = 0.7) => tl.fromTo(sel, { yPercent: 110 }, { yPercent: 0, duration: d, ease: 'expo.out' }, t);
+      const pop = (sel, t, extra = {}) => tl.fromTo(sel, { scale: 0.6, opacity: 0, y: 40 }, { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: 'back.out(1.7)', ...extra }, t);
+
+      tl.fromTo('#barra', { scaleX: 0 }, { scaleX: 1, duration: FIN, ease: 'none' }, 0);
+
+      // 1 · Se dibuja la P, brotan los puntos, entra el nombre
+      const lp = largo('logo-p'), lr = largo('logo-r');
+      tl.fromTo('#logo-p', { strokeDasharray: lp, strokeDashoffset: lp }, { strokeDashoffset: 0, duration: 1.1, ease: 'power2.inOut' }, 0.2);
+      tl.fromTo('#logo-r', { strokeDasharray: lr, strokeDashoffset: lr }, { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' }, 1.15);
+      ['#logo-d1', '#logo-d2', '#logo-d3'].forEach((d, i) => tl.fromTo(d, { scale: 0, transformOrigin: '50% 50%' }, { scale: 1, duration: 0.5, ease: 'back.out(3)' }, 0.25 + i * 0.5));
+      tl.fromTo('#logo', { rotation: -8, scale: 0.85 }, { rotation: 0, scale: 1, duration: 1.4, ease: E }, 0.1);
+      subir('#s1-nombre', 1.0, 0.9);
+      subir('#s1-tag', 1.8);
+
+      // 2 · El pago cruza de Juan a su mamá
+      empujar(0, 1, T[1]);
+      subir('#s2-t', T[1] + 0.4);
+      pop('#s2-a', T[1] + 0.7);
+      pop('#s2-b', T[1] + 0.9);
+      const ruta = document.getElementById('s2-ruta');
+      const L2 = ruta.getTotalLength();
+      const prog = { p: 0 };
+      tl.fromTo(prog, { p: 0 }, {
+        p: 1, duration: 2, ease: 'power1.inOut',
+        onUpdate: () => { const q = ruta.getPointAtLength(prog.p * L2); gsap.set('#s2-pago', { attr: { cx: q.x, cy: q.y } }); },
+      }, T[1] + 1.2);
+      tl.fromTo('#s2-pago', { attr: { r: 22 } }, { attr: { r: 0 }, duration: 0.3, ease: 'power2.in' }, T[1] + 3.3);
+
+      // 3 · Tres tarjetas que se tachan con un sacudón
+      empujar(1, 2, T[2], 'y');
+      subir('#s3-t', T[2] + 0.35);
+      ['#s3-c1', '#s3-c2', '#s3-c3'].forEach((c, i) => tl.fromTo(c, { y: 160, opacity: 0, rotation: (i - 1) * 6 }, { y: 0, opacity: 1, rotation: 0, duration: 0.7, ease: 'back.out(1.4)' }, T[2] + 0.6 + i * 0.15));
+      ['#s3-x1', '#s3-x2', '#s3-x3'].forEach((x, i) => {
+        tl.fromTo(x, { scaleX: 0 }, { scaleX: 1, duration: 0.35, ease: 'power4.out' }, T[2] + 1.9 + i * 0.35);
+        tl.fromTo(`#s3-c${i + 1}`, { x: 0 }, { keyframes: { x: [0, -12, 12, -6, 6, 0] }, duration: 0.4 }, T[2] + 1.9 + i * 0.35);
+      });
+
+      // 4 · Un permiso se abre en ramas
+      empujar(2, 3, T[3]);
+      subir('#s4-t', T[3] + 0.35);
+      pop('#s4-r', T[3] + 0.8);
+      ['s4-l1', 's4-l2', 's4-l3'].forEach((l, i) => { const n = largo(l); tl.fromTo(`#${l}`, { strokeDasharray: n, strokeDashoffset: n }, { strokeDashoffset: 0, duration: 0.7, ease: 'power2.inOut' }, T[3] + 1.4 + i * 0.2); });
+      ['#s4-n1', '#s4-n2', '#s4-n3'].forEach((n, i) => pop(n, T[3] + 1.9 + i * 0.2));
+
+      // 5 · Con datos
+      empujar(3, 4, T[4]);
+      pop('#s5-chip', T[4] + 0.5);
+      subir('#s5-t', T[4] + 0.75);
+      subir('#s5-t2', T[4] + 1.1);
+      tl.fromTo('#s5-tel', { y: 700, rotation: 12 }, { y: 0, rotation: -4, duration: 1.1, ease: 'expo.out' }, T[4] + 0.4);
+
+      // 6 · Sin señal: el QR se arma y se verifica
+      zoom(4, 5, T[5]);
+      pop('#s6-chip', T[5] + 0.5);
+      subir('#s6-t', T[5] + 0.75);
+      subir('#s6-t2', T[5] + 1.1);
+      tl.fromTo('#s6-s', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: E }, T[5] + 1.6);
+      tl.fromTo('#s6-qr i', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: 'back.out(2)', stagger: { each: 0.008, from: 'center' } }, T[5] + 0.7);
+      pop('#s6-ok', T[5] + 2.4, { ease: 'back.out(3)' });
+
+      // 7 · Por SMS: la conversación con el agente
+      empujar(5, 6, T[6]);
+      tl.fromTo('#s7-tel', { x: -600, rotation: -10 }, { x: 0, rotation: 3, duration: 1, ease: 'expo.out' }, T[6] + 0.4);
+      pop('#s7-chip', T[6] + 0.5);
+      ['#s7-b1', '#s7-b2', '#s7-b3', '#s7-b4'].forEach((b, i) => tl.fromTo(b, { y: 60, opacity: 0, scale: 0.9 }, { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(1.6)' }, T[6] + 0.9 + i * 0.85));
+
+      // 8 · El gateway decide
+      zoom(6, 7, T[7]);
+      subir('#s8-t1', T[7] + 0.5, 0.8);
+      subir('#s8-t2', T[7] + 1.1, 0.8);
+      ['#s8-r1', '#s8-r2', '#s8-r3', '#s8-r4'].forEach((r, i) => pop(r, T[7] + 1.9 + i * 0.12));
+
+      // 9 · Open Payments: el pago recorre el flujo
+      empujar(7, 8, T[8], 'y');
+      subir('#s9-t', T[8] + 0.4);
+      ['#s9-p1', '#s9-p2', '#s9-p3', '#s9-p4'].forEach((p, i) => pop(p, T[8] + 0.7 + i * 0.25));
+      tl.fromTo('#s9-dot', { attr: { cx: 330 } }, { attr: { cx: 1590 }, duration: 2.2, ease: 'power2.inOut' }, T[8] + 1.6);
+
+      // 10 · Cierre (única escena con salida)
+      empujar(8, 9, T[9]);
+      subir('#s10-t1', T[9] + 0.4, 0.8);
+      subir('#s10-t2', T[9] + 1.2, 0.8);
+      pop('#s10-logo', T[9] + 2.2);
+      tl.fromTo('#s10-url', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: E }, T[9] + 2.7);
+      tl.fromTo('#s10-c', { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power2.in' }, FIN - 0.7);
+
+      window.__timelines['main'] = tl;
+    </script>
+    <script>
+      // Fuera de HyperFrames: se reproduce sola, en bucle, ajustada a la ventana
+      const ajustar = () => { const k = Math.min(innerWidth / 1920, innerHeight / 1080); document.body.style.transform = `scale(${k})`; document.body.style.transformOrigin = '0 0'; };
+      addEventListener('resize', ajustar); ajustar();
+      document.fonts.ready.then(() => { tl.repeat(-1); tl.play(0); });
+    </script>
+  </body>
+</html>

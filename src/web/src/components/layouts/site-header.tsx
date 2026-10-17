@@ -49,7 +49,7 @@ const NavItems = ({
   </ul>
 );
 
-// Wordmark: la nube con las flechas en X + "Paygent".
+// Wordmark: la P con ramas + "Paygent".
 export const Wordmark = () => (
   <span className="inline-flex items-center gap-2">
     <LogoPaygent className="size-8" />
