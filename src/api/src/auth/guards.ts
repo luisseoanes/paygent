@@ -12,7 +12,11 @@ import { verifyToken } from './session.ts'
 // Quién llama: una persona con sesión (Authorization: Bearer <token>) o el servicio de agentes (x-api-key + x-agent-id).
 // Matriz de permisos por ruta en docs/api/endpoints.md.
 
-const sameSecret = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
+/** Se comparan bytes, no caracteres: con «ñ» las longitudes difieren y timingSafeEqual lanzaría. */
+const sameSecret = (a: string, b: string) => {
+  const [x, y] = [Buffer.from(a), Buffer.from(b)]
+  return x.length === y.length && timingSafeEqual(x, y)
+}
 
 const isAgentCall = (req: FastifyRequest) => req.headers['x-api-key'] !== undefined
 

@@ -47,5 +47,3 @@ La api guarda todo en **Postgres**. El esquema está en `src/api/src/store/migra
   gateway sobreviven.
 - **`SEED_VERSION`:** súbela cuando cambie la semilla. Al desplegar, una base con otra versión se vuelve a sembrar
   y conserva el grant de Juan.
-- **Migración desde el volumen:** en el primer arranque sobre una base vacía, se importa el grant de Juan del antiguo
-  `.data/db.json` (`store/legacy.ts`).

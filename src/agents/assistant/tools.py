@@ -62,7 +62,6 @@ async def buscar_en_internet(s: Session, consulta: str) -> dict:
     """Busca el producto de verdad en las cadenas de Colombia (precio, disponibilidad y enlace) y lo ordena por
     la sucursal física más cercana a la persona. Solo informa: NO compra ni paga."""
     r = await web.search_web(consulta, limit=3, location=s.profile.get("location"))
-    s.web_offers = r["offers"]
     return {
         "producto": f"{r['label']} {r['strength'] or ''}".strip(),
         "ofertas": [{"tienda": o["store"], "precio": fmt_cop(o["priceCOP"]), "producto": o["product"],

@@ -4,7 +4,7 @@ import {
   type Voucher,
   type VoucherSettleResult,
 } from '@openroute/shared'
-import { claimVoucher, getCert, getVoucher, putVoucher, vouchersOfDevices } from '../store/offline.ts'
+import { amountsOnCert, claimVoucher, getCert, getVoucher, putVoucher, vouchersOfDevices } from '../store/offline.ts'
 import { emit } from '../feed/bus.ts'
 import { authorize } from '../gateway/authorize.ts'
 import { gatewayKey } from '../gateway/keys.ts'
@@ -14,6 +14,9 @@ import { callAgents } from '../lib/agents.ts'
 import { reviewOfflineCaps } from './guardian.ts'
 
 const key = (v: Voucher) => `${v.deviceCert.certId}:${v.counter}`
+
+/** Desfase de reloj tolerado entre el celular y el gateway. */
+const SKEW_MS = 5 * 60_000
 
 type GuardianDecision = { voucherId: string; action: 'approve' | 'flag' | 'freeze'; rule: string; explanation: string }
 
@@ -35,12 +38,22 @@ const freezeDevice = async (mandateId: string, why: string) => {
 const hardChecks = async (v: Voucher): Promise<string | null> => {
   const offline = verifyVoucherOffline(v, gatewayKey.publicKey, new Date(v.createdAt))
   if (!offline.ok) return offline.reason
+  // La fecha la firma el celular: fuera de [emisión, ahora] serviría para reusar un certificado vencido.
+  const created = new Date(v.createdAt).getTime()
+  if (!(created >= new Date(v.deviceCert.issuedAt).getTime() - SKEW_MS && created <= Date.now() + SKEW_MS))
+    return 'Fecha del vale fuera de la vigencia del certificado'
   const cert = await getCert(v.deviceCert.certId)
   if (!cert || cert.signature !== v.deviceCert.signature) return 'Certificado desconocido'
   if (await getVoucher(key(v))) return 'replay'
   const prev = await getVoucher(`${cert.certId}:${v.counter - 1}`)
   if (prev && A.cmp(A.add(prev.voucher.cumulative, v.amount), v.cumulative) !== 0) return 'Acumulado inconsistente'
   return null
+}
+
+/** Ya reclamado: lo de este certificado (con este vale) no pasa de su tope, aunque falten contadores intermedios. */
+const overCertCap = async (v: Voucher): Promise<string | null> => {
+  const total = (await amountsOnCert(v.deviceKeyId, v.deviceCert.certId)).reduce((a, b) => a + b, 0n)
+  return total > BigInt(v.deviceCert.offlineCap.value) ? `Supera el tope sin señal del certificado (${A.format(v.deviceCert.offlineCap)})` : null
 }
 
 /** OFF-03: firma + certificado + contador único + acumulado → Guardián → liquidación real de cada vale. */
@@ -50,7 +63,7 @@ export const settleVouchers = async (vouchers: Voucher[]): Promise<VoucherSettle
 
   for (const v of [...vouchers].sort((a, b) => a.counter - b.counter)) {
     // Pasar los chequeos no basta: se reclama de forma atómica, o una solicitud simultánea lo pagaría otra vez.
-    const problem = (await hardChecks(v)) ?? ((await claimVoucher(key(v), v)) ? null : 'replay')
+    const problem = (await hardChecks(v)) ?? ((await claimVoucher(key(v), v)) ? await overCertCap(v) : 'replay')
     if (!problem) {
       candidates.push(v)
       continue

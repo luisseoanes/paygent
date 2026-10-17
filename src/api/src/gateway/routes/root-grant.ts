@@ -61,8 +61,6 @@ export default async function rootGrantRoutes(app: FastifyInstance) {
       return reply.redirect(`${env.WEB_URL}/juan?ok=0&error=${encodeURIComponent(String(err))}`)
     }
   }
-  // /callback: grants pedidos antes de que todas las raíces usaran /callback/:rootId.
-  app.get<{ Querystring: CallbackQuery }>('/callback', (req, reply) => callback(DEMO_ROOT_ID, req, reply))
   app.get<{ Params: { rootId: string }; Querystring: CallbackQuery }>('/callback/:rootId', (req, reply) =>
     callback(req.params.rootId, req, reply),
   )

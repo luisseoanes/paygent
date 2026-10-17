@@ -8,7 +8,6 @@ import { hashSecret, setPin } from '../gateway/pin.ts'
 import { conectarSms, UBICACION_POR_DEFECTO } from '../gateway/sms-canal.ts'
 import { getRootAsset, pesos, resolveRootAsset } from './asset.ts'
 import { DEMO_ROOT_ID as ROOT_ID } from './constants.ts'
-import { importLegacyGrant } from '../store/legacy.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { DEMO_WALLETS } from './wallets.ts'
 
@@ -65,7 +64,7 @@ export const seed = async ({ keepGrant = true } = {}) =>
     const now = new Date()
     const inOneYear = new Date(now.getTime() + 365 * 24 * 3600_000).toISOString()
 
-    const password = hashSecret(DEMO_PASSWORD)
+    const password = await hashSecret(DEMO_PASSWORD)
     for (const { password: withPassword, ...u } of DEMO_USERS) await insertUser({ ...u, password: withPassword ? password : undefined }, tx)
     const asset = getRootAsset()
     await insertPayer({ userId: 'juan', walletAddress: DEMO_WALLETS.juan, assetCode: asset.assetCode, assetScale: asset.assetScale }, tx)
@@ -263,7 +262,6 @@ export const ensureDemoSeed = async () => {
   const asset = await resolveRootAsset((await payerOfRoot(ROOT_ID))?.walletAddress)
   const root = await findMandate(ROOT_ID)
   if (!root) {
-    await importLegacyGrant(ROOT_ID)
     await seed()
   } else if (root.maxDebit.assetCode !== asset.assetCode || root.maxDebit.assetScale !== asset.assetScale) {
     // Si Juan cambió de moneda, el árbol y el grant guardados ya no sirven.

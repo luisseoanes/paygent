@@ -69,8 +69,6 @@ export const sql = (): Sql => {
   return current
 }
 
-export const isStoreReady = () => current !== null
-
 /** Conecta y aplica las migraciones pendientes. Idempotente. */
 export const initStore = async () => {
   if (current) return current

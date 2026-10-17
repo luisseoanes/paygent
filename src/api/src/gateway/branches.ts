@@ -66,7 +66,8 @@ export const registerBeneficiary = async (rootId: string, body: NewBeneficiary) 
   if (root.parentId) throw badRequest('Los beneficiarios salen siempre de la raíz del titular')
   const alias = body.alias?.trim()
   const { maxDebit, offlineCap, pin } = body
-  const positive = (a?: Amount) => !!a && /^\d+$/.test(a.value) && BigInt(a.value) > 0n && a.assetCode === root.maxDebit.assetCode
+  const positive = (a?: Amount) =>
+    !!a && /^\d+$/.test(a.value) && BigInt(a.value) > 0n && a.assetCode === root.maxDebit.assetCode && a.assetScale === root.maxDebit.assetScale
   if (!alias) throw badRequest('Falta el nombre con el que lo verás en tu panel')
   if (!positive(maxDebit)) throw badRequest(`Falta el tope por periodo (en ${root.maxDebit.assetCode})`)
   if (!positive(offlineCap)) throw badRequest(`Falta el tope sin señal (en ${root.maxDebit.assetCode})`)

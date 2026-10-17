@@ -133,6 +133,8 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
   if (!root) throw new SettleError('El titular todavía no aprobó el mandato raíz en su billetera')
 
   const client = await getClient()
+  // Cobro creado y aún sin outgoing: si algo falla antes de pagar, se cierra para no dejarlo abierto en el comercio.
+  let open: { url: string; accessToken: string } | undefined
   try {
     const [sender, receiver] = await Promise.all([getWallet(root.walletAddress), getWallet(input.merchantWallet)])
 
@@ -144,6 +146,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
       { url: receiver.resourceServer, accessToken: incomingToken },
       { walletAddress: receiver.id, metadata: input.metadata, ...(price ? { incomingAmount: price } : {}) },
     )
+    open = { url: incoming.id, accessToken: incomingToken }
 
     const quote = await client.quote.create(
       { url: sender.resourceServer, accessToken: await nonInteractiveToken(sender.authServer, 'quote') },
@@ -152,18 +155,13 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
         : { walletAddress: sender.id, receiver: incoming.id, method: 'ilp', debitAmount: input.amount },
     )
 
-    try {
-      await input.confirmDebit?.(quote.debitAmount)
-    } catch (err) {
-      // No se paga: el cobro no debe quedar abierto en el comercio.
-      await client.incomingPayment.complete({ url: incoming.id, accessToken: incomingToken }).catch(() => {})
-      throw err
-    }
+    await input.confirmDebit?.(quote.debitAmount)
 
     const outgoing = await client.outgoingPayment.create(
       { url: sender.resourceServer, accessToken: root.accessToken },
       { walletAddress: sender.id, quoteId: quote.id, metadata: input.metadata },
     )
+    open = undefined // desde aquí lo cierra la espera de abajo
 
     // OP-06: crear el outgoing no significa que el dinero llegó. Esperamos al comercio y cerramos su
     // incoming payment: el Test Wallet solo abona el saldo cuando el incoming se completa (o caduca, a los 30 días).
@@ -197,6 +195,7 @@ export const settle = async (input: SettleInput, retried = false): Promise<Settl
 
     return { outgoingPaymentId: outgoing.id, debitAmount: quote.debitAmount, receiveAmount: quote.receiveAmount, confirmed }
   } catch (err) {
+    if (open) await client.incomingPayment.complete(open).catch(() => {})
     if (err instanceof SettleError) throw err
     if (!retried && isExpiredToken(err)) {
       // OP-07: si el titular revocó el mandato en su billetera, tampoco se puede rotar el token.

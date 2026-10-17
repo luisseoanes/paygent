@@ -63,6 +63,16 @@ export const claimVoucher = async (key: string, v: Voucher, conn?: Sql) =>
     )
   ).length > 0
 
+/** Montos de los vales de un certificado que cuentan contra su tope: cobrados o pagándose. */
+export const amountsOnCert = async (deviceKeyId: string, certId: string, conn?: Sql) =>
+  (
+    await s(conn).query<{ value: string }>(
+      `select voucher->'amount'->>'value' as value from vouchers
+       where device_key_id = $1 and voucher->'deviceCert'->>'certId' = $2 and status in ('processing', 'settled', 'flagged')`,
+      [deviceKeyId, certId],
+    )
+  ).map((r) => BigInt(r.value))
+
 export const listVouchers = async (conn?: Sql) => (await s(conn).query(`select * from vouchers order by received_at desc`)).map(toVoucher)
 export const vouchersOfDevices = async (deviceKeyIds: string[], conn?: Sql) =>
   (await s(conn).query(`select * from vouchers where device_key_id = any($1::text[])`, [deviceKeyIds])).map(toVoucher)

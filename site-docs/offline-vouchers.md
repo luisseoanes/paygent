@@ -34,7 +34,7 @@ When the shop reconnects: `POST /vouchers/settle` with a batch. For each voucher
 
 | Step | On failure |
 |---|---|
-| Hard checks: offline verification, certificate known to the gateway, `certId:counter` not seen, `cumulative` consistent with the previous voucher | Rejected. A **replay** also freezes the device |
+| Hard checks: offline verification, certificate known to the gateway, `certId:counter` not seen, `cumulative` consistent with the previous voucher, `createdAt` between the certificate's issue time and now (5 min skew), and the sum of the certificate's vouchers within its `offlineCap` even when counters are skipped | Rejected. A **replay** also freezes the device |
 | Guardian review (`/guardian/evaluate`) | `flag` → settled but marked; `freeze` → rejected and device frozen |
 | Gateway authorization (no PIN: the offline cap already bounded the risk) | Rejected |
 | `executePayment` → Open Payments | Rejected with the error |

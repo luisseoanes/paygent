@@ -5,7 +5,6 @@ import nacl from 'tweetnacl';
 // dispositivo → firma del vale. El tendero la verifica sin red.
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 // Uint8Array del realm actual (tweetnacl usa instanceof; jsdom y Node difieren).
 const utf8 = (value: string) => Uint8Array.from(encoder.encode(value));
 
@@ -56,7 +55,6 @@ export const deviceKeys = nacl.sign.keyPair.fromSeed(
   seedFrom('paygent-maria-device'),
 );
 
-export const gatewayPublicKeyHex = toHex(gatewayKeys.publicKey);
 export const devicePublicKeyHex = toHex(deviceKeys.publicKey);
 
 // El gateway firma la llave pública del dispositivo + su sub-mandato.
@@ -87,16 +85,6 @@ export const signVoucher = (payload: VoucherPayload) => {
   };
 };
 
-export const decodeVoucherPayload = (
-  payload: string,
-): VoucherPayload | null => {
-  try {
-    return JSON.parse(decoder.decode(fromBase64Url(payload))) as VoucherPayload;
-  } catch {
-    return null;
-  }
-};
-
 // Verificación offline completa: certificado del dispositivo + firma del vale.
 export const verifyVoucherSignature = ({
   payload,
@@ -125,28 +113,3 @@ export const verifyVoucherSignature = ({
     return false;
   }
 };
-
-// QR compacto: payload.firma
-export const encodeVoucherQr = (payload: string, signature: string) =>
-  `OR1.${payload}.${signature}`;
-
-export const decodeVoucherQr = (value: string) => {
-  const [prefix, payload, signature] = value.trim().split('.');
-  if (prefix !== 'OR1' || !payload || !signature) return null;
-  return { payload, signature };
-};
-
-// Llave demo de Juan: firma el mandato del hero en el navegador del visitante.
-export const juanKeys = nacl.sign.keyPair.fromSeed(
-  seedFrom('paygent-juan-demo'),
-);
-
-export const signMessageHex = (message: string) =>
-  toHex(nacl.sign.detached(utf8(message), juanKeys.secretKey));
-
-export const verifyMessageHex = (message: string, signatureHex: string) =>
-  nacl.sign.detached.verify(
-    utf8(message),
-    fromHex(signatureHex),
-    juanKeys.publicKey,
-  );

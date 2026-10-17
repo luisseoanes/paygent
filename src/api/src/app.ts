@@ -7,6 +7,7 @@ import demoRoutes from './demo/routes.ts'
 import { ensureDemoSeed } from './demo/seed.ts'
 import feedRoutes from './feed/routes.ts'
 import { HttpError } from './gateway/errors.ts'
+import { reqSerializer } from './http/log.ts'
 import { loadGatewayKey } from './gateway/keys.ts'
 import gatewayRoutes from './gateway/routes/index.ts'
 import merchantRoutes from './merchants/routes.ts'
@@ -24,14 +25,16 @@ export const prepareStore = async () => {
 export const buildApp = async ({ logger = true } = {}) => {
   await prepareStore()
 
-  const app = Fastify({ logger: logger && { transport: undefined, level: 'info' } })
+  const app = Fastify({ logger: logger && { level: 'info', serializers: { req: reqSerializer } } })
   await app.register(cors, { origin: true })
   await app.register(formbody)
 
-  app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
+  app.setErrorHandler((err: Error & { statusCode?: number }, req, reply) => {
     const status = err instanceof HttpError ? err.statusCode : (err.statusCode ?? 500)
-    if (status >= 500) app.log.error(err)
-    reply.status(status).send({ error: err.message })
+    if (status >= 500) req.log.error(err)
+    // Un error inesperado no se le muestra al cliente (puede traer SQL o detalles internos): queda en el log con su id.
+    const expected = err instanceof HttpError || status < 500
+    reply.status(status).send({ error: expected ? err.message : `Error interno (${req.id})` })
   })
 
   app.get('/health', async () => ({ ok: true }))

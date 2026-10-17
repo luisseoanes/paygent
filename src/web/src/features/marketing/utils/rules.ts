@@ -38,11 +38,6 @@ export const effectiveRemaining = (tree: Tree, nodeId: string) =>
     Number.POSITIVE_INFINITY,
   );
 
-export const parentRemaining = (tree: Tree, nodeId: string) => {
-  const parentId = tree[nodeId]?.parentId;
-  return parentId ? effectiveRemaining(tree, parentId) : undefined;
-};
-
 export type SpendCheck = { ok: true } | { ok: false; reason: string };
 
 export const canSpend = (
@@ -95,34 +90,4 @@ export const lowerLimit = (tree: Tree, nodeId: string, newLimit: number) => {
   if (!node) return tree;
   const clamped = Math.max(node.spent, Math.min(node.limit, round(newLimit)));
   return { ...tree, [nodeId]: { ...node, limit: clamped } };
-};
-
-export const setStatus = (
-  tree: Tree,
-  nodeIds: string[],
-  status: MandateNode['status'],
-): Tree => {
-  const next = { ...tree };
-  nodeIds.forEach((id) => {
-    const node = next[id];
-    if (node) next[id] = { ...node, status };
-  });
-  return next;
-};
-
-export const kindLabel: Record<MandateNode['kind'], string> = {
-  root: 'Raíz',
-  person: 'Persona',
-  'device-key': 'Llave de dispositivo',
-  'sms-pin': 'PIN por SMS',
-  agent: 'Agente',
-  guardian: 'Guardián',
-};
-
-export const intervalLabel: Record<MandateNode['interval'], string> = {
-  mes: '/ mes',
-  semana: '/ semana',
-  compra: 'por compra',
-  offline: 'sin señal',
-  ninguno: '',
 };

@@ -1,6 +1,6 @@
 import { amount as A, randomId, type Amount, type Mandate, type SpendMode } from '@openroute/shared'
 import { holderContact } from '../store/accounts.ts'
-import { mandateExists } from '../store/mandates.ts'
+import { lockMandates, mandateExists } from '../store/mandates.ts'
 import { channelOwner, channelsOf, deleteProfile, insertProfile, relinkProfile } from '../store/profiles.ts'
 import { fxRate } from '../fx/trm.ts'
 import { sql, type Sql } from '../store/sql.ts'
@@ -91,9 +91,11 @@ export const enableModes = async (personaId: string, opts: { offlineCap?: Amount
   // Alta anterior a los modos: el celular se quedó con todo el tope y no tiene `mode`.
   const legacy = have.get('celular')
   if (legacy && !legacy.mode) {
-    const ceiling = legacy.offlineCapCeiling ?? legacy.offlineCap ?? A.zero(M)
-    const floor = max(max(pct(M, SHARE.celular), ceiling), legacy.spentInPeriod)
-    await putMandate({ ...legacy, mode: 'celular', maxDebit: min(legacy.maxDebit, floor) }, conn)
+    await lockMandates([legacy.id], conn)
+    const celular = await getMandate(legacy.id, conn) // releída con la fila bloqueada
+    const ceiling = celular.offlineCapCeiling ?? celular.offlineCap ?? A.zero(M)
+    const floor = max(max(pct(M, SHARE.celular), ceiling), celular.spentInPeriod)
+    await putMandate({ ...celular, mode: 'celular', maxDebit: min(celular.maxDebit, floor) }, conn)
   }
 
   for (const mode of MODES.filter((m) => !have.has(m))) {

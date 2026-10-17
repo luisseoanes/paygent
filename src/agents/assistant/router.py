@@ -14,8 +14,15 @@ from . import replies, rules, session, tools
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 log = logging.getLogger("assistant")
 
-# 4 a 6 dígitos, como los PIN que acepta la api: cualquiera de ellos se queda fuera del LLM.
-PIN = re.compile(r"^\s*(\d{4,6})\s*$")
+# 4 a 6 dígitos, como los PIN que acepta la api: cualquiera de ellos se queda fuera del LLM ("1234", "PIN 1234"…).
+PIN = re.compile(r"^\s*(?:(?:mi|el)\s+)?(?:pin|clave)?(?:\s+es)?\s*[:=]?\s*(\d{4,6})\s*[.!]*\s*$", re.I)
+PIN_WORD = re.compile(r"\b(pin|clave)\b", re.I)
+DIGITS = re.compile(r"\b\d{4,6}\b")
+
+
+def sin_pin(s: session.Session, text: str) -> str:
+    """Lo que ve el LLM: con una compra esperando PIN, o si se nombra el PIN, sus dígitos van tapados."""
+    return DIGITS.sub("****", text) if s.pending or PIN_WORD.search(text) else text
 CANCEL = re.compile(r"^\s*(no|cancelar|cancele)\W*$", re.I)
 CHOOSE_PICKUP = re.compile(r"^\s*(1|recoger|recojo|lo recojo|yo lo recojo)\W*$", re.I)
 CHOOSE_DELIVERY = re.compile(r"^\s*(2|enviar|env[ií]o|domicilio|a la casa|tr[aá]igan\w*)\W*$", re.I)
@@ -67,7 +74,7 @@ async def respond(phone: str, text: str) -> str:
     if not MOCK_LLM:
         try:
             from . import llm  # import diferido: sin API key no se crea el cliente
-            return await llm.handle(s, text)
+            return await llm.handle(s, sin_pin(s, text))
         except Exception as err:  # timeout, red, rechazo… → reglas
             log.warning("LLM falló (%s); usando reglas", err)
             if s.pending:

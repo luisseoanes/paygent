@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { amount as A, monthly, randomId, type Category, type Mandate } from '@openroute/shared'
 import {
   branchesOfUser,
@@ -19,10 +19,11 @@ import { findMandate, linkHolderUser, putMandate } from '../gateway/mandates.ts'
 import { linkModeProfiles } from '../gateway/modes.ts'
 import { checkSecret, hashSecret } from '../gateway/pin.ts'
 import { getWallet } from '../op/client.ts'
-import { holderUserOf, linkPersonIfFree } from '../store/mandates.ts'
+import { holderUserOf, linkPersonIfFree, lockMandates } from '../store/mandates.ts'
 import { shopOfUser } from '../store/merchants.ts'
 import { freeMerchantId, isWallet, llaveBreB, registerMerchant } from '../merchants/registry.ts'
 import { sql } from '../store/sql.ts'
+import { loginBloqueado, loginCorrecto, loginFallido } from './limiter.ts'
 import { issueToken } from './session.ts'
 
 /** Lo que es una cuenta: quien delega (titular), quien recibe una delegación (beneficiario) o quien cobra (tendero). */
@@ -73,9 +74,16 @@ const assertNew = async (email: string, documento: string, telefono: string) => 
   throw new HttpError(409, 'Ya hay una cuenta con ese celular.')
 }
 
-const validPassword = (password: string) => {
+const validPassword = async (password: string) => {
   if (password.length < 8) throw badRequest('La contraseña debe tener al menos 8 caracteres')
   return hashSecret(password)
+}
+
+/** Quién intenta entrar: la IP del cliente (primer salto de x-forwarded-for tras el proxy de la web) y el correo. */
+const loginKey = (req: FastifyRequest, email: string) => {
+  const xff = req.headers['x-forwarded-for']
+  const ip = (Array.isArray(xff) ? xff[0] : xff)?.split(',')[0]?.trim() || req.ip
+  return `${ip}|${email.toLowerCase()}`
 }
 
 export default async function authRoutes(app: FastifyInstance) {
@@ -84,9 +92,15 @@ export default async function authRoutes(app: FastifyInstance) {
     const email = req.body?.email?.trim()
     const password = req.body?.password ?? ''
     if (!email || !password) throw badRequest('Faltan el correo o la contraseña')
+    const key = loginKey(req, email)
+    if (loginBloqueado(key)) throw new HttpError(429, 'Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.')
     const found = await getUserWithPassword(email)
-    const ok = found?.salt && found.hash && checkSecret(password, { salt: found.salt, hash: found.hash })
-    if (!found || !ok) throw new HttpError(401, 'Correo o contraseña incorrectos')
+    const ok = !!found?.salt && !!found.hash && (await checkSecret(password, { salt: found.salt, hash: found.hash }))
+    if (!found || !ok) {
+      loginFallido(key)
+      throw new HttpError(401, 'Correo o contraseña incorrectos')
+    }
+    loginCorrecto(key)
     return sessionOf(found.user)
   })
 
@@ -98,7 +112,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const b = required(req.body, ['documento', 'nombre', 'apellido', 'email', 'telefono', 'password', 'walletAddress'])
     const walletAddress = b.walletAddress.startsWith('$') ? `https://${b.walletAddress.slice(1)}` : b.walletAddress
     if (!/^https:\/\/[^\s/]+\.[^\s/]+\/\S+$/.test(walletAddress)) throw badRequest('La wallet address no es válida')
-    const password = validPassword(b.password)
+    const password = await validPassword(b.password)
     await assertNew(b.email, b.documento, b.telefono)
     if (await walletTaken(walletAddress)) throw new HttpError(409, 'Esa wallet ya es de otro titular')
 
@@ -150,7 +164,7 @@ export default async function authRoutes(app: FastifyInstance) {
    */
   app.post<{ Body: Record<string, string> }>('/auth/register/tendero', async (req, reply) => {
     const b = required(req.body, ['documento', 'nombre', 'email', 'telefono', 'password', 'tienda', 'categoria'])
-    const password = validPassword(b.password)
+    const password = await validPassword(b.password)
     const raw = req.body ?? {}
     const wallet = raw.wallet?.trim() ? (raw.wallet.trim().startsWith('$') ? `https://${raw.wallet.trim().slice(1)}` : raw.wallet.trim()) : undefined
     if (wallet && !isWallet(wallet)) throw badRequest('La wallet address no es válida')
@@ -186,7 +200,7 @@ export default async function authRoutes(app: FastifyInstance) {
    */
   app.post<{ Body: Record<string, string> }>('/auth/register/beneficiario', async (req, reply) => {
     const b = required(req.body, ['documento', 'nombre', 'email', 'telefono', 'password', 'mandateId'])
-    const password = validPassword(b.password)
+    const password = await validPassword(b.password)
     const branch = await findMandate(b.mandateId)
     if (!branch || !branch.parentId) throw badRequest('Ese código no corresponde a ninguna rama. Pídeselo de nuevo a quien te delegó.')
     if (branch.revoked) throw badRequest('Esa rama está revocada')
@@ -195,6 +209,9 @@ export default async function authRoutes(app: FastifyInstance) {
 
     const userId = randomId('u')
     await sql().tx(async (tx) => {
+      // Otra alta simultánea con el mismo código pudo reclamarla: se vuelve a mirar con la rama bloqueada.
+      await lockMandates([branch.id], tx)
+      if (await holderUserOf(branch.id, tx)) throw new HttpError(409, 'Esa rama ya está enlazada a otra cuenta')
       await insertUser(
         { id: userId, name: b.nombre, documentType: 'CC', documentNumber: b.documento, email: b.email.toLowerCase(), phone: b.telefono, password },
         tx,

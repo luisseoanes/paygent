@@ -1,4 +1,5 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
+import { promisify } from 'node:util'
 import { clearPinFailures, pinsOf, recordPinFailure, upsertPin } from '../store/secrets.ts'
 import type { Sql } from '../store/sql.ts'
 import { chainOf } from './mandates.ts'
@@ -8,17 +9,19 @@ export interface Secret {
   hash: string
 }
 
-/** scrypt con salt: lo usan los PIN y las contraseñas. Nunca se guarda el valor en claro. */
-export const hashSecret = (value: string): Secret => {
+const scryptAsync = promisify(scrypt) as (value: string, salt: string, len: number) => Promise<Buffer>
+
+/** scrypt con salt: lo usan los PIN y las contraseñas. Nunca se guarda el valor en claro. Asíncrono: no bloquea la api. */
+export const hashSecret = async (value: string): Promise<Secret> => {
   const salt = randomBytes(16).toString('hex')
-  return { salt, hash: scryptSync(value, salt, 32).toString('hex') }
+  return { salt, hash: (await scryptAsync(value, salt, 32)).toString('hex') }
 }
 
-export const checkSecret = (value: string, { salt, hash }: Secret) =>
-  timingSafeEqual(Buffer.from(hash, 'hex'), scryptSync(value, salt, 32))
+export const checkSecret = async (value: string, { salt, hash }: Secret) =>
+  timingSafeEqual(Buffer.from(hash, 'hex'), await scryptAsync(value, salt, 32))
 
 export const setPin = async (mandateId: string, pin: string, conn?: Sql) => {
-  await upsertPin(mandateId, hashSecret(pin), conn)
+  await upsertPin(mandateId, await hashSecret(pin), conn)
 }
 
 /** Solo compara con el PIN más cercano de la cadena, sin contar fallos (para comprobar qué PIN quedó guardado). */
@@ -46,7 +49,7 @@ export const verifyPin = async (mandateId: string, pin: string, now = new Date()
   const owner = ids.map((id) => rows.find((r) => r.mandate_id === id)).find(Boolean)
   if (!owner) return 'bad'
   if (owner.locked_until && new Date(owner.locked_until) > now) return 'locked'
-  if (checkSecret(pin, owner)) {
+  if (await checkSecret(pin, owner)) {
     if (owner.failed_attempts || owner.locked_until) await clearPinFailures(owner.mandate_id)
     return 'ok'
   }

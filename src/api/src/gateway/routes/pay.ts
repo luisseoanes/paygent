@@ -1,6 +1,7 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { PayRequest } from '@openroute/shared'
 import { assertHolder, requireAgent, requireAgentOrMember } from '../../auth/guards.ts'
+import type { Agent } from '../../store/agents.ts'
 import { getPayment } from '../../store/payments.ts'
 import { payBody } from '../../http/schemas.ts'
 import { notFound } from '../errors.ts'
@@ -12,9 +13,10 @@ export default async function payRoutes(app: FastifyInstance) {
   app.get('/gateway/public-key', async () => ({ publicKey: gatewayKey.publicKey }))
 
   // Primero quién llama (antes de validar el cuerpo): sin credencial no se aprende nada del contrato.
-  app.post<{ Body: PayRequest }>('/pay', { schema: { body: payBody }, onRequest: async (req) => void (await requireAgent(req)) }, async (req) => {
-    const agent = await requireAgent(req)
-    await assertHolder(agent, req.body.mandateId)
+  const callers = new WeakMap<FastifyRequest, Agent>()
+  const authenticate = async (req: FastifyRequest) => void callers.set(req, await requireAgent(req))
+  app.post<{ Body: PayRequest }>('/pay', { schema: { body: payBody }, onRequest: authenticate }, async (req) => {
+    await assertHolder(callers.get(req)!, req.body.mandateId)
     return pay(req.body)
   })
 

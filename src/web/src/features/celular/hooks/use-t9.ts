@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 // T9 multi-tap como en un Nokia: pulsar la misma tecla rápido recorre sus
 // letras; otra tecla (o 900ms de pausa) confirma. # alterna abc / 123.
 
@@ -72,37 +70,4 @@ export const t9Reducer = (state: State, action: Action): State => {
     default:
       return state;
   }
-};
-
-export const useT9 = (initialMode: T9Mode = 'abc') => {
-  const [state, dispatch] = React.useReducer(t9Reducer, {
-    text: '',
-    pendingKey: null,
-    pendingIndex: 0,
-    mode: initialMode,
-  });
-
-  React.useEffect(() => {
-    if (!state.pendingKey) return;
-    const id = setTimeout(() => dispatch({ type: 'commit' }), 900);
-    return () => clearTimeout(id);
-  }, [state.pendingKey, state.pendingIndex]);
-
-  const actions = React.useMemo(
-    () => ({
-      press: (key: string) => dispatch({ type: 'press', key }),
-      type: (char: string) => dispatch({ type: 'type', char }),
-      backspace: () => dispatch({ type: 'backspace' }),
-      clear: () => dispatch({ type: 'clear' }),
-      setMode: (mode?: T9Mode) => dispatch({ type: 'mode', mode }),
-    }),
-    [],
-  );
-
-  return {
-    text: state.text,
-    mode: state.mode,
-    composing: state.pendingKey !== null,
-    ...actions,
-  };
 };

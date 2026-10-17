@@ -115,6 +115,11 @@ export const getPending = async (id: string, conn?: Sql) => {
 export const setPendingAttempts = async (id: string, attempts: number, conn?: Sql) => {
   await s(conn).query(`update pending_purchases set attempts = $2 where id = $1`, [id, attempts])
 }
+/** Reclama la compra pendiente borrándola: solo una confirmación simultánea la obtiene. */
+export const takePending = async (id: string, conn?: Sql) => {
+  const [r] = await s(conn).query(`delete from pending_purchases where id = $1 returning *`, [id])
+  return r ? toPending(r) : undefined
+}
 export const deletePending = async (id: string, conn?: Sql) => {
   await s(conn).query(`delete from pending_purchases where id = $1`, [id])
 }

@@ -21,7 +21,7 @@ Start from `.env.example`: its defaults run everything in mock mode.
 | `API_URL` | `http://localhost:3001` | Where the agents and the web proxy reach the api |
 | `AGENTS_URL` | `http://localhost:8000` | Change if port 8000 is busy |
 | `WEB_URL` | `http://localhost:5173` | Redirect target after the grant |
-| `PUBLIC_API_URL` | `http://localhost:3001` | Public URL of the api (tunnel or production), used for `/callback` |
+| `PUBLIC_API_URL` | `http://localhost:3001` | Public URL of the api (tunnel or production), used for `/callback/:rootId` |
 
 ## Open Payments
 

@@ -32,6 +32,9 @@ export const authorizeChain = (
   const leaf = chain[0]
 
   if (!leaf.canSpend) return { result: 'deny', reason: 'cannot_spend', detail: `${leaf.holderName} no puede gastar` }
+  const asset = leaf.maxDebit
+  if (amount.assetCode !== asset.assetCode || amount.assetScale !== asset.assetScale)
+    return { result: 'deny', reason: 'currency', detail: `El monto va en ${asset.assetCode} con escala ${asset.assetScale}` }
   if (BigInt(amount.value) <= 0n) return { result: 'deny', reason: 'over_limit', detail: 'Monto inválido' }
 
   for (const m of chain) {

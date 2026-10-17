@@ -54,12 +54,11 @@ export const createFx = ({
     return current
   }
 
-  return { refresh, current: () => current, rate: () => current.copPerUsd }
+  return { refresh, rate: () => current.copPerUsd }
 }
 
 const fx = createFx({ fallback: env.FX_COP_PER_USD, enabled: !env.MOCK_FX })
 
 /** Tasa COP por USD vigente (síncrona: la última que se trajo). */
 export const fxRate = fx.rate
-export const currentFx = fx.current
 export const refreshFx = fx.refresh

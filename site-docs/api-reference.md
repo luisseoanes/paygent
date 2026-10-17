@@ -27,7 +27,7 @@ The Spanish source of truth is `docs/api/endpoints.md` in the repo.
 | Route | Purpose |
 |---|---|
 | `POST /mandates/root` | Start the root grant → `{ redirectUrl }` to the wallet |
-| `GET /callback` · `GET /callback/:rootId` | Grant continuation (wallet redirect) |
+| `GET /callback/:rootId` | Grant continuation (wallet redirect) |
 | `GET /demo/status?root=` | Grant state, mock flags, currency, FX |
 | `GET /fx` | COP/USD reference rate (TRM of the day, fallback `FX_COP_PER_USD`) |
 | `POST /mandates/:root/beneficiaries` | Create a person and their three modes → `{ code, mandateId, modes }` |

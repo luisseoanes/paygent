@@ -2,8 +2,8 @@ import { amount as A, type Amount } from '@openroute/shared'
 import { emit } from '../feed/bus.ts'
 import { sql, type Sql } from '../store/sql.ts'
 import { deleteOrphanUsers } from '../store/accounts.ts'
-import { deleteBranches } from '../store/mandates.ts'
-import { childrenOf, fitChildren, getMandate, putMandate } from './mandates.ts'
+import { deleteBranches, lockMandates } from '../store/mandates.ts'
+import { childrenOf, descendantsOf, fitChildren, getMandate, putMandate } from './mandates.ts'
 
 /**
  * Raíz revocada que se vuelve a firmar: arranca sin beneficiarios. Borra las ramas revocadas (en cascada: pagos, PIN,
@@ -21,11 +21,13 @@ export const purgeRevokedBranches = async (rootId: string, tx: Sql) => {
  * ramas bajan en proporción en la misma transacción; si la raíz venía revocada, arranca sin beneficiarios.
  */
 export const applySignedRoot = async (rootId: string, signed: { maxDebit: Amount; interval: string }) => {
-  const root = await getMandate(rootId)
-  const { purged, adjusted } = await sql().tx(async (tx) => {
+  const { root, purged, adjusted } = await sql().tx(async (tx) => {
+    // El árbol entero bloqueado: ningún gasto se cuela entre la lectura y el reajuste de topes.
+    await lockMandates([rootId, ...(await descendantsOf(rootId, tx)).map((m) => m.id)], tx)
+    const root = await getMandate(rootId, tx)
     const purged = root.revoked ? await purgeRevokedBranches(rootId, tx) : 0
     await putMandate({ ...root, maxDebit: signed.maxDebit, interval: signed.interval, revoked: false, frozen: false }, tx)
-    return { purged, adjusted: await fitChildren(rootId, tx) }
+    return { root, purged, adjusted: await fitChildren(rootId, tx) }
   })
   const actor = { type: 'person' as const, name: root.holderName }
   await emit({

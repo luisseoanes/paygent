@@ -124,6 +124,43 @@ def test_pin_de_seis_digitos_no_llega_al_llm(fake, monkeypatch):
     assert leaked == [] and fake.calls[-1]["pin"] == "123456"
 
 
+def _llm_espia(monkeypatch, fake):
+    monkeypatch.setattr(router, "MOCK_LLM", False)
+    leaked = []
+
+    async def handle(_s, text):
+        leaked.append(text)
+        return "llm"
+
+    import assistant.llm as llm
+    monkeypatch.setattr(llm, "handle", handle)
+    session.get(PHONE, fake.profile_data).pending = {
+        "pendingId": "pend1", "option": {"wallet": "w", "category": "farmacia", "product": "Insulina", "merchant": "F"},
+        "entrega": tools.PICKUP, "codigo": "1", "total": 1000}
+    return leaked
+
+
+@pytest.mark.parametrize("texto", ["PIN 1234", "mi pin es 1234", "1234.", "Clave: 1234", "el pin es 1234!"])
+def test_pin_con_palabras_no_llega_al_llm(fake, monkeypatch, texto):
+    # Regresión: solo se interceptaba un mensaje de puros dígitos; "PIN 1234" iba al modelo.
+    leaked = _llm_espia(monkeypatch, fake)
+    say(texto)
+    assert leaked == [] and fake.calls[-1]["pin"] == "1234"
+
+
+def test_digitos_de_un_pin_dentro_de_otra_frase_llegan_tapados(fake, monkeypatch):
+    leaked = _llm_espia(monkeypatch, fake)
+    say("1234 gracias mija")
+    assert leaked and "1234" not in leaked[0]
+
+
+def test_sin_compra_pendiente_los_numeros_llegan_tal_cual(fake, monkeypatch):
+    leaked = _llm_espia(monkeypatch, fake)
+    session.get(PHONE, fake.profile_data).pending = None
+    say("busca acetaminofen de 1000 mg")
+    assert leaked == ["busca acetaminofen de 1000 mg"]
+
+
 def test_paga_en_la_moneda_del_arbol_de_quien_escribe(fake):
     # Cada titular tiene su moneda: la del perfil manda sobre la de la demo.
     fake.profile_data = {**PROFILE, "asset": {"assetCode": "USD", "assetScale": 2}}

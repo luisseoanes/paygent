@@ -76,6 +76,7 @@ export type DenyReason =
   | 'not_found'
   | 'payment_failed'
   | 'no_address'
+  | 'currency'
 
 export type AuthDecision =
   | { result: 'allow' }

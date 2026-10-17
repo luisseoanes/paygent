@@ -46,7 +46,7 @@ Convenciones:
 | Método y ruta | Entrada | Salida |
 |---|---|---|
 | `POST /mandates/root` | `{ rootMandateId?, maxDebit?, interval?, walletAddress? }` | `{ redirectUrl }`: consentimiento en la billetera del titular |
-| `GET /callback/:rootId` (y `/callback`, la demo) | `interact_ref`, `hash` (los pone la billetera) | Redirect a la web (`?ok=1` / `?ok=0`). Si el grant aprobado es menor que lo repartido, las ramas bajan en proporción, en cascada. Si la raíz estaba **revocada**, arranca sin beneficiarios: se borran sus ramas (con sus pagos) y las cuentas de beneficiario que se quedan sin rama, para poder registrarlas otra vez |
+| `GET /callback/:rootId` | `interact_ref`, `hash` (los pone la billetera) | Redirect a la web (`?ok=1` / `?ok=0`). Si el grant aprobado es menor que lo repartido, las ramas bajan en proporción, en cascada. Si la raíz estaba **revocada**, arranca sin beneficiarios: se borran sus ramas (con sus pagos) y las cuentas de beneficiario que se quedan sin rama, para poder registrarlas otra vez |
 | `GET /demo/status?root=` | — | `{ rootGrant, mockOp, mockSms, asset, fxCopPerUsd, fx }` |
 | `GET /fx` | — | `{ copPerUsd, fecha, fuente: 'trm' \| 'respaldo' }`: TRM del día (Superfinanciera, datos.gov.co), una consulta por día en Bogotá. Si falla, la última conocida o `FX_COP_PER_USD` (`fecha: null`). La usan gateway, web y agentes |
 | `POST /mandates/:raíz/beneficiaries` | `{ alias, maxDebit, pin, offlineCap }` (todo obligatorio, en la moneda del árbol) | `{ code, mandateId, modes }` (201). Crea la persona (PIN siempre) y sus tres modos (`docs/producto/modos-de-consumo.md`) |
@@ -76,7 +76,7 @@ Convenciones:
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `POST /pay` (agente) | `{ mandateId, merchantWallet, amount, category, reason, price?, pin?, pendingId?, delivery? }` | `AuthDecision & { paymentId? }`. PIN: 3 intentos por compra pendiente y **5 fallos seguidos por mandato** (en cualquier compra) lo bloquean 15 min → `pin_locked`, con aviso en el feed |
+| `POST /pay` (agente) | `{ mandateId, merchantWallet, amount, category, reason, price?, pin?, pendingId?, delivery? }` | `AuthDecision & { paymentId? }`. PIN: 3 intentos por compra pendiente y **5 fallos seguidos por mandato** (en cualquier compra) lo bloquean 15 min → `pin_locked`, con aviso en el feed. Monto en otra moneda o escala que la rama → `currency`. Confirmar la misma compra pendiente dos veces a la vez paga una sola |
 | `GET /payments/:id` | — | `Payment` (`completed` solo si el comercio recibió el dinero) |
 | `POST /vouchers/settle` | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason?, paymentId? }[] }`. Cada vale se reclama en la base antes de pagarlo: el mismo vale presentado dos veces a la vez se paga una sola vez (el segundo → `replay`, sin congelar mientras el primero se paga) |
 | `GET /vouchers` | — | Vales recibidos |

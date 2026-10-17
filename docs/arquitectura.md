@@ -108,6 +108,7 @@ sequenceDiagram
   alt el pago falla
     GW->>DB: releaseSpend: el tope vuelve a estar disponible
   end
+  Note over GW,OP: token raíz vencido: se rota y se reintenta con un cobro y una cotización nuevos;<br/>la primera reserva se devuelve y el primer incoming payment se cierra
   GW-->>Ag: allow + paymentId
 ```
 
@@ -117,7 +118,7 @@ Los cinco invariantes de los agentes se aplican aquí, no en un prompt:
 |---|---|---|
 | Un agente es una hoja y nunca gasta más que su sub-mandato | `authorizeChain` recorre la cadena hasta la raíz; `reserveSpend` | `gateway.test.ts`, `pay-concurrente.test.ts` |
 | Los permisos solo se estrechan (monotonía) | `delegate`, `setLimits`, `restrict`, bloqueo del padre | `gateway.test.ts`, `varios-beneficiarios.test.ts` |
-| Por encima del umbral, PIN (que nunca llega al LLM) | `authorizeChain` + `pending_purchases`; `assistant/router.py` lo intercepta | `gateway.test.ts`, `test_assistant.py` |
+| Por encima del umbral, PIN (que nunca llega al LLM) | `authorizeChain` + `pending_purchases` (se reclama con `delete … returning`: una confirmación, un pago); `assistant/router.py` intercepta el PIN («1234», «PIN 1234»…) y tapa sus dígitos si van en otra frase | `gateway.test.ts`, `pay-pin-doble.test.ts`, `test_assistant.py` |
 | Cada pago de un agente es un Outgoing Payment real | `executePayment` → `op/settle.ts` | `pnpm op:smoke`, `pnpm e2e` |
 | Cada acción queda en la libreta con su porqué | `emit()` en cada caso de uso | `multi-payer.test.ts` |
 
@@ -132,7 +133,14 @@ Los cinco invariantes de los agentes se aplican aquí, no en un prompt:
   ataques comprobados, en `src/api/test/auth.test.ts`.
 - **Integridad:** cada mandato y cada certificado de celular van firmados con la llave ed25519 del gateway; cada vale
   lo firma la llave del celular. El tendero verifica sin conexión y el gateway vuelve a verificar al liquidar
-  (contador único, acumulado y réplica, que congela el celular).
+  (contador único, acumulado, réplica, que congela el celular, fecha dentro de la vigencia del certificado y suma de
+  sus vales ≤ su tope sin señal, aunque falten contadores intermedios).
+- **Escrituras de mandatos:** toda escritura que reescribe la fila (restringir, congelar, revocar, topes, reajuste al
+  firmar la raíz) la bloquea antes de leerla (`FOR UPDATE`), igual que las reservas: un gasto reservado a la vez no se
+  pierde. Ver `mandato-escritura-concurrente.test.ts`.
+- **Login:** scrypt asíncrono (no bloquea la api) y 5 fallos por (IP, correo) frenan ese par 15 minutos (429).
+- **Errores:** un 500 inesperado responde `Error interno (<id de petición>)`; el detalle queda en el log con ese id.
+  Los logs tapan `?token=` en la URL.
 - **Guardián:** sus decisiones son reglas deterministas (`agents/guardian/rules.py`); el LLM solo redacta la
   explicación, y por API solo puede restringir.
 
@@ -161,15 +169,22 @@ Los cinco invariantes de los agentes se aplican aquí, no en un prompt:
   producción, el simulador se apaga.
 - **Las cuentas de demo tienen contraseña pública** (botón en el login, para el jurado). Quien entra como Juan puede
   hacer lo que haría Juan; su wallet es del Test Wallet (dinero de prueba).
-- **El token del SSE va en la URL** (`?token=`), porque `EventSource` no admite cabeceras: puede quedar en los logs
-  del proxy.
+- **El token del SSE va en la URL** (`?token=`), porque `EventSource` no admite cabeceras. La api lo tapa en sus logs,
+  pero el proxy de la web o el de Railway pueden registrarlo.
 - **La validación del cuerpo va antes que la autenticación** en las rutas de personas: un cuerpo mal formado da 400
   antes que 401. `/pay` autentica primero.
 - **Los errores del dominio llevan su código HTTP** (`gateway/errors.ts`). Es pragmático: cada regla trae su mensaje
   para la web sin una capa de traducción.
 - **Un pago que llega tarde y falla** deja el tope consumido (lo seguro) y lo avisa en la libreta.
-- **Vales sin conexión:** el riesgo está acotado por el tope sin señal; si el titular no tiene saldo al liquidar, el
-  pago falla. Una reserva de fondos haría falta en Open Payments (propuesta).
+- **Vales sin conexión:** el riesgo está acotado por el tope sin señal de cada certificado; si el titular no tiene
+  saldo al liquidar, el pago falla. Una reserva de fondos haría falta en Open Payments (propuesta). Cada certificado
+  nuevo arranca en cero: con varios certificados emitidos, un celular podría gastar sin señal hasta un tope por
+  certificado; el límite duro es el tope online de la rama, que se vuelve a autorizar al liquidar.
+- **Reenviar el mismo vale congela el celular**, aunque sea un reintento de red del tendero (respuesta perdida). Es
+  deliberado para la demo (botón «Reenviar vale»). Lo correcto sería devolver el resultado original si la firma es
+  idéntica y congelar solo cuando llega el mismo contador con otra firma.
+- **El tope de intentos de login vive en memoria** y toma la IP del primer salto de `x-forwarded-for`: un atacante
+  que falsifique esa cabecera esquiva el tope (pero no puede bloquear a otro usuario).
 - **Volver a firmar una raíz revocada borra el historial de sus ramas** (pagos en cascada; las líneas del feed quedan
   sin árbol). Es la solución barata; la completa sería archivar las ramas en vez de borrarlas.
 

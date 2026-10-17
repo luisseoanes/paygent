@@ -10,7 +10,7 @@ import {
   type Payment,
 } from '@openroute/shared'
 import { merchantByWallet } from '../store/merchants.ts'
-import { deletePayment, deletePending, getPending, insertPayment, insertPending, setPendingAttempts, updatePayment } from '../store/payments.ts'
+import { deletePayment, deletePending, getPending, insertPayment, insertPending, setPendingAttempts, takePending, updatePayment } from '../store/payments.ts'
 import { getAddress } from '../store/profiles.ts'
 import { emit } from '../feed/bus.ts'
 import { settle, SettleError } from '../op/settle.ts'
@@ -70,16 +70,19 @@ export const executePayment = async (input: {
   const rootId = (await chainOf(input.mandateId)).at(-1)!.id
   let reservation: Reservation | undefined
   const reserve = async (debit: Amount) => {
+    // settle reintentó (token vencido) y volvió a cotizar: vale solo la última reserva.
+    if (reservation) await releaseSpend(reservation)
+    reservation = undefined
     const { decision, reservation: r } = await reserveSpend({ mandateId: input.mandateId, amount: debit, category: input.category, pinOk: input.pinOk })
     if (decision.result !== 'allow') throw new NotAuthorized(decision, debit)
     reservation = r
   }
-  // Sin precio en otra moneda, el débito es el monto pedido: se reserva ya. Con precio, al conocer la cotización.
-  if (!input.price) await reserve(input.amount)
   const actor = { type: mandate.holderType, name: mandate.holderName }
   const merchant = await merchantName(input.merchantWallet)
   // Con wallet: directo al comercio. Sin wallet: a Puntored, que le acredita al tendero.
   const { destination, payout, metadata } = await payoutFor(input.merchantWallet)
+  // Sin precio en otra moneda, el débito es el monto pedido: se reserva ya. Con precio, al conocer la cotización.
+  if (!input.price) await reserve(input.amount)
   const payment: Payment = {
     id: randomId('pay_'),
     mandateId: input.mandateId,
@@ -93,7 +96,12 @@ export const executePayment = async (input: {
     price: input.price,
     payout,
   }
-  await insertPayment(payment)
+  try {
+    await insertPayment(payment)
+  } catch (err) {
+    if (reservation) await releaseSpend(reservation)
+    throw err
+  }
   // Tendero sin wallet: con el dinero ya en la wallet de Puntored, Puntored le acredita. Nunca tumba el pago.
   const acreditar = async () => {
     try {
@@ -204,9 +212,11 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
       else await setPendingAttempts(pending.id, attempts)
       return { result: 'deny', reason: 'bad_pin', detail: `PIN incorrecto (${attempts}/${MAX_PIN_ATTEMPTS})` }
     }
-    ;({ merchantWallet, amount, category, reason, price } = pending)
-    deliveryReq = pending.delivery
-    await deletePending(pending.id)
+    // Otra confirmación simultánea ya la reclamó: esta no paga.
+    const claimed = await takePending(pending.id)
+    if (!claimed) return { result: 'deny', reason: 'not_found', detail: 'La compra pendiente ya se está pagando' }
+    ;({ merchantWallet, amount, category, reason, price } = claimed)
+    deliveryReq = claimed.delivery
     pinOk = true
   } else if (req.pin) {
     const check = await verifyPin(mandateId, req.pin)

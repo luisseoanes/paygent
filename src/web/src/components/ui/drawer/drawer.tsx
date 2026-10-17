@@ -8,8 +8,6 @@ import { cn } from '@/utils/cn';
 // hoja inferior al 92% de alto en móvil (BRAND.md §3.9).
 
 export const Drawer = DialogPrimitive.Root;
-export const DrawerTrigger = DialogPrimitive.Trigger;
-export const DrawerClose = DialogPrimitive.Close;
 
 export type DrawerContentProps = React.ComponentProps<
   typeof DialogPrimitive.Content

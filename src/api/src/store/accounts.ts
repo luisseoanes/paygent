@@ -65,10 +65,6 @@ export const getPayer = async (userId: string, conn?: Sql) => {
   return r ? ({ userId: r.user_id, walletAddress: r.wallet_address, assetCode: r.asset_code, assetScale: r.asset_scale } as Payer) : undefined
 }
 
-export const setPayerAsset = async (userId: string, asset: { assetCode: string; assetScale: number }, conn?: Sql) => {
-  await s(conn).query(`update payers set asset_code = $2, asset_scale = $3 where user_id = $1`, [userId, asset.assetCode, asset.assetScale])
-}
-
 
 /** Quien delega el mandato raíz: la cuenta titular de la raíz con su wallet (tabla payers). */
 export const payerOfRoot = async (rootId: string, conn?: Sql) => {

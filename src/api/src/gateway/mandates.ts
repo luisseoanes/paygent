@@ -72,6 +72,12 @@ export type DelegateInput = Partial<Omit<Mandate, 'parentId' | 'signature' | 'sp
 /** Bloquea al padre hasta el fin de la transacción: dos repartos a la vez no pueden leer el mismo «libre». */
 const lockParent = (parentId: string, conn?: Sql) => lockMandates([parentId], conn)
 
+/** Lee la fila ya bloqueada: un gasto reservado a la vez no se pierde al reescribirla entera. Va dentro de `tx`. */
+const lockedMandate = async (id: string, tx: Sql) => {
+  await lockMandates([id], tx)
+  return getMandate(id, tx)
+}
+
 export const delegate = async (parentId: string, input: DelegateInput, conn?: Sql): Promise<Mandate> => {
   await lockParent(parentId, conn)
   const parent = await getMandate(parentId, conn)
@@ -99,6 +105,9 @@ export const delegate = async (parentId: string, input: DelegateInput, conn?: Sq
     signature: '',
   }
   if (!child.mode) delete child.mode
+  const sameAsset = (a?: Amount) => !a || (a.assetCode === parent.maxDebit.assetCode && a.assetScale === parent.maxDebit.assetScale)
+  if (![child.maxDebit, child.pinThreshold, child.offlineCap, child.offlineCapCeiling].every(sameAsset))
+    throw badRequest(`Los topes van en ${parent.maxDebit.assetCode} con escala ${parent.maxDebit.assetScale}`)
 
   // 1. Suma de hijos ≤ padre
   const siblingsTotal = (await childrenOf(parentId, conn))
@@ -125,34 +134,42 @@ export const delegate = async (parentId: string, input: DelegateInput, conn?: Sq
 export const revoke = async (id: string): Promise<string[]> =>
   sql().tx(async (tx) => {
     const ids = [id, ...(await descendantsOf(id, tx)).map((m) => m.id)]
+    await lockMandates(ids, tx)
     for (const mid of ids) await putMandate({ ...(await getMandate(mid, tx)), revoked: true }, tx)
     return ids
   })
 
-export const setFrozen = async (id: string, frozen: boolean) => putMandate({ ...(await getMandate(id)), frozen })
+export const setFrozen = async (id: string, frozen: boolean) =>
+  sql().tx(async (tx) => putMandate({ ...(await lockedMandate(id, tx)), frozen }, tx))
 
 // ─── GW-08: monotonía. Solo restringe; nunca amplía más allá de lo que Juan autorizó. ───
-export const restrict = async (id: string, patch: { offlineCap?: Amount; frozen?: boolean }) => {
-  const m = await getMandate(id)
-  if (patch.frozen === false) throw forbidden('Restrict no puede descongelar: solo el titular (POST /mandates/:id/unfreeze)')
-  const next = { ...m }
-  if (patch.frozen) next.frozen = true
-  if (patch.offlineCap) {
-    // El techo es lo que Juan autorizó (offlineCapCeiling). El Guardián se mueve debajo de él.
-    const ceiling = m.offlineCapCeiling ?? m.offlineCap
-    if (!ceiling) throw forbidden('Este mandato no tiene tope offline')
-    if (!A.lte(patch.offlineCap, ceiling)) throw forbidden('No se puede ampliar el tope offline más allá de lo autorizado')
-    if (!A.lte(patch.offlineCap, m.maxDebit)) throw forbidden('El tope offline no puede superar el tope del mandato')
-    next.offlineCap = patch.offlineCap
-  }
-  return putMandate(next)
-}
+export const restrict = async (id: string, patch: { offlineCap?: Amount; frozen?: boolean }) =>
+  sql().tx(async (tx) => {
+    const m = await lockedMandate(id, tx)
+    if (patch.frozen === false) throw forbidden('Restrict no puede descongelar: solo el titular (POST /mandates/:id/unfreeze)')
+    const next = { ...m }
+    if (patch.frozen) next.frozen = true
+    if (patch.offlineCap) {
+      if (patch.offlineCap.assetCode !== m.maxDebit.assetCode || patch.offlineCap.assetScale !== m.maxDebit.assetScale)
+        throw badRequest(`El tope va en ${m.maxDebit.assetCode} con escala ${m.maxDebit.assetScale}`)
+      // El techo es lo que Juan autorizó (offlineCapCeiling). El Guardián se mueve debajo de él.
+      const ceiling = m.offlineCapCeiling ?? m.offlineCap
+      if (!ceiling) throw forbidden('Este mandato no tiene tope offline')
+      if (!A.lte(patch.offlineCap, ceiling)) throw forbidden('No se puede ampliar el tope offline más allá de lo autorizado')
+      if (!A.lte(patch.offlineCap, m.maxDebit)) throw forbidden('El tope offline no puede superar el tope del mandato')
+      next.offlineCap = patch.offlineCap
+    }
+    return putMandate(next, tx)
+  })
 
 /**
  * El titular cambia los topes de una rama (sube o baja) sin salirse de su padre: suma de hermanos ≤ padre y nunca por
  * debajo de lo que ya repartió a sus hijos. `offlineCap` es el techo sin señal. La raíz la fija la billetera.
  */
-export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineCap?: Amount }, conn?: Sql) => {
+export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineCap?: Amount }, conn: Sql) => {
+  const { parentId } = await getMandate(id, conn)
+  // La rama y su padre en un solo bloqueo, en orden de id (como las reservas de gasto): no se cruzan.
+  await lockMandates(parentId && patch.maxDebit ? [id, parentId] : [id], conn)
   const m = await getMandate(id, conn)
   if (!m.parentId) throw badRequest('El tope de la raíz es el que firmaste en tu billetera')
   if (m.revoked) throw forbidden('La rama está revocada')
@@ -160,7 +177,6 @@ export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineC
   if (!valid(patch.maxDebit) || !valid(patch.offlineCap)) throw badRequest(`Los topes van en ${m.maxDebit.assetCode}`)
   const next = { ...m }
   if (patch.maxDebit) {
-    await lockParent(m.parentId, conn)
     const parent = await getMandate(m.parentId, conn)
     const live = (ms: Mandate[]) => ms.filter((c) => !c.revoked)
     const siblings = live(await childrenOf(parent.id, conn)).filter((c) => c.id !== m.id)
@@ -192,7 +208,7 @@ export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineC
  * Si un padre quedó por debajo de lo que repartió (el titular firmó un grant menor), sus hijos bajan en proporción, en
  * cascada; los topes sin señal nunca quedan por encima de su rama. Devuelve las ramas que cambiaron.
  */
-export const fitChildren = async (id: string, conn?: Sql): Promise<Mandate[]> => {
+export const fitChildren = async (id: string, conn: Sql): Promise<Mandate[]> => {
   const parent = await getMandate(id, conn)
   const kids = (await childrenOf(id, conn)).filter((c) => !c.revoked)
   const total = kids.reduce((acc, c) => acc + BigInt(c.maxDebit.value), 0n)

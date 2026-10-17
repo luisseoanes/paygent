@@ -36,12 +36,6 @@ export type MandateStatus = 'active' | 'frozen' | 'revoked';
 export const statusOf = (m: Pick<MandateTree, 'revoked' | 'frozen'>) =>
   m.revoked ? 'revoked' : m.frozen ? 'frozen' : ('active' as MandateStatus);
 
-export const statusLabel: Record<MandateStatus, string> = {
-  active: 'Activa',
-  frozen: 'Congelada',
-  revoked: 'Revocada',
-};
-
 export const holderTypeLabel: Record<HolderType, string> = {
   person: 'Persona',
   device: 'Llave de dispositivo',
