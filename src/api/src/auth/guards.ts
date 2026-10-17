@@ -4,7 +4,7 @@ import { findMandate, chainOf } from '../gateway/mandates.ts'
 import { forbidden, HttpError } from '../gateway/errors.ts'
 import { payerOfRoot } from '../store/accounts.ts'
 import { getAgent, type Agent } from '../store/agents.ts'
-import { holdersOfChain } from '../store/mandates.ts'
+import { holderUserOf, holdersOfChain } from '../store/mandates.ts'
 import { merchantOwner } from '../store/merchants.ts'
 import { env } from '../env.ts'
 import { verifyToken } from './session.ts'
@@ -63,6 +63,19 @@ export const requireMemberOf = async (req: FastifyRequest, mandateId: string) =>
   if (!(await findMandate(mandateId))) throw new HttpError(404, `Mandato ${mandateId} no existe`)
   if (!(await holdersOfChain(mandateId)).includes(userId)) throw forbidden('Esta rama no es tuya')
   return userId
+}
+
+/**
+ * Enlazar un celular: la persona de la rama o su titular. Mientras ninguna cuenta haya reclamado la rama, basta su
+ * código (es el secreto que entrega el titular, el mismo con que se registra el beneficiario en /enlazar).
+ */
+export const requireMemberOrUnclaimed = async (req: FastifyRequest, mandateId: string) => {
+  if (isAgentCall(req)) throw forbidden('Esto lo hace la persona, no un agente')
+  const token = tokenOf(req)
+  const userId = token && verifyToken(token)
+  if (userId && (await holdersOfChain(mandateId)).includes(userId)) return
+  const branch = (await chainOf(mandateId)).slice(0, -1) // sin la raíz del titular
+  for (const m of branch) if (await holderUserOf(m.id)) throw userId ? forbidden('Esta rama no es tuya') : new HttpError(401, 'Inicia sesión')
 }
 
 /** Lecturas: el servicio de agentes o una persona de la cadena. */

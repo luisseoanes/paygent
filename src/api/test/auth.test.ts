@@ -82,3 +82,33 @@ describe('Cada quien en lo suyo', () => {
     expect((await call('POST', '/demo/reset', asAgent(), {})).statusCode).toBe(403)
   })
 })
+
+describe('Enlazar un celular con el código (antes de tener cuenta)', () => {
+  it('una rama sin cuenta se enlaza con su código; ya reclamada, solo su persona o su titular', async () => {
+    const titular = (
+      await call('POST', '/auth/register/titular', {}, {
+        documento: '95000001', nombre: 'Ana', apellido: 'Prueba', email: 'ana.enlace@correo.co', telefono: '+573009995001',
+        password: 'clave-segura', walletAddress: '$ilp.interledger-test.dev/ana-enlace',
+      })
+    ).json()
+    const rama = (
+      await call('POST', `/mandates/${titular.rootMandateId}/beneficiaries`, asUser(titular.id), {
+        alias: 'Mamá', maxDebit: A.cop(100_000), offlineCap: A.cop(10_000), pin: '246810',
+      })
+    ).json()
+    const llave = () => ({ publicKey: generateKeyPair().publicKey })
+
+    // En /enlazar todavía no hay sesión: el código basta mientras nadie haya reclamado la rama.
+    expect((await call('POST', `/mandates/${rama.code}/device-key`, {}, llave())).statusCode).toBe(200)
+
+    const mama = (
+      await call('POST', '/auth/register/beneficiario', {}, {
+        documento: '95000002', nombre: 'Mamá', email: 'mama.enlace@correo.co', telefono: '+573009995002', password: 'clave-segura', mandateId: rama.code,
+      })
+    ).json()
+    expect((await call('POST', `/mandates/${rama.code}/device-key`, {}, llave())).statusCode).toBe(401)
+    expect((await call('POST', `/mandates/${rama.code}/device-key`, asUser(mama.id), llave())).statusCode).toBe(200)
+    expect((await call('POST', `/mandates/${rama.code}/device-key`, asUser(titular.id), llave())).statusCode).toBe(200)
+    expect((await call('POST', `/mandates/${rama.code}/device-key`, asUser('rosa'), llave())).statusCode).toBe(403)
+  })
+})

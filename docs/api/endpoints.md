@@ -27,7 +27,7 @@ Convenciones:
 | sesión | `POST /merchants` (queda a nombre de esa cuenta), `POST /agents` |
 | titular | `POST /mandates/root`, `POST /mandates/:id/{delegate,revoke,unfreeze,beneficiaries,modes}`, `PATCH /mandates/:id/{limits,modes}`, `GET\|PUT\|DELETE /mandates/:id/sms`, `PUT /delivery-address/:rootId`, `GET /feed` y `/feed/stream` de su raíz, `POST /demo/reset` (Juan) |
 | titular o Guardián | `PATCH /mandates/:id/restrict`, `POST /guardian/review` |
-| cadena | `POST /mandates/:id/device-key`, `POST /asistente/chat` (de su rama) |
+| cadena | `POST /mandates/:id/device-key` (o solo el código, mientras ninguna cuenta haya reclamado la rama: es el enlazado de `/enlazar`), `POST /asistente/chat` (de su rama) |
 | cadena o agente | `GET /mandates/:id`, `GET /mandates/:id/tree`, `GET /mandates/:id/modes`, `GET /delivery-address/:rootId`, `GET /payments/:id` |
 | agente | `POST /pay` (y solo con mandatos de los que es titular), `GET /sms/profile`, `GET /vouchers` |
 | tendero | `GET /merchants/:id/orders`, `GET /merchants/:id/payments`, `PUT /merchants/:id/payout` |

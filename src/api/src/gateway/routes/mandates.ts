@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { Amount, DeliveryAddress } from '@openroute/shared'
-import { requireAgentOrMember, requireMemberOf, requireTitularOf, requireTitularOrGuardian } from '../../auth/guards.ts'
+import { requireAgentOrMember, requireMemberOrUnclaimed, requireTitularOf, requireTitularOrGuardian } from '../../auth/guards.ts'
 import { getAddress } from '../../store/profiles.ts'
 import { addressBody, delegateBody, deviceKeyBody, restrictBody } from '../../http/schemas.ts'
 import { delegateBranch, restrictBranch, revokeBranch, setDeliveryAddress, unfreezeBranch } from '../branches.ts'
@@ -45,9 +45,10 @@ export default async function mandateRoutes(app: FastifyInstance) {
     return unfreezeBranch(req.params.id)
   })
 
-  // El celular de la persona (o su titular) registra su llave y recibe el certificado para pagar sin señal.
+  // El celular de la persona (o su titular) registra su llave y recibe el certificado para pagar sin señal. En
+  // /enlazar aún no hay cuenta: basta el código mientras nadie haya reclamado la rama.
   app.post<{ Params: { id: string }; Body: { publicKey: string } }>('/mandates/:id/device-key', { schema: { body: deviceKeyBody } }, async (req) => {
-    await requireMemberOf(req, req.params.id)
+    await requireMemberOrUnclaimed(req, req.params.id)
     const cert = await issueDeviceCert(req.params.id, req.body.publicKey)
     return { deviceKeyId: cert.deviceKeyId, cert, offlineCap: cert.offlineCap, gatewayPublicKey: gatewayKey.publicKey }
   })
