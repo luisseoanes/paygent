@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Caja } from '@/features/cobro/components/caja';
 import { ElegirTienda } from '@/features/cobro/components/elegir-tienda';
 import { Escanear } from '@/features/cobro/components/escanear';
+import { MisCobros } from '@/features/cobro/components/mis-cobros';
 import {
   type ResultadoEscaneo,
   Resultado,
@@ -14,7 +15,7 @@ import { useCaja } from '@/features/cobro/hooks/use-caja';
 import { useCobroStore } from '@/features/cobro/stores/cobro-store';
 import { avisar } from '@/features/cobro/utils/aviso';
 import { verificarVale } from '@/features/cobro/utils/verificar';
-import { ProtectedRoute } from '@/lib/auth';
+import { ProtectedRoute, useUser } from '@/lib/auth';
 
 // PWA del tendero (FE-04, OFF-05, OFF-06, OFF-08): escanear el vale del
 // cliente, verificarlo sin red y cobrarlo (al instante con señal o cuando
@@ -28,7 +29,15 @@ type Vista =
 const TenderoApp = () => {
   const { online, cargado, sincronizando } = useCaja();
   const merchantId = useCobroStore((s) => s.merchantId);
+  const elegirTienda = useCobroStore((s) => s.elegirTienda);
+  const tienda = useCobroStore((s) => s.merchants.find((m) => m.id === s.merchantId));
+  const propia = useUser().data?.merchantId;
   const [vista, setVista] = React.useState<Vista>({ tipo: 'caja' });
+
+  // La cuenta del tendero ya dice cuál es su tienda: no se elige a mano (ni se queda la de otra cuenta).
+  React.useEffect(() => {
+    if (cargado && propia && merchantId !== propia) elegirTienda(propia);
+  }, [cargado, propia, merchantId, elegirTienda]);
 
   const leer = async (texto: string) => {
     const s = useCobroStore.getState();
@@ -85,11 +94,14 @@ const TenderoApp = () => {
           onListo={() => setVista({ tipo: 'caja' })}
         />
       ) : (
-        <Caja
-          online={online}
-          sincronizando={sincronizando}
-          onEscanear={() => setVista({ tipo: 'escanear' })}
-        />
+        <div className="flex flex-1 flex-col gap-8">
+          <Caja
+            online={online}
+            sincronizando={sincronizando}
+            onEscanear={() => setVista({ tipo: 'escanear' })}
+          />
+          {online && tienda && <MisCobros merchant={tienda} />}
+        </div>
       )}
     </AppShell>
   );

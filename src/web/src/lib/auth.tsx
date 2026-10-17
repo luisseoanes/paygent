@@ -103,7 +103,37 @@ export const registroBeneficiarioSchema = z.object({
   password: clave,
 });
 
+// Llave Bre-B: un celular colombiano (+57 opcional). Vacía = el celular de la cuenta.
+const esLlave = (v: string) => /^(\+?57)?3\d{9}$/.test(v.replace(/[\s-]/g, ''));
+const esWallet = (v: string) =>
+  /^https:\/\/[^\s/]+\.[^\s/]+\/\S+$/.test(v.startsWith('$') ? `https://${v.slice(1)}` : v);
+
+export const categoriasTienda = ['mercado', 'farmacia', 'efectivo'] as const;
+
+export const registroTenderoSchema = z
+  .object({
+    documento,
+    nombre,
+    email: z.email('Escribe un correo válido'),
+    telefono,
+    password: clave,
+    tienda: z.string().trim().min(2, 'Escribe el nombre de tu tienda'),
+    categoria: z.enum(categoriasTienda, 'Elige qué vendes'),
+    cobro: z.enum(['puntored', 'wallet']),
+    llave: z.string().trim().optional(),
+    wallet: z.string().trim().optional(),
+  })
+  .refine((v) => v.cobro !== 'puntored' || !v.llave || esLlave(v.llave), {
+    path: ['llave'],
+    message: 'Un celular de 10 dígitos, ej. 310 555 0101',
+  })
+  .refine((v) => v.cobro !== 'wallet' || esWallet(v.wallet ?? ''), {
+    path: ['wallet'],
+    message: 'Escribe tu wallet address (ej. $ilp.interledger-test.dev/tu-tienda)',
+  });
+
 export type RegistroTitular = z.output<typeof registroTitularSchema>;
+export type RegistroTendero = z.output<typeof registroTenderoSchema>;
 export type RegistroBeneficiario = z.output<typeof registroBeneficiarioSchema>;
 
 const registrar = async (url: string, datos: object): Promise<User> => {
@@ -122,6 +152,19 @@ const registrarTitular = (d: RegistroTitular) =>
 const registrarBeneficiario = (
   d: RegistroBeneficiario & { mandateId: string },
 ) => registrar('/auth/register/beneficiario', d);
+
+// El tendero cobra por Puntored a su llave Bre-B (por defecto su celular) o directo en su wallet.
+const registrarTendero = ({ cobro, llave, wallet, ...d }: RegistroTendero) =>
+  registrar('/auth/register/tendero', {
+    ...d,
+    llave: cobro === 'puntored' && llave ? llave : undefined,
+    wallet:
+      cobro === 'wallet' && wallet
+        ? wallet.startsWith('$')
+          ? `https://${wallet.slice(1)}`
+          : wallet
+        : undefined,
+  });
 
 const useSesionNueva = <T,>(
   mutationFn: (datos: T) => Promise<User>,
@@ -146,6 +189,11 @@ export const useRegistrarBeneficiario = ({
   onSuccess,
 }: { onSuccess?: (user: User) => void } = {}) =>
   useSesionNueva(registrarBeneficiario, onSuccess);
+
+export const useRegistrarTendero = ({
+  onSuccess,
+}: { onSuccess?: (user: User) => void } = {}) =>
+  useSesionNueva(registrarTendero, onSuccess);
 
 const logout = async () => writeSession(null);
 

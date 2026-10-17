@@ -70,6 +70,7 @@ flowchart TB
 | `store/` | Persistencia | `sql.ts` (Postgres o PGlite, misma interfaz), migraciones y repositorios: `mandates`, `accounts`, `payments`, `grants`, `profiles`, `offline`, `merchants`, `feed`, `secrets`, `meta` |
 | `op/` | Adaptador | Cliente autenticado, grants y `settle` (incoming → quote → outgoing). No conoce el árbol |
 | `sms/`, `lib/agents.ts` | Adaptador | Webhooks y envío por proveedor; llamada al servicio de agentes con timeout |
+| `puntored/` | Adaptador | Acreditación de Puntored al tendero sin wallet. Puntored no recibe pagos de Open Payments: hoy es `simulado` (el pago real llega a la wallet que lo representa); el real sería su API a llaves Bre-B + webhook firmado, sin tocar `gateway/acreditacion.ts` |
 | `demo/` | Fixture | Semilla, raíz de la demo (`DEMO_ROOT_ID`) y su moneda. Nada del núcleo depende de ella |
 
 **Reglas de dependencia**, comprobadas en [`src/api/test/arquitectura.test.ts`](../src/api/test/arquitectura.test.ts)

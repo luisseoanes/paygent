@@ -22,10 +22,11 @@ export const paths = {
       getHref: (redirectTo?: string | null) =>
         `/iniciar-sesion${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`,
     },
-    // Registro del titular (con wallet)
+    // Registro del titular (con wallet) o, con ?tipo=tienda, del tendero
     registro: {
       path: '/registrarse',
-      getHref: () => '/registrarse',
+      getHref: (tipo?: 'tienda') =>
+        tipo ? `/registrarse?tipo=${tipo}` : '/registrarse',
     },
   },
   // Cuenta del titular (con wallet): su mandato, delegados y libreta.

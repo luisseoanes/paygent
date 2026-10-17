@@ -14,6 +14,7 @@ import { deletePayment, deletePending, getPending, insertPayment, insertPending,
 import { getAddress } from '../store/profiles.ts'
 import { emit } from '../feed/bus.ts'
 import { settle, SettleError } from '../op/settle.ts'
+import { acreditarPorPuntored } from './acreditacion.ts'
 import { authorize } from './authorize.ts'
 import { chainOf, findMandate, getMandate } from './mandates.ts'
 import { payoutFor } from './payout.ts'
@@ -93,6 +94,15 @@ export const executePayment = async (input: {
     payout,
   }
   await insertPayment(payment)
+  // Tendero sin wallet: con el dinero ya en la wallet de Puntored, Puntored le acredita. Nunca tumba el pago.
+  const acreditar = async () => {
+    try {
+      const m = await merchantByWallet(input.merchantWallet)
+      if (m) await acreditarPorPuntored(payment, m)
+    } catch (err) {
+      console.warn(`[puntored] ${payment.id}: ${(err as Error).message}`)
+    }
+  }
 
   try {
     const result = await settle({
@@ -114,6 +124,7 @@ export const executePayment = async (input: {
       onLateOutcome: async (outcome) => {
         payment.status = outcome === 'completed' ? 'completed' : 'failed'
         await updatePayment(payment)
+        if (outcome === 'completed') await acreditar()
         if (outcome !== 'completed')
           await emit({
             mandateId: mandate.id,
@@ -142,6 +153,7 @@ export const executePayment = async (input: {
       delivery: input.delivery,
       payout,
     })
+    if (payment.status === 'completed') await acreditar()
   } catch (err) {
     if (reservation) await releaseSpend(reservation) // no se movió dinero: el tope vuelve a estar disponible
     if (err instanceof NotAuthorized) {

@@ -219,7 +219,10 @@ describe('Cobro: directo a la wallet del comercio o por Puntored si no tiene', (
     const res = await pay('puntored:tienda')
     expect(res.result).toBe('allow')
     expect((await getPayment(res.paymentId))?.payout).toEqual({ via: 'puntored', llave: '3105550101' })
-    expect((await recentEvents(1))[0]).toMatchObject({ merchant: 'Tienda Doña Rosa', payout: { via: 'puntored' } })
+    const eventos = await recentEvents(5)
+    expect(eventos.find((e) => e.kind === 'payment')).toMatchObject({ merchant: 'Tienda Doña Rosa', payout: { via: 'puntored' } })
+    // Y enseguida Puntored le acredita a su llave Bre-B (simulado).
+    expect(eventos.find((e) => e.kind === 'payout')).toMatchObject({ merchant: 'Tienda Doña Rosa', reason: expect.stringMatching(/llave Bre-B 310•••0101/) })
   })
 
   it('si el tendero abre una wallet, cobra directo sin cambiar su dirección de cobro', async () => {

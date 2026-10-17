@@ -237,6 +237,26 @@ const MIGRATIONS: { version: string; sql: string }[] = [
       alter table vouchers add constraint vouchers_status_check check (status in ('processing', 'settled', 'rejected', 'flagged'));
     `,
   },
+  {
+    // Acreditaciones de Puntored a los tenderos sin wallet: lo que sería su reporte de conciliación.
+    version: '006_acreditaciones_puntored',
+    sql: `
+      create table puntored_credits (
+        id text primary key,
+        payment_id text not null unique,
+        merchant_id text not null references merchants(id) on delete cascade,
+        llave text not null,
+        pesos bigint not null,
+        comision_pesos bigint not null default 0,
+        estado text not null check (estado in ('pendiente', 'acreditado', 'fallido')),
+        ref text,
+        motivo text,
+        creado_en timestamptz not null default now(),
+        acreditado_en timestamptz
+      );
+      create index puntored_credits_merchant on puntored_credits(merchant_id);
+    `,
+  },
 ]
 
 export const migrate = async (sql: Sql) => {

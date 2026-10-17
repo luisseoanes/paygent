@@ -21,6 +21,7 @@ La api guarda todo en **Postgres**. El esquema está en `src/api/src/store/migra
 | `profiles` | Por dónde habla cada persona con el Asistente: su número de SMS o `app:<persona>` para el chat |
 | `delivery_addresses` | Dirección de entrega por mandato raíz (solo la cambia el titular) |
 | `device_keys`, `device_certs` | Celulares vinculados y sus certificados para pagar sin señal |
+| `puntored_credits` | Acreditación de Puntored al tendero sin wallet por cada pago (una por pago): llave, pesos, comisión, estado y referencia Bre-B. Hoy la produce el adaptador simulado (`puntored/`) |
 | `payments` | Cada pago: monto debitado, precio en la moneda del comercio, lo recibido, estado e id del outgoing payment |
 | `pending_purchases` | Compras que esperan PIN |
 | `vouchers` | Vales sin señal presentados; la clave `certificado:contador` detecta el doble gasto |

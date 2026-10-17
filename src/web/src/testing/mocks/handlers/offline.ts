@@ -1,5 +1,6 @@
 import {
   type Merchant,
+  type PuntoredCredit,
   type Voucher,
   type VoucherSettleResult,
   keyPairFromSeed,
@@ -22,12 +23,41 @@ const gateway = keyPairFromSeed(
   toB64(new TextEncoder().encode('paygent-gateway-mock-seed-32byte')),
 );
 
+export const acreditacionesMock: Record<string, PuntoredCredit[]> = {
+  tienda: [
+    {
+      id: 'pnt_2',
+      paymentId: 'pay_2',
+      merchantId: 'tienda',
+      llave: '310•••0101',
+      pesos: 8000,
+      comisionPesos: 0,
+      estado: 'fallido',
+      motivo: 'La llave Bre-B no está registrada: el dinero queda para retirar en su punto Puntored',
+      creadoEn: '2026-10-16T15:10:00.000Z',
+    },
+    {
+      id: 'pnt_1',
+      paymentId: 'pay_1',
+      merchantId: 'tienda',
+      llave: '310•••0101',
+      pesos: 12000,
+      comisionPesos: 0,
+      estado: 'acreditado',
+      ref: 'BRB-9F2C11AB04',
+      creadoEn: '2026-10-16T15:00:00.000Z',
+      acreditadoEn: '2026-10-16T15:00:02.000Z',
+    },
+  ],
+};
+
 export const mockMerchants: Merchant[] = [
   {
     id: 'tienda',
     name: 'Tienda Doña Rosa',
     wallet: 'https://ilp.interledger-test.dev/tienda-dona-rosa',
     category: 'mercado',
+    payout: { via: 'puntored', llave: '3105550101' },
   },
   {
     id: 'farmacia',
@@ -107,6 +137,20 @@ const cobrar = (v: Voucher): VoucherSettleResult => {
 };
 
 export const offlineHandlers = [
+  // Lo que Puntored (simulado) le acreditó a cada tienda.
+  http.get(apiUrl('/merchants/:id/credits'), async ({ params }) => {
+    await networkDelay();
+    return HttpResponse.json(acreditacionesMock[String(params.id)] ?? []);
+  }),
+
+  http.put(apiUrl('/merchants/:id/payout'), async ({ params, request }) => {
+    await networkDelay();
+    const merchant = mockMerchants.find((m) => m.id === params.id);
+    if (!merchant) return fail('Comercio no existe', 404);
+    merchant.payout = (await request.json()) as Merchant['payout'];
+    return HttpResponse.json(merchant);
+  }),
+
   http.get(apiUrl('/merchants'), async () => {
     await networkDelay();
     return HttpResponse.json(mockMerchants);

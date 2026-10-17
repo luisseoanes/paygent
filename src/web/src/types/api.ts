@@ -112,7 +112,9 @@ export type FeedEvent = {
     | 'revoked'
     | 'denied'
     // Juan aprobó el mandato raíz en su billetera
-    | 'grant';
+    | 'grant'
+    // Puntored le acreditó (o no) al tendero sin wallet lo que recibió
+    | 'payout';
   amount?: Amount;
   merchant?: string;
   // "por qué" legible
@@ -141,6 +143,8 @@ export type User = {
   mandateId?: string;
   // Todas sus ramas (la de la persona y la de su celular)
   mandateIds?: string[];
+  // La tienda del tendero
+  merchantId?: string | null;
   // Token de sesión firmado por la api (Authorization: Bearer)
   token?: string;
 };
