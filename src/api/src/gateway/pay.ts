@@ -9,23 +9,16 @@ import {
   type PayResponse,
   type Payment,
 } from '@openroute/shared'
-import {
-  deletePayment,
-  deletePending,
-  getAddress,
-  getPending,
-  insertPayment,
-  insertPending,
-  merchantByWallet,
-  setPendingAttempts,
-  updatePayment,
-} from '../db.ts'
+import { merchantByWallet } from '../store/merchants.ts'
+import { deletePayment, deletePending, getPending, insertPayment, insertPending, setPendingAttempts, updatePayment } from '../store/payments.ts'
+import { getAddress } from '../store/profiles.ts'
 import { emit } from '../feed/bus.ts'
 import { settle, SettleError } from '../op/settle.ts'
 import { authorize } from './authorize.ts'
-import { applySpend, chainOf, findMandate, getMandate } from './mandates.ts'
+import { chainOf, findMandate, getMandate } from './mandates.ts'
 import { payoutFor } from './payout.ts'
 import { checkPin } from './pin.ts'
+import { releaseSpend, reserveSpend, type Reservation } from './spend.ts'
 
 const PENDING_TTL_MS = 10 * 60_000
 const MAX_PIN_ATTEMPTS = 3
@@ -57,8 +50,8 @@ export const resolveDelivery = async (mandateId: string, req?: DeliveryRequest):
 }
 
 /**
- * Mueve el dinero de verdad (OP-04) y deja todo registrado: gasto en la cadena + feed.
- * Se usa desde /pay y desde la liquidación de vales.
+ * Mueve el dinero de verdad (OP-04) y deja todo registrado: gasto en la cadena + feed. El gasto se reserva al
+ * autorizar (antes de pagar) y se devuelve si el pago falla. Se usa desde /pay y desde la liquidación de vales.
  */
 export const executePayment = async (input: {
   mandateId: string
@@ -74,6 +67,14 @@ export const executePayment = async (input: {
 }): Promise<Payment> => {
   const mandate = await getMandate(input.mandateId)
   const rootId = (await chainOf(input.mandateId)).at(-1)!.id
+  let reservation: Reservation | undefined
+  const reserve = async (debit: Amount) => {
+    const { decision, reservation: r } = await reserveSpend({ mandateId: input.mandateId, amount: debit, category: input.category, pinOk: input.pinOk })
+    if (decision.result !== 'allow') throw new NotAuthorized(decision, debit)
+    reservation = r
+  }
+  // Sin precio en otra moneda, el débito es el monto pedido: se reserva ya. Con precio, al conocer la cotización.
+  if (!input.price) await reserve(input.amount)
   const actor = { type: mandate.holderType, name: mandate.holderName }
   const merchant = await merchantName(input.merchantWallet)
   // Con wallet: directo al comercio. Sin wallet: a Puntored, que le acredita al tendero.
@@ -105,8 +106,7 @@ export const executePayment = async (input: {
         ? async (debit) => {
             if (debit.assetCode !== input.amount.assetCode)
               throw new SettleError(`La cotización vino en ${debit.assetCode} y el mandato está en ${input.amount.assetCode}`)
-            const decision = await authorize({ mandateId: input.mandateId, amount: debit, category: input.category, pinOk: input.pinOk })
-            if (decision.result !== 'allow') throw new NotAuthorized(decision, debit)
+            await reserve(debit)
           }
         : undefined,
       // OP-06: el pago tardó más de lo que esperamos; aquí se sabe si llegó. El gasto ya contado no se
@@ -132,7 +132,6 @@ export const executePayment = async (input: {
     payment.amount = result.debitAmount // lo que de verdad se le debitó a Juan
     payment.receiveAmount = result.receiveAmount
     await updatePayment(payment)
-    await applySpend(input.mandateId, result.debitAmount)
     await emit({
       mandateId: mandate.id,
       actor,
@@ -144,6 +143,7 @@ export const executePayment = async (input: {
       payout,
     })
   } catch (err) {
+    if (reservation) await releaseSpend(reservation) // no se movió dinero: el tope vuelve a estar disponible
     if (err instanceof NotAuthorized) {
       await deletePayment(payment.id) // no hubo pago: /pay decide si pide PIN o lo niega
       throw err
@@ -185,7 +185,7 @@ export const pay = async (req: PayRequest): Promise<PayResponse> => {
 
   const delivery = await resolveDelivery(mandateId, deliveryReq)
   if (delivery === null)
-    return { result: 'deny', reason: 'no_address', detail: 'No hay dirección de entrega registrada por Juan' }
+    return { result: 'deny', reason: 'no_address', detail: 'No hay dirección de entrega registrada por el titular' }
 
   const deny = async (decision: Extract<AuthDecision, { result: 'deny' }>, shown: Amount) => {
     const m = await findMandate(mandateId)

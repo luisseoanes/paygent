@@ -4,7 +4,7 @@ import {
   type Voucher,
   type VoucherSettleResult,
 } from '@openroute/shared'
-import { getCert, getVoucher, putVoucher, vouchersOfDevices } from '../db.ts'
+import { getCert, getVoucher, putVoucher, vouchersOfDevices } from '../store/offline.ts'
 import { emit } from '../feed/bus.ts'
 import { authorize } from '../gateway/authorize.ts'
 import { gatewayKey } from '../gateway/keys.ts'
@@ -95,6 +95,7 @@ export const settleVouchers = async (vouchers: Voucher[]): Promise<VoucherSettle
         category: v.category,
         reason: `Vale offline #${v.counter} de ${holder}`,
         kind: 'voucher_settled',
+        pinOk: true,
       })
       results.push(await record(v, { voucherId: v.voucherId, status: d?.action === 'flag' ? 'flagged' : 'settled', paymentId: payment.id }))
     } catch (err) {
