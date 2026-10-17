@@ -124,7 +124,7 @@ export const Problema = () => (
         <div>
           <Etiqueta className="text-grafito">Con Paygent</Etiqueta>
           <p className="mt-3 font-geist text-2xl leading-tight tracking-[-0.02em] text-grafito">
-            Una sola primitiva quita los tres: el mandato delegable.
+            Una sola primitiva quita los tres, el mandato delegable.
           </p>
           <div className="relative mt-6 overflow-hidden rounded-xl">
             <img

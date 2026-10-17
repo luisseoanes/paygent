@@ -186,7 +186,7 @@ export const HeroPaisaje = ({ telefono }: HeroPaisajeProps) => {
               </span>
             </Heading>
             <p className="mt-4 max-w-[40ch] font-geist text-[1.0625rem] leading-relaxed text-paper-raised/90">
-              Un solo permiso de Open Payments para personas y agentes de IA:
+              Un solo permiso de Open Payments para personas y agentes de IA,
               pagan con datos, sin señal o por SMS.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-2.5">

@@ -188,7 +188,7 @@ const VINETAS: Vineta[] = [
     foco: 'object-[60%_50%]',
     hora: '7:00 a. m. · Vereda El Retiro',
     texto:
-      'Juan, desde Texas, le dejó a María un permiso para pagar: hasta $150 al mes.',
+      'Juan, desde Texas, le dejó a María un permiso para pagar, hasta $150 al mes.',
     escena: () => (
       <Chip>
         <BarrasSenal rayas={4} /> Con señal
@@ -227,7 +227,7 @@ const VINETAS: Vineta[] = [
     foco: 'object-[35%_50%]',
     hora: '10:02 a. m. · El celular de María',
     texto:
-      'María toca Pagar. Su celular firma un vale con su llave: es matemática, no necesita internet.',
+      'María toca Pagar. Su celular firma un vale con su llave, es matemática, no necesita internet.',
     escena: (activo) => (
       <motion.div
         initial={false}
