@@ -3,18 +3,14 @@ import cors from '@fastify/cors'
 import formbody from '@fastify/formbody'
 import authRoutes from './auth/routes.ts'
 import chatRoutes from './chat/routes.ts'
-import { getMeta, payerOfRoot } from './db.ts'
 import demoRoutes from './demo/routes.ts'
-import { seed, SEED_VERSION } from './demo/seed.ts'
+import { ensureDemoSeed } from './demo/seed.ts'
 import feedRoutes from './feed/routes.ts'
 import { HttpError } from './gateway/errors.ts'
 import { loadGatewayKey } from './gateway/keys.ts'
-import { findMandate, ROOT_ID } from './gateway/mandates.ts'
-import gatewayRoutes from './gateway/routes.ts'
-import { resolveRootAsset } from './op/asset.ts'
-import opRoutes from './op/routes.ts'
+import gatewayRoutes from './gateway/routes/index.ts'
+import merchantRoutes from './merchants/routes.ts'
 import smsRoutes from './sms/routes.ts'
-import { importLegacyGrant } from './store/legacy.ts'
 import { initStore } from './store/sql.ts'
 import voucherRoutes from './vouchers/routes.ts'
 
@@ -22,21 +18,7 @@ import voucherRoutes from './vouchers/routes.ts'
 export const prepareStore = async () => {
   await initStore()
   await loadGatewayKey()
-  const asset = await resolveRootAsset((await payerOfRoot(ROOT_ID))?.walletAddress)
-  const root = await findMandate(ROOT_ID)
-  if (!root) {
-    await importLegacyGrant(ROOT_ID)
-    await seed()
-  } else if (root.maxDebit.assetCode !== asset.assetCode || root.maxDebit.assetScale !== asset.assetScale) {
-    // Si Juan cambió de moneda, el árbol y el grant guardados ya no sirven.
-    await seed({ keepGrant: false })
-  } else {
-    const stored = await getMeta('seed_version')
-    if (stored !== SEED_VERSION) {
-      console.log(`[seed] semilla ${stored ?? 'sin versión'} → ${SEED_VERSION}: se vuelve a sembrar (el grant de Juan se conserva)`)
-      await seed({ keepGrant: true })
-    }
-  }
+  await ensureDemoSeed()
 }
 
 export const buildApp = async ({ logger = true } = {}) => {
@@ -53,8 +35,8 @@ export const buildApp = async ({ logger = true } = {}) => {
   })
 
   app.get('/health', async () => ({ ok: true }))
-  await app.register(opRoutes)
   await app.register(gatewayRoutes)
+  await app.register(merchantRoutes)
   await app.register(voucherRoutes)
   await app.register(smsRoutes)
   await app.register(chatRoutes)

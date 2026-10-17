@@ -3,13 +3,15 @@ import { amount as A, type Amount } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
 import { seed } from '../src/demo/seed.ts'
 import { treeOf } from '../src/gateway/mandates.ts'
+import { asUser } from './helpers.ts'
 
 // Varios beneficiarios compiten por el mismo mandato: el máximo de cada uno sale de lo que tienen los demás, y la
 // suma de sus topes nunca supera la raíz.
 const app = await buildApp({ logger: false })
 await seed({ keepGrant: false })
 
-const post = (url: string, payload: object) => app.inject({ method: 'POST', url, payload })
+let sesion = {}
+const post = (url: string, payload: object) => app.inject({ method: 'POST', url, payload, headers: sesion })
 const titular = (
   await post('/auth/register/titular', {
     documento: '93000001', nombre: 'Pedro', apellido: 'Gómez', email: 'pedro.varios@correo.co', telefono: '+573009990003',
@@ -17,11 +19,12 @@ const titular = (
   })
 ).json()
 const raiz = titular.rootMandateId as string // 1.200.000 COP
-const comoTitular = { 'x-user-id': titular.id }
+const comoTitular = asUser(titular.id)
+sesion = comoTitular
 const alta = async (alias: string, pesos: number) =>
   (await post(`/mandates/${raiz}/beneficiaries`, { alias, maxDebit: A.cop(pesos), offlineCap: A.cop(1_000), pin: '246810' })).json()
     .mandateId as string
-const modos = async (id: string) => (await app.inject({ method: 'GET', url: `/mandates/${id}/modes` })).json()
+const modos = async (id: string) => (await app.inject({ method: 'GET', url: `/mandates/${id}/modes`, headers: comoTitular })).json()
 const tope = (id: string, budget: Amount) =>
   app.inject({ method: 'PATCH', url: `/mandates/${id}/modes`, headers: comoTitular, payload: { budget, limits: [] } })
 const sumaRaiz = async () => (await treeOf(raiz)).children.filter((c) => !c.revoked).reduce((n, c) => n + BigInt(c.maxDebit.value), 0n)

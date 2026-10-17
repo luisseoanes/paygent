@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { amount as A, generateKeyPair, randomId, signVoucher, type Voucher } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
-import { getMerchant, getPayment, recentEvents, vouchersOfMandate } from '../src/db.ts'
+import { recentEvents } from '../src/store/feed.ts'
+import { getMerchant } from '../src/store/merchants.ts'
+import { vouchersOfMandate } from '../src/store/offline.ts'
+import { getPayment } from '../src/store/payments.ts'
 import { seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { payoutFor } from '../src/gateway/payout.ts'
@@ -9,8 +12,9 @@ import { authorize } from '../src/gateway/authorize.ts'
 import { delegate, getMandate, restrict, revoke } from '../src/gateway/mandates.ts'
 import { verifyMandate } from '@openroute/shared'
 import { gatewayKey } from '../src/gateway/keys.ts'
-import { setRootAsset } from '../src/op/asset.ts'
+import { setRootAsset } from '../src/demo/asset.ts'
 import { sql } from '../src/store/sql.ts'
+import { asUser } from './helpers.ts'
 
 const app = await buildApp({ logger: false })
 const assistantKey = { 'x-api-key': 'dev-agents-key', 'x-agent-id': 'asistente' }
@@ -70,8 +74,17 @@ describe('GW-07/08', () => {
     expect((await getMandate('maria')).revoked).toBe(false)
   })
   it('restrict no puede ampliar más allá del techo de Juan', async () => {
-    const res = await app.inject({ method: 'PATCH', url: '/mandates/maria-device/restrict', payload: { offlineCap: A.cop(240_000) } })
+    const res = await app.inject({ method: 'PATCH', url: '/mandates/maria-device/restrict', payload: { offlineCap: A.cop(240_000) }, headers: asUser('juan') })
     expect(res.statusCode).toBe(403)
+  })
+  it('restringir: el titular o el Guardián; ningún otro agente ni nadie sin sesión', async () => {
+    const patch = (headers: Record<string, string>) =>
+      app.inject({ method: 'PATCH', url: '/mandates/maria-device/restrict', payload: { offlineCap: A.cop(10_000) }, headers })
+    expect((await patch({})).statusCode).toBe(401)
+    expect((await patch(assistantKey)).statusCode).toBe(403)
+    expect((await patch(asUser('maria'))).statusCode).toBe(403)
+    expect((await patch({ ...assistantKey, 'x-agent-id': 'guardian' })).statusCode).toBe(200)
+    expect((await patch(asUser('juan'))).statusCode).toBe(200)
   })
   it('restrict no puede descongelar', () => expect(restrict('maria', { frozen: false })).rejects.toThrow())
 })
@@ -120,7 +133,7 @@ describe('Entrega: recoger o domicilio a la casa que registró Juan', () => {
     const body = { recipientName: 'Ladrón', address: 'Otra casa' }
     const asAgent = await app.inject({ method: 'PUT', url: '/delivery-address/root', headers: assistantKey, payload: body })
     expect(asAgent.statusCode).toBe(403)
-    const asJuan = await app.inject({ method: 'PUT', url: '/delivery-address/root', payload: { recipientName: 'María', address: 'Calle 5 #3-20' } })
+    const asJuan = await app.inject({ method: 'PUT', url: '/delivery-address/root', payload: { recipientName: 'María', address: 'Calle 5 #3-20' }, headers: asUser('juan') })
     expect(asJuan.statusCode).toBe(200)
     const res = await pay(await order({ mode: 'delivery', code: '1111' }))
     expect((await getPayment(res.paymentId))?.delivery?.address).toBe('Calle 5 #3-20')
@@ -137,7 +150,11 @@ describe('Entrega: recoger o domicilio a la casa que registró Juan', () => {
     expect(first.result).toBe('needs_pin')
     const ok = await pay({ ...(await order({ mode: 'pickup', code: 'x' }, 88_000)), pendingId: first.pendingId, pin: '1234' })
     expect(ok.result).toBe('allow')
-    const orders = (await app.inject({ method: 'GET', url: '/merchants/farmacia/orders' })).json()
+    // Los pedidos solo los ve el tendero dueño del comercio (en esta prueba, Rosa atiende la farmacia).
+    expect((await app.inject({ method: 'GET', url: '/merchants/farmacia/orders' })).statusCode).toBe(401)
+    await sql().query(`update merchants set owner_user_id = 'rosa' where id = 'farmacia'`)
+    expect((await app.inject({ method: 'GET', url: '/merchants/farmacia/orders', headers: asUser('juan') })).statusCode).toBe(403)
+    const orders = (await app.inject({ method: 'GET', url: '/merchants/farmacia/orders', headers: asUser('rosa') })).json()
     expect(orders[0]).toMatchObject({ id: ok.paymentId, delivery: { mode: 'delivery', code: '7777', recipientName: 'María' } })
   })
 })
@@ -169,7 +186,7 @@ describe('Cobro: directo a la wallet del comercio o por Puntored si no tiene', (
 
   it('si el tendero abre una wallet, cobra directo sin cambiar su dirección de cobro', async () => {
     const wallet = 'https://ilp.interledger-test.dev/dona-rosa-nueva'
-    const r = await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'wallet', wallet } })
+    const r = await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'wallet', wallet }, headers: asUser('rosa') })
     expect(r.statusCode).toBe(200)
     expect((await payoutFor('puntored:tienda')).destination).toBe(wallet)
     const res = await pay('puntored:tienda')
@@ -184,7 +201,8 @@ describe('Cobro: directo a la wallet del comercio o por Puntored si no tiene', (
       payload: { via: 'puntored', llave: '3009999999' },
     })
     expect(asAgent.statusCode).toBe(403)
-    const bad = await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'puntored', llave: '12' } })
+    expect((await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'puntored', llave: '3009999999' }, headers: asUser('juan') })).statusCode).toBe(403)
+    const bad = await app.inject({ method: 'PUT', url: '/merchants/tienda/payout', payload: { via: 'puntored', llave: '12' }, headers: asUser('rosa') })
     expect(bad.statusCode).toBe(400)
   })
 })
@@ -192,7 +210,7 @@ describe('Cobro: directo a la wallet del comercio o por Puntored si no tiene', (
 describe('OFF-03 liquidación de vales', () => {
   it('lote de 3: 2 liquidados y 1 replay rechazado + dispositivo congelado', async () => {
     const device = generateKeyPair()
-    const reg = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: device.publicKey } })
+    const reg = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: device.publicKey }, headers: asUser('maria') })
     const { cert } = reg.json()
     const mk = (counter: number, pesos: number, cumulative: number): Voucher =>
       signVoucher(

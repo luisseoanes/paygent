@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { amount as A } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
-import { getActiveGrant, getMerchant, payerOfRoot } from '../src/db.ts'
+import { payerOfRoot } from '../src/store/accounts.ts'
+import { getActiveGrant } from '../src/store/grants.ts'
+import { getMerchant, merchantOwner } from '../src/store/merchants.ts'
 import { DEMO_PASSWORD, seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { sql } from '../src/store/sql.ts'
+import { asUser } from './helpers.ts'
 
 // Modelo de datos en Postgres: cuentas, quien delega con su grant, comercios y agentes como filas.
 const app = await buildApp({ logger: false })
@@ -53,16 +56,19 @@ describe('Comercios: se dan de alta por la api, sin variables de entorno', () =>
     const res = await app.inject({
       method: 'POST',
       url: '/merchants',
+      headers: asUser('rosa'),
       payload: { name: 'Droguería La Esperanza', category: 'farmacia', wallet: 'https://ilp.interledger-test.dev/drogueria-esperanza' },
     })
     expect(res.statusCode).toBe(201)
     expect(await getMerchant('drogueria-la-esperanza')).toMatchObject({ wallet: 'https://ilp.interledger-test.dev/drogueria-esperanza' })
+    expect(await merchantOwner('drogueria-la-esperanza')).toBe('rosa')
   })
 
   it('sin wallet, cobrando por Puntored', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/merchants',
+      headers: asUser('rosa'),
       payload: { id: 'tienda-pepe', name: 'Tienda Pepe', category: 'mercado', payout: { via: 'puntored', llave: '3001234567' } },
     })
     expect(res.json()).toMatchObject({ wallet: 'puntored:tienda-pepe', payout: { via: 'puntored', llave: '3001234567' } })
@@ -70,8 +76,10 @@ describe('Comercios: se dan de alta por la api, sin variables de entorno', () =>
 
   it('una wallet repetida, datos inválidos o un agente → rechazado', async () => {
     const dup = { name: 'Otra', category: 'farmacia', wallet: DEMO_WALLETS.farmacia }
-    expect((await app.inject({ method: 'POST', url: '/merchants', payload: dup })).statusCode).toBe(409)
-    expect((await app.inject({ method: 'POST', url: '/merchants', payload: { name: 'X', category: 'ropa' } })).statusCode).toBe(400)
+    expect((await app.inject({ method: 'POST', url: '/merchants', payload: dup, headers: asUser('rosa') })).statusCode).toBe(409)
+    expect((await app.inject({ method: 'POST', url: '/merchants', payload: { name: 'X', category: 'ropa' }, headers: asUser('rosa') })).statusCode).toBe(400)
+    // Sin sesión nadie registra un comercio (sería registrar una wallet a la que liquidar vales).
+    expect((await app.inject({ method: 'POST', url: '/merchants', payload: { name: 'Y', category: 'mercado', wallet: 'https://w/y' } })).statusCode).toBe(401)
     const asAgent = await app.inject({ method: 'POST', url: '/merchants', headers: service, payload: { name: 'X', category: 'mercado' } })
     expect(asAgent.statusCode).toBe(403)
   })
@@ -79,7 +87,7 @@ describe('Comercios: se dan de alta por la api, sin variables de entorno', () =>
 
 describe('Agentes: filas de la tabla, una sola credencial para el servicio', () => {
   it('un agente nuevo se da de alta sin clave propia', async () => {
-    const res = await app.inject({ method: 'POST', url: '/agents', payload: { name: 'Asistente de Pedro', role: 'assistant' } })
+    const res = await app.inject({ method: 'POST', url: '/agents', payload: { name: 'Asistente de Pedro', role: 'assistant' }, headers: asUser('juan') })
     expect(res.statusCode).toBe(201)
     expect(res.json()).toEqual({ id: 'asistente-de-pedro', name: 'Asistente de Pedro', role: 'assistant' })
   })

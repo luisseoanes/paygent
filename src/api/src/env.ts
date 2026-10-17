@@ -39,6 +39,8 @@ export const env = {
 
   /** Credencial única del servicio de agentes (src/agents). Los agentes son filas de la tabla agents. */
   AGENT_SERVICE_KEY: str('AGENT_SERVICE_KEY', 'dev-agents-key'),
+  /** Firma los tokens de sesión. Vacío: se deriva de la llave del gateway (estable mientras la base no cambie). */
+  SESSION_SECRET: str('SESSION_SECRET'),
 
   DATA_DIR: resolve(import.meta.dirname, '../.data'),
 }

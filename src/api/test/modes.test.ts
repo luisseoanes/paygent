@@ -5,18 +5,20 @@ import { seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { delegate, getMandate, putMandate, rollPeriod } from '../src/gateway/mandates.ts'
 import { sql } from '../src/store/sql.ts'
+import { asUser } from './helpers.ts'
 
 // Modos de consumo: al registrar un beneficiario quedan habilitados celular (vale QR, con o sin señal), Asistente
 // (chat de la app) y SMS; el titular los quita, los vuelve a habilitar y les cambia el tope.
 const app = await buildApp({ logger: false })
 await seed({ keepGrant: false })
 const service = { 'x-api-key': 'dev-agents-key', 'x-agent-id': 'asistente' }
-// Lo que solo decide el titular: la web manda su cuenta en x-user-id.
-const comoTitular = () => ({ 'x-user-id': titular.id })
+// Lo que solo decide el titular: la web manda su token de sesión.
+const comoTitular = () => asUser(titular.id)
 
 const post = (url: string, payload: object, headers = {}) => app.inject({ method: 'POST', url, payload, headers })
 const patch = (url: string, payload: object, headers: Record<string, string> = comoTitular()) => app.inject({ method: 'PATCH', url, payload, headers })
-const get = (url: string) => app.inject({ method: 'GET', url })
+// Lecturas como el servicio de agentes (el Asistente consulta modos y perfiles).
+const get = (url: string) => app.inject({ method: 'GET', url, headers: service })
 
 const titular = (
   await post('/auth/register/titular', {
@@ -26,7 +28,7 @@ const titular = (
 ).json()
 // La raíz tiene 1.200.000: cada alta usa 100.000 para que quepan todas.
 const alta = (alias: string, offlineCap = 10_000, maxDebit = 100_000) =>
-  post(`/mandates/${titular.rootMandateId}/beneficiaries`, { alias, maxDebit: A.cop(maxDebit), offlineCap: A.cop(offlineCap), pin: '246810' })
+  post(`/mandates/${titular.rootMandateId}/beneficiaries`, { alias, maxDebit: A.cop(maxDebit), offlineCap: A.cop(offlineCap), pin: '246810' }, comoTitular())
 type Modo = { mode: string; mandateId: string; maxDebit: Amount; phone?: string }
 const modosDe = async (id: string): Promise<Modo[]> => (await get(`/mandates/${id}/modes`)).json().modes
 
@@ -60,7 +62,7 @@ describe('Alta de beneficiario con todos los modos', () => {
 
   it('el chat de la app ya habla con su Asistente; el SMS se activa al enlazar la cuenta con su celular', async () => {
     const { code, mandateId } = (await alta('Abuela')).json()
-    const chat = await post('/asistente/chat', { mensajes: [{ rol: 'usuario', texto: 'hola' }], contexto: { mandato: code } })
+    const chat = await post('/asistente/chat', { mensajes: [{ rol: 'usuario', texto: 'hola' }], contexto: { mandato: code } }, comoTitular())
     expect(chat.json().error ?? '').not.toMatch(/Vincula/)
     expect((await modosDe(mandateId)).find((m) => m.mode === 'sms')?.phone).toBeUndefined()
 
@@ -114,7 +116,7 @@ describe('El titular administra los modos', () => {
     const { code } = (await alta('Vecina')).json()
     expect((await patch(`/mandates/${code}/limits`, { maxDebit: A.cop(1) }, service)).statusCode).toBe(403)
     expect((await patch(`/mandates/${code}/limits`, { maxDebit: A.cop(1) }, {})).statusCode).toBe(401)
-    expect((await patch(`/mandates/${code}/limits`, { maxDebit: A.cop(1) }, { 'x-user-id': 'juan' })).statusCode).toBe(403)
+    expect((await patch(`/mandates/${code}/limits`, { maxDebit: A.cop(1) }, asUser('juan'))).statusCode).toBe(403)
     expect((await patch(`/mandates/${titular.rootMandateId}/limits`, { maxDebit: A.cop(1) })).statusCode).toBe(400)
     expect((await patch(`/mandates/${code}/limits`, { maxDebit: A.usd(1) })).statusCode).toBe(400)
   })
@@ -122,7 +124,7 @@ describe('El titular administra los modos', () => {
   it('quitar un modo es revocarlo; habilitar de nuevo crea otra rama con su parte', async () => {
     const { mandateId } = (await alta('Cuñada')).json()
     const sms = (await modosDe(mandateId)).find((m) => m.mode === 'sms')!
-    await post(`/mandates/${sms.mandateId}/revoke`, {})
+    await post(`/mandates/${sms.mandateId}/revoke`, {}, comoTitular())
     expect((await modosDe(mandateId)).map((m) => m.mode)).toEqual(['celular', 'asistente'])
 
     const res = await post(`/mandates/${mandateId}/modes`, {}, comoTitular())
@@ -176,7 +178,7 @@ describe('El SMS que activa el titular (PUT /mandates/:id/sms)', () => {
     // Desde la rama del celular también: el SMS es de la persona.
     expect((await put(code)).json()).toMatchObject({ active: true, mandateId: sms.mandateId })
     expect((await get('/sms/profile?phone=%2B573129990077')).json().mandateId).toBe(sms.mandateId)
-    const hojas = (await app.inject({ method: 'GET', url: `/mandates/${mandateId}/tree` })).json().children
+    const hojas = (await get(`/mandates/${mandateId}/tree`)).json().children
     expect(hojas.filter((h: { holderType: string; revoked: boolean }) => h.holderType === 'agent' && !h.revoked)).toHaveLength(2)
   })
 })

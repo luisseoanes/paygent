@@ -13,7 +13,8 @@
     "sms:guia": "tsx scripts/sms-guia.ts",
     "fx:probe": "tsx scripts/fx-probe.ts",
     "sms:bridge": "tsx scripts/sms-bridge.ts",
-    "guardian:check": "tsx scripts/guardian-check.ts"
+    "guardian:check": "tsx scripts/guardian-check.ts",
+    "demo:reset": "tsx scripts/reset.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",

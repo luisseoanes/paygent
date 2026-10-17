@@ -19,6 +19,7 @@ const agentsPort = await freePort()
 process.env.AGENTS_URL = `http://127.0.0.1:${agentsPort}`
 const { buildApp } = await import('../src/app.ts')
 const { getMandate } = await import('../src/gateway/mandates.ts')
+const { asUser } = await import('./helpers.ts')
 
 const app = await buildApp({ logger: false })
 let agents: ChildProcess
@@ -55,16 +56,16 @@ describe('SMS de una rama registrada por un titular', () => {
       })
     ).json()
     // Andrés firma su grant (en mock) y registra a su mamá; el SMS se activa en el celular de ella.
-    const { redirectUrl } = (await post('/mandates/root', { rootMandateId: hijo.rootMandateId })).json()
+    const { redirectUrl } = (await post('/mandates/root', { rootMandateId: hijo.rootMandateId }, asUser(hijo.id))).json()
     await app.inject({ method: 'GET', url: new URL(redirectUrl).pathname + new URL(redirectUrl).search })
     await app.inject({
-      method: 'PUT', url: `/delivery-address/${hijo.rootMandateId}`, payload: { recipientName: 'Gloria', address: 'Calle 10 # 4-21' },
+      method: 'PUT', url: `/delivery-address/${hijo.rootMandateId}`, payload: { recipientName: 'Gloria', address: 'Calle 10 # 4-21' }, headers: asUser(hijo.id),
     })
     const mama = (
-      await post(`/mandates/${hijo.rootMandateId}/beneficiaries`, { alias: 'Gloria', maxDebit: A.cop(300_000), offlineCap: A.cop(50_000), pin: '4321' })
+      await post(`/mandates/${hijo.rootMandateId}/beneficiaries`, { alias: 'Gloria', maxDebit: A.cop(300_000), offlineCap: A.cop(50_000), pin: '4321' }, asUser(hijo.id))
     ).json()
     const activo = await app.inject({
-      method: 'PUT', url: `/mandates/${mama.deviceMandateId}/sms`, payload: { phone: '310 222 3344', pin: '2580' }, headers: { 'x-user-id': hijo.id },
+      method: 'PUT', url: `/mandates/${mama.deviceMandateId}/sms`, payload: { phone: '310 222 3344', pin: '2580' }, headers: asUser(hijo.id),
     })
     expect(activo.statusCode).toBe(200)
     const { mandateId } = activo.json()

@@ -5,20 +5,12 @@
  */
 import { amount as A, generateKeyPair, randomId, signVoucher, type DeviceCert, type Voucher } from '@openroute/shared'
 import { env } from '../src/env.ts'
+import { demoClient } from './demo-client.ts'
 
 const API = `http://localhost:${env.PORT}`
 const PHONE = '+573001112233'
 
-const call = async <T = any>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> => {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(`${path} → ${res.status} ${JSON.stringify(json)}`)
-  return json as T
-}
+const call = await demoClient(API)
 
 let failures = 0
 const step = (name: string, ok: boolean, detail = '') => {
@@ -49,9 +41,10 @@ step('PIN correcto paga y da el código de entrega', /código/.test(reply), repl
 const feed = await call<any[]>('/feed')
 step('Micropago agente → agente visible en el feed', feed.some((e) => e.kind === 'agent_to_agent'))
 step('Pago a la farmacia visible en el feed', feed.some((e) => e.kind === 'payment' && /Farmacia/.test(e.merchant)))
-const orders = await call<any[]>('/merchants/farmacia/orders')
+// Los pedidos de /merchants/:id/orders son del tendero dueño; la farmacia de la demo no tiene cuenta: se ven en el feed.
+const orders = feed.filter((e) => e.kind === 'payment' && /Farmacia/.test(e.merchant) && e.delivery)
 step(
-  'La farmacia ve los 2 pedidos con la dirección de María',
+  'Los 2 pedidos a la farmacia llevan la dirección de María',
   orders.length === 2 && orders.every((o) => o.delivery?.mode === 'delivery' && /Vereda La Palma/.test(o.delivery.address)),
   orders.map((o) => `${o.reason} · código ${o.delivery?.code}`).join(' | '),
 )
