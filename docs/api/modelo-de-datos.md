@@ -1,7 +1,7 @@
 # Modelo de datos
 
 La api guarda todo en **Postgres**. El esquema está en `src/api/src/store/migrations.ts`; el acceso, en
-`src/api/src/db.ts` (repositorio asíncrono) y `src/api/src/gateway/mandates.ts` (árbol de mandatos).
+`src/api/src/store/*.ts` (un repositorio asíncrono por agregado; `store/mandates.ts` para el árbol) y `src/api/src/gateway/mandates.ts` (reglas del árbol).
 
 - **Railway:** el servicio Postgres del proyecto (`DATABASE_URL=${{Postgres.DATABASE_URL}}`).
 - **Local sin `DATABASE_URL`:** PGlite (Postgres embebido) en `src/api/.data/pglite`. Borrar la carpeta = empezar de cero.
