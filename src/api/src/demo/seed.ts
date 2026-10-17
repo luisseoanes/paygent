@@ -20,7 +20,7 @@ import { DEMO_WALLETS } from './wallets.ts'
  * guardada con otra versión se vuelve a sembrar conservando el grant de Juan (tabla root_grants, que la semilla
  * no toca) y la llave del gateway.
  */
-export const SEED_VERSION = '2026-10-16.modos-de-consumo'
+export const SEED_VERSION = '2026-10-17.tenderos-por-comercio'
 
 export const PHONE_MAMA = '+573001112233'
 /** El celular de María: su modo SMS habla con el Asistente desde este número. */
@@ -38,6 +38,9 @@ const DEMO_USERS: (User & { password?: boolean })[] = [
   // Doña Carmen solo tiene un celular de teclas: sin correo ni contraseña, entra por SMS.
   { id: 'carmen', name: 'Carmen Pérez', documentType: 'CC', documentNumber: '32000003', phone: PHONE_MAMA },
   { id: 'rosa', name: 'Rosa Gómez', documentType: 'CC', documentNumber: '43000004', email: 'tendero@paygent.dev', phone: '+573105550101', password: true },
+  // Un tendero por comercio con wallet: su caja muestra lo que cobró su tienda.
+  { id: 'tendero-farmacia', name: 'Luz Restrepo', documentType: 'CC', documentNumber: '43000005', email: 'farmacia@paygent.dev', phone: '+573105550102', password: true },
+  { id: 'tendero-minimercado', name: 'Jorge Arango', documentType: 'CC', documentNumber: '43000006', email: 'minimercado@paygent.dev', phone: '+573105550103', password: true },
 ]
 
 /**
@@ -87,8 +90,14 @@ export const seed = async ({ keepGrant = true } = {}) =>
       { id: 'tienda', name: 'Tienda Doña Rosa', wallet: 'puntored:tienda', category: 'mercado', payout: { via: 'puntored', llave: '3105550101' }, ownerUserId: 'rosa' },
       tx,
     )
-    await upsertMerchant({ id: 'minimercado', name: 'Minimercado El Paisa', wallet: DEMO_WALLETS.minimercado, category: 'mercado' }, tx)
-    await upsertMerchant({ id: 'farmacia', name: 'Farmacia San José', wallet: DEMO_WALLETS.farmacia, category: 'farmacia' }, tx)
+    await upsertMerchant(
+      { id: 'minimercado', name: 'Minimercado El Paisa', wallet: DEMO_WALLETS.minimercado, category: 'mercado', ownerUserId: 'tendero-minimercado' },
+      tx,
+    )
+    await upsertMerchant(
+      { id: 'farmacia', name: 'Farmacia San José', wallet: DEMO_WALLETS.farmacia, category: 'farmacia', ownerUserId: 'tendero-farmacia' },
+      tx,
+    )
     await upsertMerchant({ id: 'puntored', name: 'Puntored Efectivo', wallet: DEMO_WALLETS.puntored, category: 'efectivo' }, tx)
     await upsertMerchant(
       { id: 'inventario', name: 'Agente de Inventario', wallet: DEMO_WALLETS.inventario, category: 'datos', isAgent: true },

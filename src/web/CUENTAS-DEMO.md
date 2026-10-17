@@ -28,14 +28,16 @@ El QR abre `/enlazar?codigo=<id>` y enlaza solo.
 
 ## Cuentas de demo
 
-Contraseña de las 3: **`paygent123`**. En **Iniciar sesión** hay 3 botones que llenan el
+Contraseña de las 5: **`paygent123`**. En **Iniciar sesión** hay 5 botones que llenan el
 formulario de un toque.
 
 | Tipo | Correo |
 |---|---|
 | Titular | `juan@paygent.dev` |
 | Beneficiario | `maria@paygent.dev` (enlazada al código `maria-device`) |
-| Tendero | `tendero@paygent.dev` |
+| Tendero (Tienda Doña Rosa) | `tendero@paygent.dev` |
+| Tendero (Farmacia San José) | `farmacia@paygent.dev` |
+| Tendero (Minimercado El Paisa) | `minimercado@paygent.dev` |
 
 ## Código para enlazar
 
@@ -48,7 +50,7 @@ formulario de un toque.
 
 ## Probar el pago sin señal en un computador
 
-1. Entra como **Tendero** y elige **Tienda Doña Rosa**.
+1. Entra como **Tendero**: su caja abre en **Tienda Doña Rosa**, la tienda de la cuenta.
 2. En otra ventana de incógnito, entra como **Beneficiario** (o enlaza y regístrate).
 3. DevTools → **Network** → **Offline**.
 4. Beneficiario: **Pagar** → Tienda Doña Rosa → `12000` → **Generar vale** → **Copiar vale**.

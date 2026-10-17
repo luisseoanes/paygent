@@ -38,6 +38,25 @@ export const demoUsers: User[] = [
     rootMandateId: null,
     merchantId: 'tienda',
   },
+  // Un tendero por comercio con wallet: su caja muestra lo que cobró su tienda.
+  {
+    id: 'tendero-farmacia',
+    role: 'tendero',
+    name: 'Luz',
+    apellido: 'Restrepo',
+    email: 'farmacia@paygent.dev',
+    rootMandateId: null,
+    merchantId: 'farmacia',
+  },
+  {
+    id: 'tendero-minimercado',
+    role: 'tendero',
+    name: 'Jorge',
+    apellido: 'Arango',
+    email: 'minimercado@paygent.dev',
+    rootMandateId: null,
+    merchantId: 'minimercado',
+  },
 ];
 
 export const rolLabel: Record<Rol, { nombre: string; app: string }> = {

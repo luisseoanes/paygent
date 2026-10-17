@@ -37,6 +37,9 @@ describe('Cuentas', () => {
 
   it('la tendera entra con su tienda', async () => {
     expect((await login('tendero@paygent.dev', DEMO_PASSWORD)).json()).toMatchObject({ role: 'tendero', merchantId: 'tienda' })
+    // Cada comercio de la demo con wallet tiene su tendero: su caja muestra lo que cobró su tienda.
+    expect((await login('farmacia@paygent.dev', DEMO_PASSWORD)).json()).toMatchObject({ role: 'tendero', merchantId: 'farmacia' })
+    expect((await login('minimercado@paygent.dev', DEMO_PASSWORD)).json()).toMatchObject({ role: 'tendero', merchantId: 'minimercado' })
   })
 
   it('contraseña incorrecta o cuenta sin contraseña (Doña Carmen solo usa SMS) → 401', async () => {

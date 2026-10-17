@@ -29,7 +29,7 @@ Open <http://localhost:5173>.
 | `/tendero` | Shopkeeper: scans and settles vouchers |
 | `/celular` | Simulated feature phone (SMS) |
 
-Demo accounts (password `paygent123`): `juan@paygent.dev`, `maria@paygent.dev`, `tendero@paygent.dev`.
+Demo accounts (password `paygent123`): `juan@paygent.dev` (payer), `maria@paygent.dev` (beneficiary), and one shopkeeper per shop: `tendero@paygent.dev` (Tienda Doña Rosa), `farmacia@paygent.dev`, `minimercado@paygent.dev`.
 Demo PIN: `1234`. Doña Carmen's phone: `+573001112233`.
 
 !!! tip "Port 8000 busy?"

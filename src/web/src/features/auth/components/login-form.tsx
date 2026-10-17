@@ -12,6 +12,12 @@ const etiquetaDemo: Record<User['role'], string> = {
   tendero: 'Tendero',
 };
 
+// Varios tenderos de demo: el botón dice de qué tienda es.
+const tiendaDemo: Record<string, string> = {
+  farmacia: 'Farmacia',
+  minimercado: 'Minimercado',
+};
+
 type LoginFormProps = {
   onSuccess: (user: User) => void;
 };
@@ -67,7 +73,8 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
                   }}
                   className="min-h-12 rounded-lg border border-rule bg-paper px-2 text-sm text-grafito transition-colors hover:bg-paper-sunken focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
-                  {etiquetaDemo[u.role]}
+                  {(u.merchantId && tiendaDemo[u.merchantId]) ??
+                    etiquetaDemo[u.role]}
                 </button>
               ))}
             </div>

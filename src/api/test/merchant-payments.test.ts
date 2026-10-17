@@ -57,6 +57,14 @@ describe('GET /merchants/:id/payments', () => {
     expect(pagos.map((p) => p.received)).toEqual([pesos(5_000), pesos(8_000)])
   })
 
+  it('cada tendero ve lo de su tienda: la farmacia, su compra; Rosa no la ve', async () => {
+    expect((await pagar(DEMO_WALLETS.farmacia, 12_000, 'losartán')).result).toBe('allow')
+    const farmacia = await app.inject({ method: 'GET', url: '/merchants/farmacia/payments', headers: asUser('tendero-farmacia') })
+    expect(farmacia.json().map((p: { reason: string }) => p.reason)).toEqual(['losartán'])
+    expect((await app.inject({ method: 'GET', url: '/merchants/farmacia/payments', headers: asUser('rosa') })).statusCode).toBe(403)
+    expect((await historial(asUser('rosa'))).json()).toEqual([])
+  })
+
   it('solo el tendero dueño del comercio', async () => {
     expect((await historial({})).statusCode).toBe(401)
     expect((await historial(asUser('juan'))).statusCode).toBe(403)
