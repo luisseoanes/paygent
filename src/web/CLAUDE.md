@@ -2,7 +2,7 @@
 
 Proyecto React estructurado según **Bulletproof React**. Estas reglas son obligatorias
 para cualquier cambio (humano o IA). Para añadir cualquier cosa (feature, pantalla,
-navbar, footer, componente, formulario...) usa la skill **`bulletproof-feature`**.
+componente, formulario...) sigue la estructura y las reglas de este fichero.
 
 **`BRAND.md`** define la identidad del producto (colores, tipografía, estilo, voz, mapa de pantallas).
 Todo cambio visual o de contenido debe respetarlo; los valores técnicos viven en `src/styles/theme.css`.
@@ -101,7 +101,7 @@ src/features/<feature>/
 - Nunca guardes datos del servidor en zustand.
 - Rutas: declaradas en `src/config/paths.ts`; enlaces con `paths.x.getHref()`, nunca strings sueltos.
 - Variables de entorno: prefijo `VITE_APP_`, declaradas y validadas en `src/config/env.ts`.
-- Sin backend todavía: crea handlers MSW en `src/testing/mocks/handlers/<feature>.ts`.
+- MSW (`src/testing/mocks/handlers/<feature>.ts`) imita la api real con sus mismas reglas: un endpoint nuevo de la api lleva su handler.
 
 ## Calidad obligatoria en cada pantalla/componente
 
@@ -115,3 +115,10 @@ src/features/<feature>/
 - Tests: tests de integración en `__tests__/` junto a la ruta/feature, probando comportamiento
   como un usuario (Testing Library + MSW), no detalles de implementación.
 - Formato de fechas/monedas solo con `@/utils/format`.
+
+## Gotchas
+
+- En Node 24 los tests de router con `loader` se cuelgan (jsdom `AbortSignal`): lanza el error en el render de un elemento.
+  Por eso fallan 7 tests de `cuenta`/`roles` en Node 24; la suite va con Node 22.
+- Tailwind solo genera las clases que lee literales: nunca armes `[&::-webkit-slider-thumb]:border-*` en tiempo de ejecución.
+- `testing/` es compartido: no importa de `features/` (los tipos compartidos van en `types/api.ts`).

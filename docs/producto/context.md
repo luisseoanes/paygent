@@ -43,12 +43,17 @@ Juan aprueba **un grant GNAP real** en su billetera: `outgoing-payment` con `deb
 ```
 Mandato raíz (Juan, USD)                           máx. $300 / mes    ← grant Open Payments real
 ├── María                                          máx. $250 / mes    mercado, farmacia, efectivo
-│   ├── Llave de dispositivo (sin señal)           tope offline dinámico (lo ajusta el Guardián)
-│   └── PIN SMS (celular básico)                   máx. $50 por compra
+│   ├── Celular (vale QR)                          con o sin señal · tope offline dinámico (lo ajusta el Guardián)
+│   ├── Asistente en su app                        el agente compra por ella · PIN si > $10
+│   └── SMS (celular básico)                       el agente atiende sus SMS · PIN siempre
 ├── Agente Asistente de la mamá                    máx. $40 / semana  farmacia, mercado · PIN si > $10
 │   └── Agente de Inventario (agente → agente)     máx. $0.50 / mes   pago por consulta
 └── Agente Guardián                                $0 — no gasta: solo puede RESTRINGIR
 ```
+
+Cada beneficiario queda con esos **tres modos de consumo** al darlo de alta, y Juan los reparte con sliders desde su
+panel. La suma de las ramas nunca supera a su padre: si Juan firma un mandato menor, el árbol baja en proporción. Detalle
+en [modos-de-consumo.md](modos-de-consumo.md).
 
 ### 3.2 Tres niveles de conectividad
 | Nivel | Cómo paga | Qué pasa en Open Payments |
@@ -226,6 +231,8 @@ La especificación de entidades, endpoints y tareas está en [backlog.md](backlo
 - **"¿Y el doble gasto offline?"** → Acotado por el tope offline, igual que los límites de las tarjetas sin conexión. El Guardián lo ajusta por riesgo y detecta anomalías al liquidar.
 - **"¿El SMS reemplaza el consentimiento de Open Payments?"** → No. Juan dio el consentimiento real en su billetera; el SMS aprueba gastos dentro de ese permiso. Llevarlo al servidor de autorización (GNAP `user_code`) es nuestra propuesta de extensión.
 - **"¿Quién tiene el dinero?"** → Nadie en el medio. Cada pago va de la wallet de Juan al destinatario final.
+- **"¿Y si Juan firma un mandato menor del que ya repartió?"** → Al volver de su billetera, el árbol se ajusta solo, en proporción y en cascada: solo baja lo que no cabe. La suma de las ramas nunca supera lo firmado, y queda en la libreta.
+- **"¿Paygent sabe cuánto dinero tiene Juan?"** → No: Open Payments no expone saldos, y los topes son permisos, no dinero reservado. Si la wallet no tiene fondos, el pago lo rechaza la propia billetera y no se mueve nada.
 - **"¿Qué pasa si Juan no tiene saldo al liquidar un vale offline?"** → Es el riesgo residual. En producción haría falta una reserva de fondos, que Open Payments no tiene hoy: es parte de nuestra propuesta.
 - **"¿Por qué no Visa, Mastercard o AP2?"** → Son cerrados y asumen smartphone, internet y tarjeta.
 - **"¿No están haciendo varios productos: pagos, domicilios y crédito?"** → No. Es un solo mandato; el código es el mismo. El historial no es un producto nuevo: son los datos que el mandato ya produce.

@@ -1,7 +1,7 @@
 /**
  * Puente SMS por adb: tu celular Android (USB) recibe y envía los SMS reales de la demo.
  *   pnpm sms:bridge
- * Solo reenvía números de SMS_BRIDGE_ALLOW. Ver README → "SMS real con tu celular".
+ * Solo reenvía números de SMS_BRIDGE_ALLOW. Ver docs/operacion/sms.md → "SMS real con tu celular".
  */
 import { resolve } from 'node:path'
 import { adbTransport } from '../src/sms-bridge/adb.ts'

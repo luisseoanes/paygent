@@ -95,6 +95,8 @@ MOCK_OP=1 pnpm --filter @openroute/api test   # api tests on in-memory PGlite, e
   read → await → write races in the app (`pay-concurrente.test.ts`).
 - **After a deploy, open tabs load stale lazy chunks** (server returns `index.html`): `RouteError` reloads once (`lib/version.ts`).
 - **Teammates push often:** `git fetch` before committing; seed, gateway routes and `rama-detalle.tsx` are merge hot spots.
+- **Two doc sources:** `pnpm docs:build` (strict) before pushing `site-docs/`, or the Pages workflow fails on a broken link; a
+  visible behaviour change updates both `docs/` (team, Spanish) and `site-docs/` (public, English).
 - **Find prod ids read-only:** `GET /api/feed` (events carry `mandateId`), `/api/mandates/:id/tree`, `/api/mandates/:id/modes`.
 
 ## Code Style
@@ -104,7 +106,7 @@ KISS and YAGNI by default; SOLID reserved for complex business logic (the gatewa
 authorization), favouring single responsibility and injected dependencies. Comments explain *why*.
 Code comments and user-facing text are in Spanish, matching the existing code.
 `TODO <ID>` markers point at backlog task IDs. Separate config files from code. Avoid verbose documentation
-inside the code, all comments must be short one-liners and extensive documentation must sit outside the code using Zensical. 
+inside the code, all comments must be short one-liners and extensive documentation must sit outside the code: `docs/` (team, Spanish) and `site-docs/` (public site, Zensical).
 
 ## Layout
 
