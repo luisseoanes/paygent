@@ -4,7 +4,8 @@ import { getActiveGrant, payerOfRoot } from '../db.ts'
 import { env } from '../env.ts'
 import { emit } from '../feed/bus.ts'
 import { badRequest } from '../gateway/errors.ts'
-import { getMandate, putMandate, ROOT_ID } from '../gateway/mandates.ts'
+import { fitChildren, getMandate, putMandate, ROOT_ID } from '../gateway/mandates.ts'
+import { sql } from '../store/sql.ts'
 import { getWallet } from './client.ts'
 import { continueRootGrant, requestRootGrant } from './grants.ts'
 
@@ -41,9 +42,13 @@ export default async function opRoutes(app: FastifyInstance) {
     if (result === 'grant_rejected' || !interact_ref || !hash) return reply.redirect(`${env.WEB_URL}/juan?ok=0`)
     try {
       const pending = await continueRootGrant(interact_ref, hash, rootId)
-      // El mandato raíz refleja exactamente lo que el titular aprobó en su billetera.
+      // El mandato raíz refleja exactamente lo que el titular aprobó en su billetera. Si es menos de lo que ya
+      // repartió, sus ramas bajan en proporción en la misma transacción: la suma nunca supera lo firmado.
       const root = await getMandate(rootId)
-      await putMandate({ ...root, maxDebit: pending.maxDebit, interval: pending.interval, revoked: false, frozen: false })
+      const ajustadas = await sql().tx(async (tx) => {
+        await putMandate({ ...root, maxDebit: pending.maxDebit, interval: pending.interval, revoked: false, frozen: false }, tx)
+        return fitChildren(rootId, tx)
+      })
       await emit({
         mandateId: rootId,
         actor: { type: 'person', name: root.holderName },
@@ -51,6 +56,16 @@ export default async function opRoutes(app: FastifyInstance) {
         amount: pending.maxDebit,
         reason: `${root.holderName} aprobó el mandato raíz en su billetera: máx. ${A.format(pending.maxDebit)} por periodo`,
       })
+      const directas = ajustadas.filter((m) => m.parentId === rootId)
+      if (directas.length)
+        await emit({
+          mandateId: rootId,
+          actor: { type: 'person', name: root.holderName },
+          kind: 'guardian',
+          reason: `El mandato nuevo es menor que lo repartido: los topes bajaron en proporción (${directas
+            .map((m) => `${m.holderName} ${A.format(m.maxDebit)}`)
+            .join(', ')})`,
+        })
       return reply.redirect(`${env.WEB_URL}/juan?ok=1`)
     } catch (err) {
       req.log.error(err)

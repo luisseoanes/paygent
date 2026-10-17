@@ -47,6 +47,12 @@ const tono: Record<SpendMode, { relleno: string; pulgar: string }> = {
   },
 };
 
+const tonoTotal = {
+  relleno: 'bg-ink-2',
+  pulgar:
+    '[&::-webkit-slider-thumb]:border-ink [&::-moz-range-thumb]:border-ink',
+};
+
 // Montos en unidades menores (enteros): sin errores de redondeo al sumar.
 const menor = (a?: Amount) => (a ? Number(a.value) : 0);
 const aMonto = (n: number, like: Amount): Amount => ({
@@ -62,6 +68,36 @@ const pasoPara = (total: number) =>
   Math.max(1, 10 ** Math.floor(Math.log10(Math.max(total / 100, 1))));
 
 type Valores = Record<string, { tope: number; techo?: number }>;
+
+// Si lo disponible no alcanza para lo asignado, cada modo baja en proporción a
+// lo que tiene por encima de su mínimo; el techo sin señal baja con el celular.
+const escalar = (
+  modos: ModeView[],
+  v: Valores,
+  disponible: number,
+): Valores => {
+  const asignado = modos.reduce((n, m) => n + v[m.mandateId].tope, 0);
+  if (asignado <= disponible) return v;
+  const minimos = modos.reduce((n, m) => n + menor(m.minDebit), 0);
+  const k =
+    asignado > minimos
+      ? Math.max(0, disponible - minimos) / (asignado - minimos)
+      : 0;
+  return Object.fromEntries(
+    modos.map((m) => {
+      const { tope, techo } = v[m.mandateId];
+      const min = menor(m.minDebit);
+      const nuevo = min + Math.floor((tope - min) * k);
+      return [
+        m.mandateId,
+        {
+          tope: nuevo,
+          techo: techo === undefined ? undefined : Math.min(techo, nuevo),
+        },
+      ];
+    }),
+  );
+};
 
 const inicialesDe = (modos: ModeView[]): Valores =>
   Object.fromEntries(
@@ -184,13 +220,22 @@ const Formulario = ({
 }) => {
   const addNotification = useNotifications((s) => s.addNotification);
   const like = datos.budget;
-  const total = menor(datos.budget) - menor(datos.reserved);
+  const reservado = menor(datos.reserved);
+  const presupuestoInicial = menor(datos.budget);
+  const presupuestoMax = Math.max(menor(datos.budgetMax), presupuestoInicial);
+  // Lo mínimo que puede tener la persona: otras ramas y lo que cada modo ya repartió.
+  const presupuestoMin =
+    reservado + datos.modes.reduce((n, m) => n + menor(m.minDebit), 0);
+  // Misma escala para todos los modos (la del máximo): no saltan al mover el total.
+  const total = presupuestoMax - reservado;
   const paso = pasoPara(total);
   const iniciales = React.useMemo(
     () => inicialesDe(datos.modes),
     [datos.modes],
   );
   const [valores, setValores] = React.useState<Valores>(iniciales);
+  const [presupuesto, setPresupuesto] = React.useState(presupuestoInicial);
+  const disponible = presupuesto - reservado;
   const guardar = useSetModeLimits({
     mutationConfig: {
       onSuccess: () => {
@@ -204,7 +249,13 @@ const Formulario = ({
     (acc, m) => acc + valores[m.mandateId].tope,
     0,
   );
-  const libre = total - asignado;
+  const libre = disponible - asignado;
+
+  const moverPresupuesto = (n: number) => {
+    const p = Math.max(presupuestoMin, Math.min(n, presupuestoMax));
+    setPresupuesto(p);
+    setValores((v) => escalar(datos.modes, v, p - reservado));
+  };
 
   const mover = (m: ModeView, n: number) =>
     setValores((v) => {
@@ -239,6 +290,8 @@ const Formulario = ({
       cambia.offlineCap = aMonto(ahora.techo, m.maxDebit);
     return cambia.maxDebit || cambia.offlineCap ? [cambia] : [];
   });
+  const cambiaPresupuesto = presupuesto !== presupuestoInicial;
+  const hayCambios = cambios.length > 0 || cambiaPresupuesto;
 
   return (
     <>
@@ -260,7 +313,7 @@ const Formulario = ({
             </p>
           </div>
           <p className="cifra text-right text-xs text-ink-2">
-            de {mostrar(menor(datos.budget), like)}
+            de {mostrar(presupuesto, like)}
             {menor(datos.reserved) > 0 &&
               ` · ${mostrar(menor(datos.reserved), like)} en otras ramas`}
           </p>
@@ -278,14 +331,14 @@ const Formulario = ({
                 tono[m.mode].relleno,
               )}
               style={{
-                width: pct(valores[m.mandateId].tope, menor(datos.budget)),
+                width: pct(valores[m.mandateId].tope, presupuesto),
               }}
             />
           ))}
           <div
             className="h-full bg-ink-3"
             style={{
-              width: pct(menor(datos.reserved), menor(datos.budget)),
+              width: pct(reservado, presupuesto),
             }}
           />
           <div className="h-full flex-1 bg-paper-raised" />
@@ -319,7 +372,39 @@ const Formulario = ({
         </ul>
       </section>
 
-      <ul className="space-y-5">
+      <section aria-label="Tope total" className="space-y-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[0.9375rem] font-medium text-grafito">
+            Tope total de {datos.personaName}
+          </span>
+          <span className="flex items-baseline gap-2">
+            <Delta n={presupuesto - presupuestoInicial} like={like} />
+            <span className="cifra text-lg text-grafito">
+              {mostrar(presupuesto, like)}
+            </span>
+          </span>
+        </div>
+        <Deslizador
+          etiqueta={`Tope total de ${datos.personaName}`}
+          valor={presupuesto}
+          total={presupuestoMax}
+          alcanzable={presupuestoMax}
+          paso={paso}
+          like={like}
+          tonoModo={tonoTotal}
+          onChange={moverPresupuesto}
+        />
+        <p className="cifra flex justify-between gap-3 text-xs text-ink-2">
+          <span>mín. {mostrar(presupuestoMin, like)}</span>
+          <span>tu mandato le deja hasta {mostrar(presupuestoMax, like)}</span>
+        </p>
+        <p className="text-xs text-ink-2">
+          Si lo bajas por debajo de lo repartido, sus formas de pagar bajan en
+          proporción.
+        </p>
+      </section>
+
+      <ul className="space-y-5 border-t border-rule pt-5">
         {datos.modes.map((m) => {
           const v = valores[m.mandateId];
           const antes = iniciales[m.mandateId];
@@ -401,17 +486,24 @@ const Formulario = ({
           variant="ghost"
           size="sm"
           icon={<RotateCcw aria-hidden="true" />}
-          disabled={cambios.length === 0}
-          onClick={() => setValores(iniciales)}
+          disabled={!hayCambios}
+          onClick={() => {
+            setValores(iniciales);
+            setPresupuesto(presupuestoInicial);
+          }}
         >
           Restablecer
         </Button>
         <Button
           type="button"
           isLoading={guardar.isPending}
-          disabled={cambios.length === 0}
+          disabled={!hayCambios}
           onClick={() =>
-            guardar.mutate({ personaId: datos.personaId, limits: cambios })
+            guardar.mutate({
+              personaId: datos.personaId,
+              limits: cambios,
+              budget: cambiaPresupuesto ? aMonto(presupuesto, like) : undefined,
+            })
           }
         >
           Guardar reparto

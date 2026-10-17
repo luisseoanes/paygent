@@ -84,6 +84,8 @@ export type ModesResponse = {
   personaName: string;
   // Tope de la persona y lo que tienen sus otras ramas (no modos)
   budget: Amount;
+  // Hasta dónde puede subir la persona con lo libre de su titular
+  budgetMax: Amount;
   reserved: Amount;
   modes: ModeView[];
 };

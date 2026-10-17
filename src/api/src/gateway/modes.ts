@@ -245,22 +245,35 @@ export const listModes = async (id: string) => {
       phone: mode === 'sms' ? sms?.channel : undefined,
     })
   }
-  return { personaId, personaName: persona.holderName, budget: persona.maxDebit, reserved, modes: views }
+  // Hasta dónde puede subir la persona: el tope de su padre menos lo que tienen sus hermanos.
+  const parent = await getMandate(persona.parentId!)
+  const siblings = (await childrenOf(parent.id)).filter((c) => c.id !== persona.id)
+  const budgetMax = A.sub(parent.maxDebit, sumOf(siblings, persona.maxDebit))
+  return { personaId, personaName: persona.holderName, budget: persona.maxDebit, budgetMax, reserved, modes: views }
 }
 
 /**
- * El titular reparte de una vez el tope de la persona entre sus modos. Todo o nada: primero baja lo que baja y después
- * sube lo que sube, para que la suma nunca pase por encima de la persona a mitad de camino.
+ * El titular reparte de una vez el tope de la persona entre sus modos, y puede cambiar ese tope (`budget`). Todo o
+ * nada, en un orden en que la suma nunca pasa del padre a mitad de camino: si la persona sube, sube primero; si baja,
+ * baja al final; entre medias, los modos bajan antes de subir.
  */
-export const setModeLimits = async (personaId: string, limits: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[]) =>
+export const setModeLimits = async (
+  personaId: string,
+  limits: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[],
+  budget?: Amount,
+) =>
   sql().tx(async (tx) => {
     const own = new Set([...(await modesOf(personaId, tx)).values()].map((b) => b.id))
     const ajenos = limits.filter((l) => !own.has(l.mandateId))
     if (ajenos.length) throw badRequest(`No son modos de esta persona: ${ajenos.map((l) => l.mandateId).join(', ')}`)
+    const persona = await getMandate(personaId, tx)
+    const sube = !!budget && !A.lte(budget, persona.maxDebit)
+    const changed: Mandate[] = []
+    if (budget && sube) changed.push(await setLimits(personaId, { maxDebit: budget }, tx))
     const current = new Map((await childrenOf(personaId, tx)).map((c) => [c.id, c]))
     const baja = (l: (typeof limits)[number]) => !l.maxDebit || A.lte(l.maxDebit, current.get(l.mandateId)!.maxDebit)
     const ordered = [...limits.filter(baja), ...limits.filter((l) => !baja(l))]
-    const changed: Mandate[] = []
     for (const l of ordered) changed.push(await setLimits(l.mandateId, { maxDebit: l.maxDebit, offlineCap: l.offlineCap }, tx))
+    if (budget && !sube && !A.lte(persona.maxDebit, budget)) changed.push(await setLimits(personaId, { maxDebit: budget }, tx))
     return changed
   })

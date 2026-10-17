@@ -216,6 +216,61 @@ describe('El titular reparte el tope entre los modos de una vez (PATCH /mandates
     expect((await modosDe(mandateId)).map((m) => m.maxDebit.value)).toEqual([A.cop(4_000).value, A.cop(2_000).value, A.cop(2_000).value])
   })
 
+  it('el tope de la persona sube hasta lo que su titular aún no repartió, y con él lo libre', async () => {
+    const { mandateId } = (await alta('Prima segunda', 1_000, 10_000)).json()
+    const { budget, budgetMax, modes } = (await get(`/mandates/${mandateId}/modes`)).json()
+    expect(BigInt(budgetMax.value)).toBeGreaterThan(BigInt(budget.value))
+    const [, chat] = modes as Modo[]
+    // Sube la persona al máximo y, en la misma petición, el Asistente con lo que se liberó.
+    const extra = BigInt(budgetMax.value) - BigInt(budget.value)
+    const res = (
+      await app.inject({
+        method: 'PATCH', url: `/mandates/${mandateId}/modes`, headers: comoTitular(),
+        payload: { budget: budgetMax, limits: [{ mandateId: chat.mandateId, maxDebit: { ...budget, value: String(2_000_00n + extra) } }] },
+      })
+    ).json()
+    expect(res.budget).toEqual(budgetMax)
+    expect(res.modes[1].maxDebit.value).toBe(String(2_000_00n + extra))
+    const pasado = await app.inject({
+      method: 'PATCH', url: `/mandates/${mandateId}/modes`, headers: comoTitular(),
+      payload: { budget: { ...budgetMax, value: String(BigInt(budgetMax.value) + 1n) }, limits: [] },
+    })
+    expect(pasado.statusCode).toBe(403)
+    // Y de vuelta: la persona y el Asistente bajan juntos (deja lo libre de la raíz para los demás tests).
+    const vuelta = await app.inject({
+      method: 'PATCH', url: `/mandates/${mandateId}/modes`, headers: comoTitular(),
+      payload: { budget, limits: [{ mandateId: chat.mandateId, maxDebit: chat.maxDebit }] },
+    })
+    expect(vuelta.json().budget).toEqual(budget)
+  })
+
+  it('bajar a la persona por debajo de lo repartido solo cabe si los modos bajan en la misma petición', async () => {
+    const { mandateId } = (await alta('Tío abuelo', 1_000, 10_000)).json()
+    const [cel, chat, sms] = await modosDe(mandateId)
+    // 4.000 + 2.000 + 2.000 repartidos de 10.000: bajar a 5.000 sin tocar los modos no cabe.
+    const sola = await reparto(mandateId, [], comoTitular())
+    expect(sola.statusCode).toBe(400)
+    const noCabe = await app.inject({
+      method: 'PATCH', url: `/mandates/${mandateId}/modes`, headers: comoTitular(), payload: { budget: A.cop(5_000), limits: [] },
+    })
+    expect(noCabe.statusCode).toBe(403)
+    expect((await getMandate(mandateId)).maxDebit).toEqual(A.cop(10_000))
+    const cabe = await app.inject({
+      method: 'PATCH', url: `/mandates/${mandateId}/modes`, headers: comoTitular(),
+      payload: {
+        budget: A.cop(5_000),
+        limits: [
+          // El Asistente y el SMS no bajan de 2.000: es lo que ya repartieron a su consulta al Inventario.
+          { mandateId: cel.mandateId, maxDebit: A.cop(1_000) },
+          { mandateId: chat.mandateId, maxDebit: A.cop(2_000) },
+          { mandateId: sms.mandateId, maxDebit: A.cop(2_000) },
+        ],
+      },
+    })
+    expect(cabe.statusCode).toBe(200)
+    expect(cabe.json().budget).toEqual(A.cop(5_000))
+  })
+
   it('solo modos de esa persona y solo su titular', async () => {
     const { mandateId } = (await alta('Padrino', 1_000, 10_000)).json()
     expect((await reparto(mandateId, [{ mandateId: 'maria-device', maxDebit: A.cop(1) }])).statusCode).toBe(400)

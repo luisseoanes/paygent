@@ -89,6 +89,7 @@ const modesOf = (id: string): ModesResponse => {
   const order = ['celular', 'asistente', 'sms'];
   const vivos = persona.children.filter((c) => c.mode && !c.revoked);
   const like = persona.maxDebit;
+  const padre = findInTree(db.tree, persona.parentId ?? '');
   const minor = (n: number): Amount => ({ ...like, value: String(n) });
   const modes = [...vivos]
     .sort((a, b) => order.indexOf(a.mode!) - order.indexOf(b.mode!))
@@ -110,6 +111,10 @@ const modesOf = (id: string): ModesResponse => {
     personaId: persona.id,
     personaName: persona.holderName,
     budget: persona.maxDebit,
+    budgetMax: minor(
+      Number(padre?.maxDebit.value ?? persona.maxDebit.value) -
+        sumMinor((padre?.children ?? []).filter((c) => c.id !== persona.id)),
+    ),
     reserved: minor(
       sumMinor(persona.children.filter((c) => !vivos.includes(c))),
     ),
@@ -372,19 +377,24 @@ export const mandatesHandlers = [
         return fail('Inicia sesión como titular', 401);
       const persona = findInTree(db.tree, String(params.mandateId));
       if (!persona) return notFound();
-      const { limits } = (await request.json()) as {
+      const { limits, budget } = (await request.json()) as {
         limits: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[];
+        budget?: Amount;
       };
+      const tope = Number((budget ?? persona.maxDebit).value);
+      if (Number(modesOf(persona.id).budgetMax.value) < tope)
+        return fail('Supera lo que queda por repartir', 403);
       const nuevo = (c: MandateTree) =>
         limits.find((l) => l.mandateId === c.id)?.maxDebit ?? c.maxDebit;
       const suma = persona.children
         .filter((c) => !c.revoked)
         .reduce((n, c) => n + Number(nuevo(c).value), 0);
-      if (suma > Number(persona.maxDebit.value))
+      if (suma > tope)
         return fail(
           'La suma de los sub-mandatos supera el tope del padre',
           403,
         );
+      if (budget) persona.maxDebit = budget;
       for (const l of limits) {
         const c = findInTree(db.tree, l.mandateId)!;
         if (l.maxDebit) c.maxDebit = l.maxDebit;

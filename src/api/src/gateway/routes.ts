@@ -251,16 +251,17 @@ export default async function gatewayRoutes(app: FastifyInstance) {
     return m
   })
 
-  // El titular reparte de una vez el tope de la persona entre sus modos (los sliders de la web). Todo o nada.
-  app.patch<{ Params: { id: string }; Body: { limits?: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[] } }>(
+  // El titular reparte de una vez el tope de la persona entre sus modos, y puede cambiar ese tope (los sliders). Todo o nada.
+  app.patch<{ Params: { id: string }; Body: { budget?: Amount; limits?: { mandateId: string; maxDebit?: Amount; offlineCap?: Amount }[] } }>(
     '/mandates/:id/modes',
     async (req) => {
       await requireTitularOf(req, req.params.id)
       const persona = await getMandate(req.params.id)
       if (persona.holderType !== 'person' || !persona.parentId) throw badRequest('Los modos se reparten en la rama de una persona')
       const limits = req.body?.limits ?? []
-      if (!limits.length) throw badRequest('Faltan los topes (limits)')
-      const changed = await setModeLimits(persona.id, limits)
+      const budget = req.body?.budget
+      if (!limits.length && !budget) throw badRequest('Faltan los topes (limits) o el tope de la persona (budget)')
+      const changed = await setModeLimits(persona.id, limits, budget)
       await emit({
         mandateId: persona.id,
         actor: { type: 'person', name: await titularDe(persona.id) },

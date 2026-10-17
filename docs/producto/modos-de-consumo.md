@@ -32,6 +32,8 @@ En `/cuenta`, en la rama del beneficiario, **Formas de pagar** (todo va con la c
   celular. Todos usan la misma escala (el tope de la persona); cada slider se detiene donde se acaba lo libre (rayado)
   y nunca baja de lo que el modo ya repartió. "Libre para asignar" se recalcula al mover y queda fijo arriba; nada
   cambia hasta **Guardar reparto**, que manda todo junto a `PATCH /mandates/:persona/modes` (todo o nada).
+- En el mismo modal, **Tope total** de la persona: sube hasta lo que el titular aún no repartió (`budgetMax`) y baja
+  hasta lo ya comprometido. Por debajo de lo repartido, los modos bajan en proporción a lo que tienen sobre su mínimo.
 - Un solo modo, por api: `PATCH /mandates/:id/limits`. Con `offlineCap` cambia el techo sin señal. Si baja el celular
   por debajo de su techo, el techo baja con él.
 - **Quitar** un modo: `POST /mandates/:id/revoke`. Su tope vuelve a quedar libre.
@@ -45,3 +47,10 @@ En `/cuenta`, en la rama del beneficiario, **Formas de pagar** (todo va con la c
   otra persona no se pisa. El titular puede poner otro número y un PIN propio del SMS con `PUT /mandates/:id/sms`
   (desde la persona o su celular): conecta la misma hoja del modo SMS, no crea otra.
 - Con el puente Android, el número también tiene que estar en `SMS_BRIDGE_ALLOW`.
+
+## Topes y dinero
+
+- Los topes son **permisos, no dinero reservado** (no custodio). Open Payments no expone el saldo de la wallet, así
+  que Paygent no lo conoce: si no alcanza, el Outgoing Payment lo rechaza la billetera y no se mueve nada.
+- Si el titular firma un grant **menor** que lo repartido, al volver (`/callback`) las ramas bajan en proporción, en
+  cascada y solo lo que no cabe (lo libre de cada rama se consume primero). Queda un evento en el feed.

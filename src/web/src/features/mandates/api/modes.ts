@@ -73,11 +73,14 @@ export const useEnableModes = ({
 export const setModeLimits = ({
   personaId,
   limits,
+  budget,
 }: {
   personaId: string;
   limits: ModeLimit[];
+  // Nuevo tope de la persona (sube con lo libre del titular)
+  budget?: Amount;
 }): Promise<ModesResponse> =>
-  api.patch(`/mandates/${personaId}/modes`, { limits }, comoTitular());
+  api.patch(`/mandates/${personaId}/modes`, { limits, budget }, comoTitular());
 
 export const useSetModeLimits = ({
   mutationConfig,

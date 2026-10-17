@@ -60,3 +60,39 @@ test('the sliders move the caps, update what is left in real time and stop where
   );
   expect(await screen.findByText('Reparto guardado')).toBeInTheDocument();
 });
+
+test('the total cap rises with what the mandate has left and, when lowered, the modes shrink in proportion', async () => {
+  await abrir();
+  await userEvent.click(
+    await screen.findByRole('button', { name: /ajustar topes/i }),
+  );
+  const modal = await screen.findByRole('dialog', {
+    name: /repartir el tope/i,
+  });
+  const libre = within(modal).getByText('Libre para asignar').nextSibling!;
+  const totalMaria = within(modal).getByRole('slider', {
+    name: /tope total de maría/i,
+  });
+  const celular = within(modal).getByRole('slider', {
+    name: /tope de celular/i,
+  });
+  const techo = within(modal).getByRole('slider', { name: /techo sin señal/i });
+  expect(totalMaria).toHaveValue('15000');
+
+  // Más de lo que deja el mandato: se detiene en el máximo y lo libre crece.
+  fireEvent.change(totalMaria, { target: { value: '999999' } });
+  const maximo = Number((totalMaria as HTMLInputElement).value);
+  expect(maximo).toBeGreaterThan(15000);
+  expect(libre).toHaveTextContent(`$${(maximo - 4000) / 100}`);
+
+  // Por debajo de lo repartido: el celular baja en proporción y su techo con él.
+  fireEvent.change(totalMaria, { target: { value: '1000' } });
+  expect(celular).toHaveValue('1000');
+  expect(techo).toHaveValue('1000');
+  expect(libre).toHaveTextContent('$0');
+
+  await userEvent.click(
+    within(modal).getByRole('button', { name: /guardar reparto/i }),
+  );
+  expect(await screen.findByText('Reparto guardado')).toBeInTheDocument();
+});

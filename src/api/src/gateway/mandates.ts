@@ -278,6 +278,27 @@ export const setLimits = async (id: string, patch: { maxDebit?: Amount; offlineC
   return putMandate(next, conn)
 }
 
+/**
+ * Si un padre quedó por debajo de lo que repartió (el titular firmó un grant menor), sus hijos bajan en proporción, en
+ * cascada; los topes sin señal nunca quedan por encima de su rama. Devuelve las ramas que cambiaron.
+ */
+export const fitChildren = async (id: string, conn?: Sql): Promise<Mandate[]> => {
+  const parent = await getMandate(id, conn)
+  const kids = (await childrenOf(id, conn)).filter((c) => !c.revoked)
+  const total = kids.reduce((acc, c) => acc + BigInt(c.maxDebit.value), 0n)
+  const tope = BigInt(parent.maxDebit.value)
+  const changed: Mandate[] = []
+  if (total > tope)
+    for (const c of kids) {
+      // Redondeo hacia abajo: la suma nunca pasa del padre.
+      const next = { ...c, maxDebit: { ...c.maxDebit, value: String((BigInt(c.maxDebit.value) * tope) / total) } }
+      for (const k of ['offlineCap', 'offlineCapCeiling'] as const) if (next[k] && !A.lte(next[k]!, next.maxDebit)) next[k] = next.maxDebit
+      changed.push(await putMandate(next, conn))
+    }
+  for (const c of kids) changed.push(...(await fitChildren(c.id, conn)))
+  return changed
+}
+
 /** Suma el gasto en toda la cadena (GW-05), en una transacción: o se cuenta en todas las ramas o en ninguna. */
 export const applySpend = async (mandateId: string, amount: Amount) =>
   sql().tx(async (tx) => {
