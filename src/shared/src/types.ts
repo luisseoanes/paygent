@@ -71,6 +71,7 @@ export type DenyReason =
   | 'bad_signature'
   | 'replay'
   | 'bad_pin'
+  | 'pin_locked'
   | 'cannot_spend'
   | 'not_found'
   | 'payment_failed'

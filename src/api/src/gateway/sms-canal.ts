@@ -118,7 +118,9 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
     const persona = rama.holderType === 'device' && chain[1]?.parentId ? chain[1] : rama
     const modo = actual ? undefined : (await modesOf(persona.id, tx)).get('sms')
     const ocupado = await channelOwner(phone, tx)
-    if (ocupado && ocupado.mandate_id !== (actual?.mandateId ?? modo?.id)) throw new HttpError(409, 'Ese número ya habla con el Asistente desde otra rama')
+    // Un número atado a una rama revocada está libre: su perfil ya no puede pagar.
+    if (ocupado?.revoked && ocupado.mandate_id !== (actual?.mandateId ?? modo?.id)) await deleteProfile(phone, tx)
+    else if (ocupado && ocupado.mandate_id !== (actual?.mandateId ?? modo?.id)) throw new HttpError(409, 'Ese número ya habla con el Asistente desde otra rama')
 
     if (modo) {
       const [previo] = await channelsOf(modo.id, {}, tx)
@@ -161,9 +163,9 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
   return { rama, estado: await estadoSms(rama.id) }
 }
 
-/** Apaga el SMS: el número deja de tener perfil y la hoja del Asistente se revoca (con su hoja de datos). */
+/** Apaga el SMS: el número deja de tener perfil y la hoja del Asistente se revoca (con su hoja de datos). También en una rama revocada. */
 export const desactivarSms = async (branchId: string) => {
-  const actual = await perfilDe(branchId)
+  const actual = await smsProfileOfBranch(branchId, sql(), { includeRevoked: true })
   if (!actual) throw notFound('SMS de esta rama')
   await deleteProfile(actual.phone)
   await revoke(actual.mandateId)

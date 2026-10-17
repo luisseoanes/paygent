@@ -183,6 +183,34 @@ describe('El SMS que activa el titular (PUT /mandates/:id/sms)', () => {
   })
 })
 
+// Lo que pasó en producción: el titular revocó a un beneficiario y su número quedó atado a la rama muerta.
+describe('El SMS de un beneficiario revocado', () => {
+  const smsDe = (id: string, method: 'PUT' | 'DELETE', payload?: object) =>
+    app.inject({ method, url: `/mandates/${id}/sms`, payload, headers: comoTitular() })
+
+  it('su número queda libre para activarlo en otra rama', async () => {
+    const viejo = (await alta('Primo')).json()
+    expect((await smsDe(viejo.mandateId, 'PUT', { phone: '3129990088', pin: '2580' })).statusCode).toBe(200)
+    expect((await post(`/mandates/${viejo.mandateId}/revoke`, {}, comoTitular())).statusCode).toBe(200)
+
+    const nuevo = (await alta('Sobrino', 5_000, 20_000)).json()
+    const res = await smsDe(nuevo.mandateId, 'PUT', { phone: '3129990088', pin: '2580' })
+    expect(res.statusCode).toBe(200)
+    const sms = (await modosDe(nuevo.mandateId)).find((m) => m.mode === 'sms')!
+    expect((await get('/sms/profile?phone=%2B573129990088')).json().mandateId).toBe(sms.mandateId)
+    await post(`/mandates/${nuevo.mandateId}/revoke`, {}, comoTitular()) // devuelve el cupo a la raíz de prueba
+  })
+
+  it('el titular puede apagarlo aunque la rama esté revocada', async () => {
+    const { mandateId } = (await alta('Tío')).json()
+    await smsDe(mandateId, 'PUT', { phone: '3129990099', pin: '2580' })
+    await post(`/mandates/${mandateId}/revoke`, {}, comoTitular())
+
+    expect((await smsDe(mandateId, 'DELETE')).statusCode).toBe(200)
+    expect((await get('/sms/profile?phone=%2B573129990099')).statusCode).toBe(404)
+  })
+})
+
 describe('El titular reparte el tope entre los modos de una vez (PATCH /mandates/:persona/modes)', () => {
   const reparto = (id: string, limits: object[], headers: Record<string, string> = comoTitular()) =>
     app.inject({ method: 'PATCH', url: `/mandates/${id}/modes`, payload: { limits }, headers })

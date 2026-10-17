@@ -109,6 +109,44 @@ describe('/pay', () => {
   })
 })
 
+// Por SMS el remitente se puede suplantar: sin un tope de intentos por mandato, pidiendo compras nuevas se probarían
+// los 10.000 PIN de 4 dígitos de 3 en 3.
+describe('El PIN se bloquea tras varios intentos fallidos', () => {
+  const pay = (payload: object) =>
+    app.inject({ method: 'POST', url: '/pay', headers: assistantKey, payload }).then((r) => r.json())
+  const body = { mandateId: 'asistente', merchantWallet: farmacia, amount: A.cop(60_000), category: 'farmacia', reason: 'losartán' }
+  const intentoFallido = async (pin: string) => pay({ ...body, pendingId: (await pay(body)).pendingId, pin })
+
+  it('5 fallos aunque sean en compras distintas lo bloquean, también al PIN correcto, y el titular lo ve', async () => {
+    for (const pin of ['0000', '1111', '2222', '3333']) expect(await intentoFallido(pin)).toMatchObject({ reason: 'bad_pin' })
+    expect(await intentoFallido('4444')).toMatchObject({ reason: 'pin_locked' })
+    expect(await intentoFallido('1234')).toMatchObject({ result: 'deny', reason: 'pin_locked' })
+    // Ni con el PIN directo (sin compra pendiente) se salta el bloqueo.
+    expect(await pay({ ...body, pin: '1234' })).toMatchObject({ reason: 'pin_locked' })
+    expect((await getMandate('asistente')).spentInPeriod).toEqual(A.cop(0))
+    expect((await recentEvents(20)).some((e) => e.kind === 'guardian' && /PIN bloqueado/.test(e.reason ?? ''))).toBe(true)
+  })
+
+  it('el PIN directo sin compra pendiente también cuenta los fallos', async () => {
+    for (let i = 0; i < 5; i++) await pay({ ...body, pin: '0000' })
+    expect(await pay({ ...body, pin: '1234' })).toMatchObject({ reason: 'pin_locked' })
+  })
+
+  it('un PIN correcto antes del límite reinicia la cuenta', async () => {
+    for (const pin of ['0000', '1111', '2222', '3333']) await intentoFallido(pin)
+    expect(await intentoFallido('1234')).toMatchObject({ result: 'allow' })
+    for (const pin of ['0000', '1111', '2222', '3333']) expect(await intentoFallido(pin)).toMatchObject({ reason: 'bad_pin' })
+  })
+
+  it('pasado el bloqueo se puede volver a intentar', async () => {
+    const { verifyPin } = await import('../src/gateway/pin.ts')
+    const t0 = new Date()
+    for (let i = 0; i < 5; i++) await verifyPin('asistente', '0000', t0)
+    expect(await verifyPin('asistente', '1234', new Date(t0.getTime() + 14 * 60_000))).toBe('locked')
+    expect(await verifyPin('asistente', '1234', new Date(t0.getTime() + 16 * 60_000))).toBe('ok')
+  })
+})
+
 describe('Entrega: recoger o domicilio a la casa que registró Juan', () => {
   const pay = (payload: object) =>
     app.inject({ method: 'POST', url: '/pay', headers: assistantKey, payload }).then((r) => r.json())
@@ -243,6 +281,34 @@ describe('OFF-03 liquidación de vales', () => {
     const history = (await vouchersOfMandate('maria-device')).filter((h) => h.voucher.voucherId === v1.voucherId)
     expect(history.map((h) => h.status).sort()).toEqual(['rejected', 'settled'])
     expect(history.find((h) => h.status === 'rejected')?.reason).toBe('replay')
+  })
+
+  // El tendero lo cobra con señal y a la vez por SMS (o desde dos pestañas): las dos llegan antes de que la primera
+  // termine de pagar. Antes las dos pasaban el chequeo de replay y el vale se pagaba dos veces.
+  it('el mismo vale presentado dos veces a la vez se paga una sola vez', async () => {
+    const device = generateKeyPair()
+    const { cert } = (
+      await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: device.publicKey }, headers: asUser('maria') })
+    ).json()
+    const vale = signVoucher(
+      {
+        voucherId: randomId('v_'),
+        deviceKeyId: cert.deviceKeyId,
+        deviceCert: cert,
+        merchantWallet: 'https://ilp.interledger-test.dev/dona-rosa',
+        category: 'mercado',
+        amount: A.cop(20_000),
+        counter: 1,
+        cumulative: A.cop(20_000),
+        createdAt: new Date().toISOString(),
+      },
+      device.secretKey,
+    )
+    const cobrar = () => app.inject({ method: 'POST', url: '/vouchers/settle', payload: { vouchers: [vale] } }).then((r) => r.json().results[0])
+    const resultados = await Promise.all([cobrar(), cobrar()])
+    expect(resultados.map((r) => r.status).sort()).toEqual(['rejected', 'settled'])
+    expect(resultados.find((r) => r.status === 'rejected')).toMatchObject({ reason: 'replay' })
+    expect((await getMandate('maria-device')).spentInPeriod).toEqual(A.cop(20_000))
   })
 })
 

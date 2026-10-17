@@ -75,9 +75,9 @@ Convenciones:
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `POST /pay` (agente) | `{ mandateId, merchantWallet, amount, category, reason, price?, pin?, pendingId?, delivery? }` | `AuthDecision & { paymentId? }` |
+| `POST /pay` (agente) | `{ mandateId, merchantWallet, amount, category, reason, price?, pin?, pendingId?, delivery? }` | `AuthDecision & { paymentId? }`. PIN: 3 intentos por compra pendiente y **5 fallos seguidos por mandato** (en cualquier compra) lo bloquean 15 min → `pin_locked`, con aviso en el feed |
 | `GET /payments/:id` | — | `Payment` (`completed` solo si el comercio recibió el dinero) |
-| `POST /vouchers/settle` | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason?, paymentId? }[] }` |
+| `POST /vouchers/settle` | `{ vouchers: Voucher[] }` | `{ results: { voucherId, status, reason?, paymentId? }[] }`. Cada vale se reclama en la base antes de pagarlo: el mismo vale presentado dos veces a la vez se paga una sola vez (el segundo → `replay`, sin congelar mientras el primero se paga) |
 | `GET /vouchers` | — | Vales recibidos |
 | `POST /guardian/review` | — | Cambios de tope offline propuestos por el Guardián |
 | `GET /merchants` · `POST /merchants` | `{ id?, name, category, wallet \| payout }` | Lista · comercio creado (201) |

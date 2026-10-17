@@ -221,6 +221,22 @@ const MIGRATIONS: { version: string; sql: string }[] = [
     version: '003_modos_de_consumo',
     sql: `alter table mandates add column mode text check (mode in ('celular', 'asistente', 'sms'));`,
   },
+  {
+    // Intentos fallidos de PIN por mandato (no por compra): sin esto se prueban los 10.000 PIN pidiendo compras nuevas.
+    version: '004_bloqueo_de_pin',
+    sql: `
+      alter table pins add column failed_attempts integer not null default 0;
+      alter table pins add column locked_until timestamptz;
+    `,
+  },
+  {
+    // Un vale se reclama (processing) antes de pagarlo: dos cobros simultáneos del mismo vale ya no pagan dos veces.
+    version: '005_vale_en_proceso',
+    sql: `
+      alter table vouchers drop constraint vouchers_status_check;
+      alter table vouchers add constraint vouchers_status_check check (status in ('processing', 'settled', 'rejected', 'flagged'));
+    `,
+  },
 ]
 
 export const migrate = async (sql: Sql) => {

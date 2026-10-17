@@ -4,7 +4,7 @@ import {
   type Voucher,
   type VoucherSettleResult,
 } from '@openroute/shared'
-import { getCert, getVoucher, putVoucher, vouchersOfDevices } from '../store/offline.ts'
+import { claimVoucher, getCert, getVoucher, putVoucher, vouchersOfDevices } from '../store/offline.ts'
 import { emit } from '../feed/bus.ts'
 import { authorize } from '../gateway/authorize.ts'
 import { gatewayKey } from '../gateway/keys.ts'
@@ -49,9 +49,17 @@ export const settleVouchers = async (vouchers: Voucher[]): Promise<VoucherSettle
   const candidates: Voucher[] = []
 
   for (const v of [...vouchers].sort((a, b) => a.counter - b.counter)) {
-    const problem = await hardChecks(v)
+    // Pasar los chequeos no basta: se reclama de forma atómica, o una solicitud simultánea lo pagaría otra vez.
+    const problem = (await hardChecks(v)) ?? ((await claimVoucher(key(v), v)) ? null : 'replay')
     if (!problem) {
       candidates.push(v)
+      continue
+    }
+    // El original aún se está pagando (el tendero lo cobró con señal y por SMS a la vez): se rechaza sin congelar,
+    // o el congelamiento haría fallar el pago legítimo.
+    const enProceso = problem === 'replay' && (await getVoucher(key(v)))?.status === 'processing'
+    if (enProceso) {
+      results.push({ voucherId: v.voucherId, status: 'rejected', reason: 'replay' })
       continue
     }
     if (problem === 'replay') {
