@@ -10,6 +10,9 @@
 | PIN never reaches the LLM | `agents/assistant/router.py` |
 | Delivery address comes from the payer, not the agent | `resolveDelivery` in `gateway/pay.ts` |
 | Agents cannot change addresses, payouts, merchants or agents | `x-api-key` requests get 403 on those routes |
+| Every route checks who calls: signed session token for people, service key + agent id for agents | `auth/session.ts` (HMAC, 7 days), `auth/guards.ts`; attacks covered in `test/auth.test.ts` |
+| A payer only touches their own tree; a beneficiary only gets a certificate for their own phone | `requireTitularOf`, `requireMemberOf` |
+| Two concurrent payments cannot read the same "available" | `gateway/spend.ts`: spend reserved under a chain row lock before paying, released if the payment fails (`pay-concurrente.test.ts`) |
 | Voucher and certificate signatures (ed25519) | `src/shared/src/crypto.ts` |
 | Replay of a voucher is rejected and freezes the device | `vouchers/settle.ts` |
 | SMS webhooks are signed (HMAC / ed25519, 5 min window) | `sms/smsgate.ts`, `sms/telnyx.ts` |
@@ -17,17 +20,20 @@
 
 ## Residual risks
 
-!!! warning "Payer authentication is header-based"
-    `POST /auth/login` validates the account but issues **no session token** yet. Payer-only routes
-    trust the `x-user-id` header, and several dashboard routes are open. Anyone who knows an account
-    id can act as that payer. Fix before any real use: issue and verify a session token.
+!!! note "Sessions"
+    `POST /auth/login` returns a token signed by the api (`Authorization: Bearer`; the SSE feed takes it in
+    `?token=` because `EventSource` cannot send headers). The client cannot choose its account id. The demo
+    accounts have a public password on purpose (one-click login for the jury): whoever signs in as Juan can do
+    what Juan can, on test-network money.
 
 | Risk | Bound today |
 |---|---|
 | **Offline double-spend.** A voucher shown to two shops offline is only detected at settlement | The second shop's voucher is rejected and the device frozen. Exposure per certificate is its `offlineCap`, within the payer's ceiling |
 | **Several live certificates.** A new certificate resets counter and cumulative; old ones stay valid until expiry (7 days) | Settlement re-runs `authorize`, so the payer never pays above the device branch's `maxDebit`; the loss falls on the shop |
 | **Payer balance at settlement.** Limits are permissions, not reserved money. Open Payments does not expose the wallet balance | If funds are short, the wallet rejects the Outgoing Payment and nothing moves; an accepted offline voucher can still fail |
-| **SMS sender spoofing** | The SMS mode always requires a PIN |
+| **SMS sender spoofing.** `POST /sms/inbound` stays open for the simulated phone and the USB bridge | The SMS mode always requires a PIN; provider webhooks verify signatures. Turn the simulator off in production |
+| **Single api instance.** Feed bus, Open Payments token caches and SMS de-duplication live in memory | Fine for the demo; Postgres `LISTEN/NOTIFY` and a table would remove it |
+| **Re-signing a revoked root starts empty** | Its revoked branches (and their payment rows) are deleted; archiving them would keep the history |
 | **Guardian unavailable** | Hard checks still run; vouchers that pass them settle without review |
 | **Late payment outcome** | The spend stays counted (safe side) and the feed shows the merchant was not paid |
 | **In-memory state in agents** (sessions, used Inventory payment ids) | Lost on restart; conversations restart |

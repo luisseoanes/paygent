@@ -11,7 +11,7 @@ def test_reglas_generan_arbol_valido():
 
 
 def test_hijos_que_suman_mas_que_el_padre_se_rechazan():
-    bad = Node(holderName="Juan", holderType="person", maxUsd=10, categories=["mercado"], children=[
+    bad = Node(holderName="Titular", holderType="person", maxUsd=10, categories=["mercado"], children=[
         Node(holderName="A", holderType="person", maxUsd=8, categories=["mercado"]),
         Node(holderName="B", holderType="person", maxUsd=8, categories=["mercado"]),
     ])
@@ -20,8 +20,18 @@ def test_hijos_que_suman_mas_que_el_padre_se_rechazan():
 
 
 def test_categorias_fuera_del_padre_se_rechazan():
-    bad = Node(holderName="Juan", holderType="person", maxUsd=10, categories=["mercado"], children=[
+    bad = Node(holderName="Titular", holderType="person", maxUsd=10, categories=["mercado"], children=[
         Node(holderName="A", holderType="person", maxUsd=5, categories=["efectivo"]),
     ])
     with pytest.raises(InvalidTree):
         validate(bad)
+
+
+def test_el_plan_no_supone_un_titular_ni_beneficiarios_fijos():
+    from intent.compiler import ROOT_NAME, INTENT_SYSTEM
+
+    node = compile_rules("200 dólares para mi abuela")
+    names = [node.holderName] + [c.holderName for c in node.children]
+    assert node.holderName == ROOT_NAME
+    assert not {"Juan", "María"} & set(names)
+    assert "Juan" not in INTENT_SYSTEM and "María" not in INTENT_SYSTEM

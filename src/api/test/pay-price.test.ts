@@ -18,11 +18,11 @@ vi.mock('../src/op/settle.ts', async (importOriginal) => {
 })
 
 const { buildApp } = await import('../src/app.ts')
-const store = await import('../src/db.ts')
+const store = { ...(await import('../src/store/payments.ts')), ...(await import('../src/store/meta.ts')), ...(await import('../src/store/grants.ts')) }
 const { seed, SEED_VERSION } = await import('../src/demo/seed.ts')
 const { DEMO_WALLETS } = await import('../src/demo/wallets.ts')
 const { getMandate, putMandate } = await import('../src/gateway/mandates.ts')
-const { setRootAsset, pesos } = await import('../src/op/asset.ts')
+const { setRootAsset, pesos } = await import('../src/demo/asset.ts')
 const { sql } = await import('../src/store/sql.ts')
 const { prepareStore } = await import('../src/app.ts')
 

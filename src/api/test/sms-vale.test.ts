@@ -11,9 +11,10 @@ vi.mock('../src/lib/agents.ts', () => ({
 }))
 
 const { buildApp } = await import('../src/app.ts')
-const store = await import('../src/db.ts')
+const store = { ...(await import('../src/store/offline.ts')) }
 const { getMandate } = await import('../src/gateway/mandates.ts')
 const { seed, PHONE_MAMA } = await import('../src/demo/seed.ts')
+const { asUser } = await import('./helpers.ts')
 
 const app = await buildApp({ logger: false })
 const tienda = 'puntored:tienda' // Doña Rosa cobra por Puntored
@@ -27,7 +28,7 @@ const sms = (Body: string) => app.inject({ method: 'POST', url: '/sms/inbound', 
 
 const valeSms = async (pesos = 20_000) => {
   const device = generateKeyPair()
-  const reg = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: device.publicKey } })
+  const reg = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: device.publicKey }, headers: asUser('maria') })
   const cert = reg.json().cert as DeviceCert
   const v = signVoucher(
     {

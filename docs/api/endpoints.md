@@ -8,17 +8,35 @@ Convenciones:
 - **Titular** = quien delega (tiene wallet y mandato raíz). **Beneficiario** = quien recibe una rama.
 - Las rutas de un titular reciben su raíz: `?root=<rootMandateId>` o `rootMandateId` en el cuerpo. Sin ella se
   usa la raíz de la demo (`root`).
-- Los agentes se autentican con `x-api-key: <AGENT_SERVICE_KEY>` y `x-agent-id: <id del agente>`. Una petición
-  con `x-api-key` nunca puede cambiar direcciones, cobros ni dar de alta comercios o agentes (403).
+- **Personas:** `Authorization: Bearer <token>`. El token lo devuelven el login y los registros; es un HMAC firmado
+  por la api (`src/api/src/auth/session.ts`), vale 7 días y el cliente no puede elegir su `userId`. El SSE, que no
+  admite cabeceras, lo lleva en `?token=`. `x-user-id` ya no identifica a nadie.
+- **Agentes:** `x-api-key: <AGENT_SERVICE_KEY>` y `x-agent-id: <id del agente>`. Una petición con `x-api-key` nunca
+  hace lo que decide una persona (403).
+- Columna **Quién** (guardias en `src/api/src/auth/guards.ts`): *pública* · *sesión* (cualquier cuenta) ·
+  *titular* (dueño de la raíz del árbol) · *cadena* (la persona dueña de la rama o su titular) · *agente* ·
+  *tendero* (dueño del comercio). *cadena o agente* = lecturas que hacen ambos.
 - Errores: `{ "error": "<mensaje legible>" }` con 400 (datos), 401 (credencial), 403 (regla del gateway),
   404, 409 (duplicado) o 503 (agentes caídos).
-- **Todavía no hay sesión:** el login devuelve la cuenta, pero no emite token.
+
+### Quién puede llamar a cada ruta
+
+| Quién | Rutas |
+|---|---|
+| pública | `POST /auth/*`, `GET /callback*`, `GET /demo/status`, `GET /fx`, `GET /merchants`, `GET /gateway/public-key`, `GET /health*`, `POST /vouchers/settle` (cada vale trae su firma y la de su certificado), `POST /sms/inbound` (simulador y puente adb; ver riesgos en `docs/arquitectura.md`) |
+| sesión | `POST /merchants` (queda a nombre de esa cuenta), `POST /agents` |
+| titular | `POST /mandates/root`, `POST /mandates/:id/{delegate,revoke,unfreeze,beneficiaries,modes}`, `PATCH /mandates/:id/{limits,modes}`, `GET\|PUT\|DELETE /mandates/:id/sms`, `PUT /delivery-address/:rootId`, `GET /feed` y `/feed/stream` de su raíz, `POST /demo/reset` (Juan) |
+| titular o Guardián | `PATCH /mandates/:id/restrict`, `POST /guardian/review` |
+| cadena | `POST /mandates/:id/device-key`, `POST /asistente/chat` (de su rama) |
+| cadena o agente | `GET /mandates/:id`, `GET /mandates/:id/tree`, `GET /mandates/:id/modes`, `GET /delivery-address/:rootId`, `GET /payments/:id` |
+| agente | `POST /pay` (y solo con mandatos de los que es titular), `GET /sms/profile`, `GET /vouchers` |
+| tendero | `GET /merchants/:id/orders`, `PUT /merchants/:id/payout` |
 
 ## Cuentas
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `POST /auth/login` | `{ email, password }` | Cuenta: `{ id, role: titular\|beneficiario\|tendero, name, apellido, documento, telefono, email, walletAddress, rootMandateId, mandateId, mandateIds, merchantId }` |
+| `POST /auth/login` | `{ email, password }` | Cuenta: `{ id, role: titular\|beneficiario\|tendero, name, apellido, documento, telefono, email, walletAddress, rootMandateId, mandateId, mandateIds, merchantId, token }` |
 | `POST /auth/register/titular` | `{ documento, nombre, apellido, email, telefono, password, walletAddress }` | La cuenta (201). Crea su fila en `payers` y **su mandato raíz** (`root_<userId>`) |
 | `POST /auth/register/beneficiario` | `{ documento, nombre, email, telefono, password, mandateId }` | La cuenta (201). `mandateId` = el código que dio el titular |
 
@@ -27,13 +45,13 @@ Convenciones:
 | Método y ruta | Entrada | Salida |
 |---|---|---|
 | `POST /mandates/root` | `{ rootMandateId?, maxDebit?, interval?, walletAddress? }` | `{ redirectUrl }`: consentimiento en la billetera del titular |
-| `GET /callback` · `GET /callback/:rootId` | `interact_ref`, `hash` (los pone la billetera) | Redirect a la web (`?ok=1` / `?ok=0`). Si el grant aprobado es menor que lo repartido, las ramas bajan en proporción, en cascada |
+| `GET /callback/:rootId` (y `/callback`, la demo) | `interact_ref`, `hash` (los pone la billetera) | Redirect a la web (`?ok=1` / `?ok=0`). Si el grant aprobado es menor que lo repartido, las ramas bajan en proporción, en cascada. Si la raíz estaba **revocada**, arranca sin beneficiarios: se borran sus ramas (con sus pagos) y las cuentas de beneficiario que se quedan sin rama, para poder registrarlas otra vez |
 | `GET /demo/status?root=` | — | `{ rootGrant, mockOp, mockSms, asset, fxCopPerUsd, fx }` |
 | `GET /fx` | — | `{ copPerUsd, fecha, fuente: 'trm' \| 'respaldo' }`: TRM del día (Superfinanciera, datos.gov.co), una consulta por día en Bogotá. Si falla, la última conocida o `FX_COP_PER_USD` (`fecha: null`). La usan gateway, web y agentes |
 | `POST /mandates/:raíz/beneficiaries` | `{ alias, maxDebit, pin, offlineCap }` (todo obligatorio, en la moneda del árbol) | `{ code, mandateId, modes }` (201). Crea la persona (PIN siempre) y sus tres modos (`docs/producto/modos-de-consumo.md`) |
 | `GET /mandates/:id/modes` | — | `{ personaId, personaName, budget, budgetMax, reserved, remaining, modes }`: modos vivos de la persona (o de la de esa rama de modo); `remaining` es lo que la persona aún puede gastar entre todos sus modos (mínimo en la cadena, lo que muestra la billetera); cada modo con `maxDebit`, `minDebit`, `spent`, `remaining`, techo sin señal y número SMS |
-| `PATCH /mandates/:persona/modes` | `{ budget?, limits: { mandateId, maxDebit?, offlineCap? }[] }` + `x-user-id` del titular | Cambia el tope de la persona (`budget`, hasta `budgetMax`) y lo reparte entre sus modos en una transacción (todo o nada). Devuelve lo mismo que el `GET` |
-| `POST /mandates/:persona/modes` | — | `{ created, personaId, modes }`. Habilita los modos que falten. Solo el titular (`x-user-id`) |
+| `PATCH /mandates/:persona/modes` | `{ budget?, limits: { mandateId, maxDebit?, offlineCap? }[] }` (titular) | Cambia el tope de la persona (`budget`, hasta `budgetMax`) y lo reparte entre sus modos en una transacción (todo o nada). Devuelve lo mismo que el `GET` |
+| `POST /mandates/:persona/modes` | — | `{ created, personaId, modes }`. Habilita los modos que falten. Solo el titular |
 | `GET\|PUT /delivery-address/:rootId` | `{ recipientName, address }` | Dirección de entrega de ese árbol |
 
 ## Mandatos
@@ -45,12 +63,12 @@ Convenciones:
 | `POST /mandates/:id/delegate` | `Partial<Mandate>` del hijo | `Mandate` firmado (invariantes GW-03) |
 | `POST /mandates/:id/revoke` | — | `{ revoked: string[] }`. Si es una raíz, cancela también su grant |
 | `PATCH /mandates/:id/restrict` | `{ offlineCap?, frozen? }` | `Mandate` (solo restringe) |
-| `PATCH /mandates/:id/limits` | `{ maxDebit?, offlineCap? }` | `Mandate`. Solo el titular (`x-user-id`): sube o baja dentro del padre; `offlineCap` es el techo sin señal |
+| `PATCH /mandates/:id/limits` | `{ maxDebit?, offlineCap? }` | `Mandate`. Solo el titular: sube o baja dentro del padre; `offlineCap` es el techo sin señal |
 | `POST /mandates/:id/unfreeze` | — | `Mandate` |
 | `POST /mandates/:id/device-key` | `{ publicKey }` | `{ deviceKeyId, cert, offlineCap, gatewayPublicKey }` |
 | `GET /mandates/:id/sms` | — | `{ active, phone? (enmascarado), mandateId? }` |
-| `PUT /mandates/:id/sms` | `{ phone, pin }` + `x-user-id` del titular | Activa o cambia el SMS de la rama: si la persona ya tiene el modo SMS, conecta esa hoja; si no, crea una. PIN siempre |
-| `DELETE /mandates/:id/sms` | `x-user-id` del titular | Apaga el SMS y revoca la hoja del Asistente |
+| `PUT /mandates/:id/sms` | `{ phone, pin }` (titular) | Activa o cambia el SMS de la rama: si la persona ya tiene el modo SMS, conecta esa hoja; si no, crea una. PIN siempre |
+| `DELETE /mandates/:id/sms` | Titular | Apaga el SMS y revoca la hoja del Asistente |
 | `GET /gateway/public-key` | — | `{ publicKey }` |
 
 ## Pagos, vales y comercios
@@ -71,9 +89,9 @@ Convenciones:
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `GET /feed?root=` · `GET /feed/stream?root=` (SSE) | — | Eventos del árbol de ese titular (sin `root`, todos) |
+| `GET /feed?root=` · `GET /feed/stream?root=` (SSE) | — | Eventos del árbol de ese titular (sin `root`, la demo). Solo su titular |
 | `POST /sms/inbound` | `{ From, Body }` (JSON o form de Twilio) | `{ reply }` |
-| `GET /sms/profile?phone=` | — | Perfil del Asistente para ese canal, con `asset` (la moneda de su árbol) |
+| `GET /sms/profile?phone=` | — | Perfil del Asistente para ese canal, con `asset` (la moneda de su árbol), `titularName` (quien delegó) y `deliveryAddress`. El canal `app:<persona>` es el chat de la app |
 | `POST /asistente/chat` | `{ mensajes: { rol, texto }[], contexto: { mandato } }` | `{ texto }` |
 | `POST /demo/reset` | `{ full? }` | Vuelve a sembrar **solo** la demo de Juan |
 | `GET /health` · `GET /health/op?root=` | — | Estado de la api y de Open Payments |

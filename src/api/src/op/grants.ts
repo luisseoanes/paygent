@@ -2,24 +2,16 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isFinalizedGrant, isPendingGrant } from '@interledger/open-payments'
 import type { Amount } from '@openroute/shared'
 import { randomId } from '@openroute/shared'
-import {
-  activateGrant,
-  getActiveGrant,
-  getPendingGrant,
-  insertPendingGrant,
-  payerOfRoot,
-  setGrantStatus,
-  updateGrantToken,
-} from '../db.ts'
+import { payerOfRoot } from '../store/accounts.ts'
+import { activateGrant, getActiveGrant, getPendingGrant, insertPendingGrant, setGrantStatus, updateGrantToken } from '../store/grants.ts'
 import { env } from '../env.ts'
-import { ROOT_ID } from '../gateway/mandates.ts'
 import { getClient, getWallet } from './client.ts'
 
 /**
  * OP-02: grant interactivo `outgoing-payment` con limits.debitAmount + limits.interval.
- * Devuelve la URL de consentimiento de la billetera de Juan.
+ * Devuelve la URL de consentimiento de la billetera del titular.
  */
-export const requestRootGrant = async ({ rootId = ROOT_ID, ...input }: { rootId?: string; walletAddress: string; maxDebit: Amount; interval: string }) => {
+export const requestRootGrant = async ({ rootId, ...input }: { rootId: string; walletAddress: string; maxDebit: Amount; interval: string }) => {
   const payerId = (await payerOfRoot(rootId))?.userId ?? null
   if (env.MOCK_OP) {
     await insertPendingGrant(rootId, payerId, {
@@ -71,15 +63,15 @@ export const requestRootGrant = async ({ rootId = ROOT_ID, ...input }: { rootId?
   return { redirectUrl: grant.interact.redirect }
 }
 
-/** El callback lleva la raíz en la ruta para saber de qué titular es el grant (la de Juan conserva /callback). */
-export const callbackPath = (rootId: string) => (rootId === ROOT_ID ? '/callback' : `/callback/${encodeURIComponent(rootId)}`)
+/** El callback lleva la raíz en la ruta para saber de qué titular es el grant. */
+export const callbackPath = (rootId: string) => `/callback/${encodeURIComponent(rootId)}`
 
 /** hash = base64(sha256(clientNonce \n finishNonce \n interact_ref \n grantEndpoint)) — GNAP §4.2.3 */
 const expectedHash = (clientNonce: string, finishNonce: string, interactRef: string, authServer: string) =>
   createHash('sha256').update(`${clientNonce}\n${finishNonce}\n${interactRef}\n${authServer}`).digest('base64')
 
 /** OP-03: continuación del grant con interact_ref. Guarda el token raíz. */
-export const continueRootGrant = async (interactRef: string, hash: string, rootId = ROOT_ID) => {
+export const continueRootGrant = async (interactRef: string, hash: string, rootId: string) => {
   const pending = await getPendingGrant(rootId)
   if (!pending) throw new Error('No hay un grant pendiente')
 
@@ -108,7 +100,7 @@ export const continueRootGrant = async (interactRef: string, hash: string, rootI
 }
 
 /** OP-05: rota el token raíz cuando vence. */
-export const rotateRootToken = async (rootId = ROOT_ID) => {
+export const rotateRootToken = async (rootId: string) => {
   const grant = await getActiveGrant(rootId)
   if (env.MOCK_OP || !grant) return
   const client = await getClient()
@@ -117,7 +109,7 @@ export const rotateRootToken = async (rootId = ROOT_ID) => {
 }
 
 /** OP-07: revoca el grant raíz en el servidor de autorización (apaga TODO el árbol). */
-export const revokeRootGrant = async (rootId = ROOT_ID) => {
+export const revokeRootGrant = async (rootId: string) => {
   const grant = await getActiveGrant(rootId)
   if (!grant) return
   if (!env.MOCK_OP) {

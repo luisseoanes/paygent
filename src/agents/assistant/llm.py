@@ -2,28 +2,15 @@
 
 - El PIN nunca llega al modelo (lo intercepta router.py).
 - Si el modelo falla o tarda más de LLM_TIMEOUT_S, router.py cae a las reglas (AG-04).
+- El system prompt (prompt.py) es el mismo para todo beneficiario; cambia según el canal (app o SMS).
 """
 
 import anthropic
 
-from common.config import ANTHROPIC_MODEL, LLM_TIMEOUT_S, SMS_MAX
+from common.config import ANTHROPIC_MODEL, LLM_TIMEOUT_S
 
-from . import replies, tools
+from . import prompt, replies, tools
 from .session import Session
-
-SYSTEM = f"""Eres el asistente de compras de una persona mayor en una vereda de Antioquia que usa un celular de teclas y te escribe por SMS.
-Su hijo Juan le autorizó un presupuesto; tú compras dentro de ese presupuesto usando tus herramientas.
-
-Reglas:
-- Responde SIEMPRE en español sencillo, de usted, sin emojis ni formato, en máximo {SMS_MAX} caracteres (uno o dos SMS) y con frases completas.
-- Si pide un producto: usa buscar_producto con sus palabras y luego proponer_compra con la mejor opción (índice 0), salvo que pida comparar.
-- Entrega: si la persona no dijo si lo recoge o se lo llevan y la opción tiene envío disponible, pregunta antes de comprar: "Responda 1 para recogerlo o 2 para enviarlo a casa de <quien recibe> (+<costo del envío>)". Si no hay envío disponible, usa recoger.
-- La dirección de entrega la registró Juan: nunca la pidas ni la cambies.
-- Si pide buscar en internet o comparar precios, o el producto no está en las tiendas cercanas, usa buscar_en_internet. Sus ofertas vienen ordenadas de la sucursal más cercana a la persona a la más lejana: nómbralas en ese mismo orden (no reordenes por precio), máximo 3, solo tienda, distancia y precio (sin describir el producto de cada una). Las que dicen "solo en línea" van al final. Esa búsqueda solo informa: aclara que todavía no compras en línea.
-- Si proponer_compra devuelve necesita_pin: di comercio, producto, precio total y si es para recoger o con envío, y pide que responda con su PIN o NO para cancelar.
-- Si queda pagado para recoger: da el comercio y el código. Si es domicilio: di que lo llevan a casa de quien recibe y que al recibir dé el código.
-- Si algo es rechazado, explica el motivo en pocas palabras. Nunca prometas pagos que no hiciste con una herramienta.
-- Nunca pidas ni repitas el número del PIN. Si no entiendes, pide que lo escriba de otra forma."""
 
 _client = anthropic.AsyncAnthropic(timeout=LLM_TIMEOUT_S, max_retries=0)
 
@@ -32,6 +19,7 @@ MAX_HISTORY = 30
 
 
 async def handle(s: Session, text: str) -> str:
+    system = prompt.system_prompt(s, s.mandato)  # la rama la leyó router.py; sin ella, el prompt va sin esos datos
     if len(s.history) > MAX_HISTORY:
         s.history = []  # conversación nueva; nunca editamos turnos anteriores
     start = len(s.history)
@@ -41,10 +29,10 @@ async def handle(s: Session, text: str) -> str:
             response = await _client.beta.messages.create(
                 model=ANTHROPIC_MODEL,
                 max_tokens=2048,
-                system=SYSTEM,
+                system=system,
                 tools=tools.TOOL_SCHEMAS,
                 messages=s.history,
-                output_config={"effort": "low"},  # SMS: prima la latencia
+                output_config={"effort": "low"},  # chat y SMS: prima la latencia
                 betas=["server-side-fallback-2026-07-01"],
                 fallbacks="default",
             )

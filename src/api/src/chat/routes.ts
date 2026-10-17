@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
-import { profileForChat, type PhoneProfile } from '../db.ts'
+import { requireMemberOf } from '../auth/guards.ts'
+import { profileForChat, type PhoneProfile } from '../store/profiles.ts'
 import { HttpError, badRequest } from '../gateway/errors.ts'
 import { chainOf, findMandate } from '../gateway/mandates.ts'
 import { callAgents } from '../lib/agents.ts'
@@ -24,7 +25,9 @@ export default async function chatRoutes(app: FastifyInstance) {
   app.post<{ Body: PeticionChat }>('/asistente/chat', async (req) => {
     const texto = req.body?.mensajes?.filter((m) => m.rol === 'usuario').at(-1)?.texto?.trim()
     if (!texto) throw badRequest('Falta el mensaje')
-    const perfil = await perfilDelChat(req.body?.contexto?.mandato)
+    const mandato = req.body?.contexto?.mandato
+    if (mandato) await requireMemberOf(req, mandato)
+    const perfil = await perfilDelChat(mandato)
     if (!perfil) throw badRequest('Vincula este celular para hablar con tu asistente')
     const res = await callAgents<{ reply: string }>('/assistant/message', { phone: perfil.phone, text: texto }, 30000)
     if (!res) throw new HttpError(503, 'El asistente no está disponible. Intenta de nuevo en un momento.')

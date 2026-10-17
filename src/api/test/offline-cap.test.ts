@@ -21,6 +21,7 @@ vi.mock('../src/lib/agents.ts', () => ({
 const { buildApp } = await import('../src/app.ts')
 const { seed } = await import('../src/demo/seed.ts')
 const { getMandate } = await import('../src/gateway/mandates.ts')
+const { asUser } = await import('./helpers.ts')
 
 const app = await buildApp({ logger: false })
 beforeEach(async () => {
@@ -28,7 +29,8 @@ beforeEach(async () => {
   guardian.calls = []
 })
 
-const post = (url: string, payload: object) => app.inject({ method: 'POST', url, payload }).then((r) => r.json())
+// El celular de María pide su certificado con la sesión de María.
+const post = (url: string, payload: object) => app.inject({ method: 'POST', url, payload, headers: asUser('maria') }).then((r) => r.json())
 
 describe('Tope sin señal administrado por el Guardián', () => {
   it('al liquidar los vales de un celular, el Guardián ajusta su tope solo y el siguiente certificado ya lo trae', async () => {
@@ -65,7 +67,7 @@ describe('Tope sin señal administrado por el Guardián', () => {
     expect(m.frozen).toBe(true)
     expect(m.offlineCap).toEqual(A.cop(65_000))
     // Congelado: no se emiten certificados nuevos (la PWA deja de firmar vales)
-    const blocked = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: keys.publicKey } })
+    const blocked = await app.inject({ method: 'POST', url: '/mandates/maria-device/device-key', payload: { publicKey: keys.publicKey }, headers: asUser('maria') })
     expect(blocked.statusCode).toBe(403)
   })
 })

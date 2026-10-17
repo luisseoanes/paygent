@@ -1,6 +1,6 @@
 """Montos en el formato de Open Payments: {value: str (unidades mínimas), assetCode, assetScale}.
 
-Los agentes piensan en pesos; los montos viajan en la moneda de la wallet de Juan (COP o USD).
+Los agentes piensan en pesos; los montos viajan en la moneda de la wallet del titular (COP o USD).
 """
 
 from . import fx
@@ -26,7 +26,7 @@ def _cop_per_unit(asset_code: str, rate: float) -> float:
         return 1
     if asset_code == "USD":
         return rate
-    raise ValueError(f"Sin tasa de referencia para {asset_code}: Juan debe pagar en COP o USD")
+    raise ValueError(f"Sin tasa de referencia para {asset_code}: el titular debe pagar en COP o USD")
 
 
 def from_cop(cop: float, asset: dict, rate: float | None = None) -> Amount:

@@ -6,7 +6,7 @@
 
 | Path | Stack | Responsibility |
 |---|---|---|
-| `src/api/` | TypeScript · Fastify · `@interledger/open-payments` | Open Payments client (`op/`), Mandate Gateway and `/pay` (`gateway/`), offline vouchers (`vouchers/`), SMS webhooks (`sms/`), SSE feed (`feed/`), demo seed (`demo/`) |
+| `src/api/` | TypeScript · Fastify · `@interledger/open-payments` | Mandate Gateway and `/pay` (`gateway/`, HTTP in `gateway/routes/`), sessions and guards (`auth/`), repositories (`store/`), Open Payments adapter (`op/`), offline vouchers (`vouchers/`), SMS webhooks (`sms/`), SSE feed (`feed/`), demo seed (`demo/`) |
 | `src/web/` | React 19 · Vite · PWA | Payer, beneficiary, shopkeeper and simulated-phone views |
 | `src/shared/` | TypeScript | The contract: types, amounts, intervals, ed25519 signing of mandates, device certificates and vouchers |
 | `src/agents/` | Python · FastAPI · Anthropic SDK | Assistant, Inventory, Intent compiler, Guardian |
@@ -14,6 +14,21 @@
 
 **Why TypeScript for the api?** Open Payments has an official SDK only for Node, and voucher
 verification must run identically in the gateway and in the shopkeeper's offline browser.
+
+## Inside the api
+
+A modular monolith with one decision point over money. Each layer only depends on the ones below it, and
+`src/api/test/arquitectura.test.ts` checks it on the real imports:
+
+| Layer | Where | Rule |
+|---|---|---|
+| HTTP | `*/routes.ts`, `gateway/routes/`, `auth/guards.ts`, `http/schemas.ts` | Authenticate, validate the body's shape, call a use case. No SQL |
+| Use cases | `gateway/branches.ts`, `pay.ts`, `spend.ts`, `root.ts`, `vouchers/settle.ts`, `merchants/` | One transaction plus its line in the feed |
+| Rules | `gateway/authorize.ts` (`authorizeChain`, pure), `gateway/mandates.ts` | Limits, categories, PIN, monotonicity |
+| Persistence | `store/*.ts` (one repository per aggregate) | The only place with SQL; never imports the domain |
+| Adapters | `op/` (Open Payments), `sms/`, `lib/agents.ts` | `op/` never imports the domain or the demo |
+
+Full rationale, the money path and known trade-offs: [`docs/arquitectura.md`](https://github.com/luisseoanes/paygent/blob/main/docs/arquitectura.md) (Spanish).
 
 ## How they talk
 
@@ -26,7 +41,7 @@ Juan (PWA) ◄── SSE /feed/stream ── api
 
 - The web calls everything through one origin: `/api/*` → api, `/agents/*` → agents
   (Vite proxy locally, `vite preview` proxy in production). A phone only needs one URL.
-- Agents call the api with `x-api-key: AGENT_SERVICE_KEY` and `x-agent-id: <agent>`.
+- People call the api with a signed session token; agents with `x-api-key: AGENT_SERVICE_KEY` and `x-agent-id: <agent>`.
   Each agent is a row in the `agents` table, not an env var.
 - The api calls the agents over HTTP (`AGENTS_URL`). If they are down, the api degrades:
   vouchers that passed the hard checks still settle without the Guardian.

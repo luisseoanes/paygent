@@ -9,8 +9,16 @@ import {
 import { ModosDeConsumo } from '../modos-de-consumo';
 
 const abrir = async () => {
-  // Repartir topes lo decide el titular: va con su cuenta en x-user-id.
-  sessionStorage.setItem('paygent-session', 'juan');
+  // Repartir topes lo decide el titular: va con su token de sesión.
+  sessionStorage.setItem(
+    'paygent-session',
+    JSON.stringify({
+      id: 'juan',
+      role: 'titular',
+      rootMandateId: 'root',
+      token: 'mock.juan',
+    }),
+  );
   await renderApp(<ModosDeConsumo personaId="mnd_maria" />);
 };
 

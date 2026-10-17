@@ -21,6 +21,14 @@ CHOOSE_PICKUP = re.compile(r"^\s*(1|recoger|recojo|lo recojo|yo lo recojo)\W*$",
 CHOOSE_DELIVERY = re.compile(r"^\s*(2|enviar|env[ií]o|domicilio|a la casa|tr[aá]igan\w*)\W*$", re.I)
 
 
+async def _rama(profile: dict) -> dict | None:
+    """Estado de la rama con que paga el Asistente; si la api no responde, el gateway igual decide."""
+    try:
+        return await api.mandate(profile["mandateId"])
+    except Exception:  # noqa: BLE001
+        return None
+
+
 class MessageIn(BaseModel):
     phone: str
     text: str
@@ -31,6 +39,13 @@ async def respond(phone: str, text: str) -> str:
     if not profile:
         return replies.UNKNOWN_PHONE
     s = session.get(phone, profile)
+    s.mandato = await _rama(profile)
+    # Rama revocada o pausada: se avisa de entrada, sin intentar consultas ni pagos que el gateway negaría.
+    if s.mandato and s.mandato.get("revoked"):
+        s.pending = s.awaiting = None
+        return replies.REVOKED
+    if s.mandato and s.mandato.get("frozen"):
+        return replies.FROZEN
 
     # Humano en el bucle (AG-03): el PIN se maneja de forma determinista, nunca pasa por el LLM.
     if m := PIN.match(text):
@@ -39,7 +54,7 @@ async def respond(phone: str, text: str) -> str:
         s.pending = s.awaiting = None
         return replies.CANCELLED
 
-    # Respuesta a "1 recoger / 2 enviar a casa de María" (determinista, igual con o sin LLM).
+    # Respuesta a "1 recoger / 2 enviar a casa de quien recibe" (determinista, igual con o sin LLM).
     if s.awaiting:
         indice = s.awaiting["indice"]
         s.awaiting = None

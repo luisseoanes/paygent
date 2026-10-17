@@ -9,7 +9,7 @@ no signal (signed offline vouchers), or from a feature phone (SMS + PIN, talking
 
 The pitch is always **one mandate → people and agents spending inside it → at any connectivity
 level**, never "several features". Read **`docs/producto/context.md`** (the why and the demo script) and
-**`docs/api/endpoints.md`** (the api contract) before changing behaviour.
+**`docs/api/endpoints.md`** (the api contract) before changing behaviour; **`docs/arquitectura.md`** before moving code.
 
 **Stack:** TypeScript (Node ≥ 22, Fastify, `@interledger/open-payments`) · React + Vite PWA ·
 Python ≥ 3.11 (FastAPI, Anthropic SDK, uv) · pnpm workspaces. LangGraph is under consideration for
@@ -64,6 +64,16 @@ MOCK_OP=1 pnpm --filter @openroute/api test   # api tests on in-memory PGlite, e
 - **`src/shared/` is the contract.** Types and ed25519 voucher signing run identically in the
   gateway and in the merchant's offline browser. Change both sides together.
 - **Mock flags are for development only.** `MOCK_OP` must be `0` in the demo.
+- **Spend modes** (`celular` · `asistente` · `sms`, `mandates.mode`, signed): children of the person branch, created on
+  sign-up (40/20/20 split). Agent modes must have `holderId: 'asistente'` or `/pay` rejects them. See `docs/producto/modos-de-consumo.md`.
+- **Every route has a guard** (`src/api/src/auth/guards.ts`): people send `Authorization: Bearer <token>` (HMAC from
+  `auth/session.ts`), agents `x-api-key` + `x-agent-id`. Payer-only writes use `requireTitularOf`; a new route gets a
+  row in the permissions matrix (`docs/api/endpoints.md`) and a case in `test/auth.test.ts`. `x-user-id` is gone.
+- **Layers** (`docs/arquitectura.md`, enforced by `test/arquitectura.test.ts`): routes → use cases → rules → `store/`
+  repositories (the only place with SQL) and adapters (`op/`, `sms/`). `op/` and `store/` never import the domain.
+- **Limits never exceed the parent:** `delegate`/`setLimits` lock the parent row (`for update`); a smaller signed grant
+  scales the tree down in proportion (`fitChildren` in `/callback`); spends are reserved under a chain lock before
+  paying (`gateway/spend.ts`) and released if the payment fails. A revoked root that is signed again starts empty.
 - **New logic ships with a test** (TDD), and a bugfix ships a regression test that fails before
   the fix.
 
@@ -71,12 +81,21 @@ MOCK_OP=1 pnpm --filter @openroute/api test   # api tests on in-memory PGlite, e
 
 - **Lockfile only with pnpm** — `npm install` in `src/web` breaks Railway's `--frozen-lockfile`. See `docs/operacion/despliegue.md`.
 - **Schema changes = new migration**; bump `SEED_VERSION` when the seed changes. See `docs/api/modelo-de-datos.md`.
-- **`db.ts` and `emit()` are async** — always `await` them.
+- **Repositories (`store/*.ts`) and `emit()` are async** — always `await` them; pass `tx` inside a transaction.
 - **Open Payments:** token expires as 403 `Inactive Token`; `create` ≠ money arrived; incoming payments must be
   completed. See `docs/open-payments/test-wallet.md` before touching `op/`.
 - **Multi-payer:** one root per payer (`root_<userId>`, demo `root`); pass `rootMandateId` / `?root=`.
 - **Agents auth:** one `AGENT_SERVICE_KEY` (`x-api-key`) + `x-agent-id`; agents are rows.
 - **Verify prod without creating data** (validation paths, reads). A push during the demo restarts the api.
+- **PIN length must match** between the api (4–6 digits) and the agents' `PIN` regex in `router.py`, or the PIN reaches the LLM.
+- **Phones are E.164** (`normalizarCelular`, `gateway/phone.ts`): SMS arrives as `+57…`; a raw `305…` never matches a profile.
+- **Agents build amounts in `profile.asset`** (from `/sms/profile`), never the demo's `/demo/status` currency.
+- **Inside `sql().tx`, query with `tx`**: helpers that use the global `sql()` can deadlock on PGlite.
+- **PGlite = one connection:** tests cannot reproduce row-lock races between connections, but they do reproduce
+  read → await → write races in the app (`pay-concurrente.test.ts`).
+- **After a deploy, open tabs load stale lazy chunks** (server returns `index.html`): `RouteError` reloads once (`lib/version.ts`).
+- **Teammates push often:** `git fetch` before committing; seed, gateway routes and `rama-detalle.tsx` are merge hot spots.
+- **Find prod ids read-only:** `GET /api/feed` (events carry `mandateId`), `/api/mandates/:id/tree`, `/api/mandates/:id/modes`.
 
 ## Code Style
 
@@ -91,13 +110,14 @@ inside the code, all comments must be short one-liners and extensive documentati
 
 | Path | What it is |
 |---|---|
-| `src/api/` | Fastify API: Open Payments (`op/`), gateway + `/pay` (`gateway/`), Postgres (`store/`, `db.ts`), accounts (`auth/`), app chat (`chat/`), vouchers (`vouchers/`), SMS (`sms/`, `sms-bridge/`), SSE feed (`feed/`), demo seed (`demo/`) |
+| `src/api/` | Fastify API: gateway domain + `/pay` (`gateway/`, HTTP in `gateway/routes/`), Open Payments adapter (`op/`), repositories (`store/`), sessions and guards (`auth/`), body schemas (`http/`), merchants (`merchants/`), app chat (`chat/`), vouchers (`vouchers/`), SMS (`sms/`, `sms-bridge/`), SSE feed (`feed/`), demo seed (`demo/`) |
 | `src/web/` | React PWA: `/cuenta` (payer), `/billetera` (beneficiary), `/enlazar` (link with code), `/tendero`, `/celular` (simulated phone); `/juan` and `/maria` redirect |
 | `src/shared/` | Shared TS types, amounts, intervals, ed25519 voucher crypto |
 | `src/agents/` | FastAPI service: `assistant/`, `inventory/`, `intent/`, `guardian/`, `common/` |
-| `docs/producto/` | `context.md` (idea, demo, judge Q&A) · `backlog.md` (original plan and task IDs, no longer tracked) |
-| `docs/api/` | `endpoints.md` (api + agents contract) · `modelo-de-datos.md` (Postgres schema, payers, seed rules) |
-| `docs/operacion/despliegue.md` | Railway services, variables, watch paths, verifying prod |
+| `docs/producto/` | `context.md` (idea, demo, judge Q&A) · `modos-de-consumo.md` (spend modes, limits) · `backlog.md` (original plan and task IDs, no longer tracked) |
+| `docs/arquitectura.md` | Containers, api layers and dependency rules, money path, security, decisions and known trade-offs |
+| `docs/api/` | `endpoints.md` (api + agents contract, permissions matrix) · `modelo-de-datos.md` (Postgres schema, payers, seed rules) |
+| `docs/operacion/` | `despliegue.md` (Railway services, variables, watch paths, verifying prod) · `sms.md` (real SMS: USB bridge, SMS Gateway, Telnyx) |
 | `docs/open-payments/` | `test-wallet.md` (verified behaviour and gotchas) · `openpayments-guide.md` (primer; 845 KB with embedded images — avoid reading it whole) |
 | `AI_USAGE.md`, `prompts/` | Hackathon AI-usage declaration and prompt log |
 

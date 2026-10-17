@@ -371,7 +371,7 @@ export const mandatesHandlers = [
     apiUrl('/mandates/:mandateId/modes'),
     async ({ params, request }) => {
       await networkDelay();
-      if (!request.headers.get('x-user-id'))
+      if (!request.headers.get('authorization'))
         return fail('Inicia sesión como titular', 401);
       if (!findInTree(db.tree, String(params.mandateId))) return notFound();
       return HttpResponse.json({
@@ -386,7 +386,7 @@ export const mandatesHandlers = [
     apiUrl('/mandates/:mandateId/modes'),
     async ({ params, request }) => {
       await networkDelay();
-      if (!request.headers.get('x-user-id'))
+      if (!request.headers.get('authorization'))
         return fail('Inicia sesión como titular', 401);
       const persona = findInTree(db.tree, String(params.mandateId));
       if (!persona) return notFound();
@@ -421,7 +421,7 @@ export const mandatesHandlers = [
     apiUrl('/mandates/:mandateId/limits'),
     async ({ params, request }) => {
       await networkDelay();
-      if (!request.headers.get('x-user-id'))
+      if (!request.headers.get('authorization'))
         return fail('Inicia sesión como titular', 401);
       const node = findInTree(db.tree, String(params.mandateId));
       const parent = node && findInTree(db.tree, node.parentId ?? '');
@@ -442,7 +442,7 @@ export const mandatesHandlers = [
   // SMS de una rama, con las mismas reglas que src/api (gateway/sms-canal.ts): solo el titular, E.164, PIN no obvio.
   http.get(apiUrl('/mandates/:mandateId/sms'), async ({ params, request }) => {
     await networkDelay();
-    if (!request.headers.get('x-user-id'))
+    if (!request.headers.get('authorization'))
       return fail('Inicia sesión como titular', 401);
     const phone = db.sms[String(params.mandateId)];
     return HttpResponse.json(
@@ -458,7 +458,7 @@ export const mandatesHandlers = [
 
   http.put(apiUrl('/mandates/:mandateId/sms'), async ({ params, request }) => {
     await networkDelay();
-    if (!request.headers.get('x-user-id'))
+    if (!request.headers.get('authorization'))
       return fail('Inicia sesión como titular', 401);
     const id = String(params.mandateId);
     if (!findInTree(db.tree, id)) return notFound();
@@ -486,7 +486,7 @@ export const mandatesHandlers = [
     apiUrl('/mandates/:mandateId/sms'),
     async ({ params, request }) => {
       await networkDelay();
-      if (!request.headers.get('x-user-id'))
+      if (!request.headers.get('authorization'))
         return fail('Inicia sesión como titular', 401);
       const id = String(params.mandateId);
       if (!db.sms[id]) return fail('SMS de esta rama no existe', 404);
@@ -548,7 +548,7 @@ export const mandatesHandlers = [
       };
       if (body.frozen === false)
         return fail(
-          'Restrict no puede descongelar: solo Juan (POST /mandates/:id/unfreeze)',
+          'Restrict no puede descongelar: solo el titular (POST /mandates/:id/unfreeze)',
           403,
         );
       if (body.offlineCap) {

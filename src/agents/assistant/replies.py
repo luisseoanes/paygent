@@ -67,9 +67,15 @@ def purchase(r: dict) -> str:
     return clip(f"No se pudo pagar: {r.get('motivo') or r.get('error')}.")
 
 
+REVOKED = "Su asistente está desactivado. Hable con quien le dio el permiso."
+FROZEN = "Sus compras están en pausa. Hable con quien le dio el permiso."
+
+
 def balance(r: dict) -> str:
     if r["estado"] == "revocado":
-        return "Su asistente fue desactivado por Juan. Comuníquese con él."
+        return REVOKED
+    if r.get("disponible_total") and r["disponible_total"] != r["disponible"]:
+        return clip(f"Le quedan {r['disponible_total']} este periodo. Por este medio puede gastar hasta {r['disponible']}.")
     return clip(f"Le quedan {r['disponible']} disponibles este periodo.")
 
 

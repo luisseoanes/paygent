@@ -6,7 +6,6 @@ import {
 } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
-import { currentUserId } from '@/lib/auth';
 import { type MutationConfig, type QueryConfig } from '@/lib/react-query';
 import { type Amount, type ModesResponse, type SpendMode } from '@/types/api';
 
@@ -15,9 +14,7 @@ export type { ModesResponse };
 // Modos de consumo de un beneficiario: GET /mandates/:id/modes (los ve él y su
 // titular), POST /mandates/:persona/modes (habilitar los que falten) y
 // PATCH /mandates/:persona/modes (el titular reparte el tope entre ellos).
-// Lo que solo decide el titular va con su cuenta en x-user-id.
-
-const comoTitular = () => ({ headers: { 'x-user-id': currentUserId() ?? '' } });
+// Lo que solo decide el titular lo autoriza su token de sesión (api-client).
 
 export type ModeLimit = {
   mandateId: string;
@@ -52,7 +49,7 @@ export const enableModes = ({
 }: {
   personaId: string;
 }): Promise<ModesResponse & { created: SpendMode[] }> =>
-  api.post(`/mandates/${personaId}/modes`, undefined, comoTitular());
+  api.post(`/mandates/${personaId}/modes`, undefined);
 
 export const useEnableModes = ({
   mutationConfig,
@@ -80,7 +77,7 @@ export const setModeLimits = ({
   // Nuevo tope de la persona (sube con lo libre del titular)
   budget?: Amount;
 }): Promise<ModesResponse> =>
-  api.patch(`/mandates/${personaId}/modes`, { limits, budget }, comoTitular());
+  api.patch(`/mandates/${personaId}/modes`, { limits, budget });
 
 export const useSetModeLimits = ({
   mutationConfig,

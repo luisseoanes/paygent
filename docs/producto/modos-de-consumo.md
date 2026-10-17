@@ -26,7 +26,7 @@ Agente de Inventario.
 
 ## Lo que hace el titular
 
-En `/cuenta`, en la rama del beneficiario, **Formas de pagar** (todo va con la cuenta del titular en `x-user-id`):
+En `/cuenta`, en la rama del beneficiario, **Formas de pagar** (todo va con la sesión del titular: solo él puede cambiarlo):
 
 - **Ajustar topes** (botón en Formas de pagar): un modal con un slider por modo y otro para el techo sin señal del
   celular. Todos usan la misma escala (el tope de la persona); cada slider se detiene donde se acaba lo libre (rayado)

@@ -1,5 +1,5 @@
 import { randomId, signDeviceCert, type DeviceCert } from '@openroute/shared'
-import { findDevice, insertCert, insertDevice } from '../db.ts'
+import { findDevice, insertCert, insertDevice } from '../store/offline.ts'
 import { badRequest, forbidden } from './errors.ts'
 import { gatewayKey } from './keys.ts'
 import { getMandate } from './mandates.ts'

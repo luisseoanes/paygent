@@ -1,4 +1,5 @@
 import { env } from '@/config/env';
+import { currentToken } from '@/lib/session';
 
 import { type PuertoChat } from '../types';
 
@@ -9,9 +10,14 @@ export const RUTA_CHAT = '/asistente/chat';
 
 export const puertoHttp: PuertoChat = {
   enviar: async (peticion, { signal, onTrozo }) => {
+    const token = currentToken();
     const res = await fetch(`${env.API_URL}${RUTA_CHAT}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // fetch directo (por el streaming): el token va a mano, como en api-client.
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(peticion),
       credentials: 'include',
       signal,

@@ -25,6 +25,7 @@ Producción: **https://paygent.up.railway.app**. Proyecto de Railway con cuatro 
 | api | `MOCK_FX` (vacío = 0), `FX_COP_PER_USD` | Trae la TRM del día de datos.gov.co; `FX_COP_PER_USD` es el respaldo sin red |
 | api | `OP_CLIENT_WALLET`, `OP_KEY_ID`, `OP_PRIVATE_KEY` | Identidad de Paygent ante Open Payments. `OP_PRIVATE_KEY` = contenido de `private.key` (PEM o base64): en Railway no hay fichero |
 | api | `AGENT_SERVICE_KEY` | Secreto aleatorio. Agents lo toma por referencia |
+| api | `SESSION_SECRET` (opcional) | Secreto aleatorio para firmar los tokens de sesión. Si falta, se deriva de la llave del gateway (tabla `gateway_keys`): sobrevive a los reinicios. Cambiarlo cierra todas las sesiones |
 | api | `PUBLIC_API_URL`, `WEB_URL`, `AGENTS_URL` | `https://paygent.up.railway.app/api`, `https://paygent.up.railway.app`, `http://agents.railway.internal:8000` |
 | agents | `API_URL`, `AGENTS_URL`, `AGENT_SERVICE_KEY` | `http://<api>.railway.internal:3001`, `http://localhost:8000`, `${{@openroute/api.AGENT_SERVICE_KEY}}` |
 | agents | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `MOCK_LLM=0` | Sin clave, el Asistente responde con reglas |

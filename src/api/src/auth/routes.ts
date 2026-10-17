@@ -1,6 +1,17 @@
 import type { FastifyInstance } from 'fastify'
 import { amount as A, monthly, randomId, type Mandate } from '@openroute/shared'
-import { getPayer, getUser, getUserWithPassword, insertPayer, insertUser, type User } from '../db.ts'
+import {
+  branchesOfUser,
+  findDuplicateUser,
+  getPayer,
+  getUser,
+  getUserWithPassword,
+  insertPayer,
+  insertUser,
+  rootOfUser,
+  walletTaken,
+  type User,
+} from '../store/accounts.ts'
 import { env } from '../env.ts'
 import { fxRate } from '../fx/trm.ts'
 import { HttpError, badRequest } from '../gateway/errors.ts'
@@ -8,7 +19,10 @@ import { findMandate, linkHolderUser, putMandate } from '../gateway/mandates.ts'
 import { linkModeProfiles } from '../gateway/modes.ts'
 import { checkSecret, hashSecret } from '../gateway/pin.ts'
 import { getWallet } from '../op/client.ts'
+import { holderUserOf, linkPersonIfFree } from '../store/mandates.ts'
+import { shopOfUser } from '../store/merchants.ts'
 import { sql } from '../store/sql.ts'
+import { issueToken } from './session.ts'
 
 /** Lo que es una cuenta: quien delega (titular), quien recibe una delegación (beneficiario) o quien cobra (tendero). */
 export type Rol = 'titular' | 'beneficiario' | 'tendero'
@@ -19,14 +33,10 @@ const TOPE_INICIAL_COP = 1_200_000
 /** La cuenta con lo que necesita la web (misma forma que su tipo User) y su rol. */
 const sessionOf = async (user: User) => {
   const payer = await getPayer(user.id)
-  const [root] = await sql().query<{ id: string }>(`select id from mandates where holder_user_id = $1 and parent_id is null`, [user.id])
+  const root = await rootOfUser(user.id)
   // Primero la del celular: es la que enlaza la billetera (/billetera la usa como código).
-  const branches = await sql().query<{ id: string }>(
-    `select id from mandates where holder_user_id = $1 and parent_id is not null and not revoked
-     order by (holder_type = 'device') desc, id`,
-    [user.id],
-  )
-  const [shop] = await sql().query<{ id: string }>(`select id from merchants where owner_user_id = $1`, [user.id])
+  const branches = await branchesOfUser(user.id)
+  const shop = await shopOfUser(user.id)
   const role: Rol = payer ? 'titular' : shop ? 'tendero' : 'beneficiario'
   return {
     id: user.id,
@@ -37,11 +47,13 @@ const sessionOf = async (user: User) => {
     telefono: user.phone,
     email: user.email,
     walletAddress: payer?.walletAddress ?? null,
-    rootMandateId: root?.id ?? null,
-    mandateId: branches[0]?.id ?? null,
-    mandateIds: branches.map((b) => b.id),
-    merchantId: shop?.id ?? null,
+    rootMandateId: root ?? null,
+    mandateId: branches[0] ?? null,
+    mandateIds: branches,
+    merchantId: shop ?? null,
     user,
+    /** Va en Authorization: Bearer en todo lo que solo decide esta cuenta. */
+    token: issueToken(user.id),
   }
 }
 
@@ -53,10 +65,7 @@ const required = (body: Record<string, unknown> | undefined, fields: string[]) =
 
 /** Correo, documento o celular repetidos → 409, con un mensaje que la web puede mostrar tal cual. */
 const assertNew = async (email: string, documento: string, telefono: string) => {
-  const [dup] = await sql().query<{ email: string; document_number: string; phone: string }>(
-    `select email, document_number, phone from users where lower(email) = lower($1) or document_number = $2 or phone = $3 limit 1`,
-    [email, documento, telefono],
-  )
+  const dup = await findDuplicateUser(email, documento, telefono)
   if (!dup) return
   if (dup.email?.toLowerCase() === email.toLowerCase()) throw new HttpError(409, 'Ya hay una cuenta con ese correo. Inicia sesión.')
   if (dup.document_number === documento) throw new HttpError(409, 'Ya hay una cuenta con ese documento.')
@@ -69,7 +78,7 @@ const validPassword = (password: string) => {
 }
 
 export default async function authRoutes(app: FastifyInstance) {
-  /** Login con correo y contraseña (scrypt con salt). Todavía no emite sesión: la web guarda la cuenta que devuelve. */
+  /** Login con correo y contraseña (scrypt con salt). Devuelve la cuenta con su token de sesión. */
   app.post<{ Body: { email?: string; password?: string } }>('/auth/login', async (req) => {
     const email = req.body?.email?.trim()
     const password = req.body?.password ?? ''
@@ -90,8 +99,7 @@ export default async function authRoutes(app: FastifyInstance) {
     if (!/^https:\/\/[^\s/]+\.[^\s/]+\/\S+$/.test(walletAddress)) throw badRequest('La wallet address no es válida')
     const password = validPassword(b.password)
     await assertNew(b.email, b.documento, b.telefono)
-    const [taken] = await sql().query(`select 1 from payers where wallet_address = $1`, [walletAddress])
-    if (taken) throw new HttpError(409, 'Esa wallet ya es de otro titular')
+    if (await walletTaken(walletAddress)) throw new HttpError(409, 'Esa wallet ya es de otro titular')
 
     // La moneda del árbol es la de su wallet. En real se lee del Test Wallet (y así se comprueba que existe).
     let asset: A.Asset = A.COP_ASSET
@@ -145,8 +153,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const branch = await findMandate(b.mandateId)
     if (!branch || !branch.parentId) throw badRequest('Ese código no corresponde a ninguna rama. Pídeselo de nuevo a quien te delegó.')
     if (branch.revoked) throw badRequest('Esa rama está revocada')
-    const [owner] = await sql().query(`select holder_user_id from mandates where id = $1`, [branch.id])
-    if (owner?.holder_user_id) throw new HttpError(409, 'Esa rama ya está enlazada a otra cuenta')
+    if (await holderUserOf(branch.id)) throw new HttpError(409, 'Esa rama ya está enlazada a otra cuenta')
     await assertNew(b.email, b.documento, b.telefono)
 
     const userId = randomId('u')
@@ -157,10 +164,7 @@ export default async function authRoutes(app: FastifyInstance) {
       )
       await linkHolderUser(branch.id, userId, tx)
       if (branch.holderType === 'device')
-        await tx.query(`update mandates set holder_user_id = $2 where id = $1 and holder_type = 'person' and holder_user_id is null`, [
-          branch.parentId,
-          userId,
-        ])
+        await linkPersonIfFree(branch.parentId!, userId, tx)
       // Con la cuenta ya hay celular: el modo SMS queda hablando con ese número.
       const persona = branch.holderType === 'device' ? branch.parentId : branch.holderType === 'person' ? branch.id : null
       if (persona) await linkModeProfiles(persona, tx)

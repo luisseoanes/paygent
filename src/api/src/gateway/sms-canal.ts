@@ -1,7 +1,8 @@
 import { amount as A, randomId, type Mandate } from '@openroute/shared'
-import { insertProfile, type PhoneProfile } from '../db.ts'
+import { holderUserOf } from '../store/mandates.ts'
+import { channelOwner, channelsOf, deleteProfile, insertProfile, moveChannel, smsProfileOfBranch, type PhoneProfile } from '../store/profiles.ts'
 import { fxRate } from '../fx/trm.ts'
-import { sql, type Row, type Sql } from '../store/sql.ts'
+import { sql, type Sql } from '../store/sql.ts'
 import { badRequest, HttpError, notFound } from './errors.ts'
 import { chainOf, childrenOf, delegate, revoke, type DelegateInput } from './mandates.ts'
 import { modesOf } from './modes.ts'
@@ -87,16 +88,7 @@ export const conectarSms = async (fromId: string, c: CanalSms, tx: Sql) => {
 }
 
 /** El perfil SMS activo de una rama (su hoja del Asistente sin revocar). Desde un celular, también el de su persona. */
-const perfilDe = async (branchId: string, conn: Sql = sql()) => {
-  const [r] = await conn.query<Row>(
-    `select p.channel, p.mandate_id from profiles p join mandates m on m.id = p.mandate_id
-     where m.parent_id in (select $1 union select parent_id from mandates where id = $1 and holder_type = 'device')
-       and not m.revoked and p.chat_for is null
-     order by m.parent_id = $1 desc limit 1`,
-    [branchId],
-  )
-  return r ? { phone: r.channel as string, mandateId: r.mandate_id as string } : undefined
-}
+const perfilDe = (branchId: string, conn: Sql = sql()) => smsProfileOfBranch(branchId, conn)
 
 export const estadoSms = async (branchId: string) => {
   const p = await perfilDe(branchId)
@@ -125,18 +117,17 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
     // Persona con el modo SMS ya habilitado (al darla de alta): se conecta esa hoja, no se crea otra.
     const persona = rama.holderType === 'device' && chain[1]?.parentId ? chain[1] : rama
     const modo = actual ? undefined : (await modesOf(persona.id, tx)).get('sms')
-    const [ocupado] = await tx.query<Row>(`select mandate_id from profiles where channel = $1`, [phone])
+    const ocupado = await channelOwner(phone, tx)
     if (ocupado && ocupado.mandate_id !== (actual?.mandateId ?? modo?.id)) throw new HttpError(409, 'Ese número ya habla con el Asistente desde otra rama')
 
     if (modo) {
-      const [previo] = await tx.query<Row>(`select channel from profiles where mandate_id = $1`, [modo.id])
-      if (previo) await tx.query(`update profiles set channel = $1 where channel = $2`, [phone, previo.channel])
+      const [previo] = await channelsOf(modo.id, {}, tx)
+      if (previo) await moveChannel(previo, phone, tx)
       else {
-        const [dueño] = await tx.query<Row>(`select holder_user_id from mandates where id = $1`, [persona.id])
         await insertProfile(
           {
             phone,
-            userId: dueño?.holder_user_id ?? undefined,
+            userId: await holderUserOf(persona.id, tx),
             name: persona.holderName,
             mandateId: modo.id,
             dataMandateId: `${modo.id}-datos`,
@@ -150,7 +141,7 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
       return persona
     }
     if (actual) {
-      await tx.query(`update profiles set channel = $1 where channel = $2`, [phone, actual.phone])
+      await moveChannel(actual.phone, phone, tx)
       await setPin(actual.mandateId, body.pin!, tx)
       return rama
     }
@@ -163,8 +154,8 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
       throw new HttpError(409, `${rama.holderName} ya repartió todo su cupo. Actívalo en la rama que lo tiene (su celular).`)
     if (!rama.categories.includes('datos')) throw badRequest('La rama necesita la categoría datos para que el Asistente consulte precios')
 
-    const [dueño] = await tx.query<Row>(`select holder_user_id from mandates where id = $1`, [persona.id])
-    await conectarSms(rama.id, { phone, pin: body.pin!, name: persona.holderName, userId: dueño?.holder_user_id ?? undefined, asistente: { maxDebit: libre } }, tx)
+    const userId = await holderUserOf(persona.id, tx)
+    await conectarSms(rama.id, { phone, pin: body.pin!, name: persona.holderName, userId, asistente: { maxDebit: libre } }, tx)
     return rama
   })
   return { rama, estado: await estadoSms(rama.id) }
@@ -174,7 +165,7 @@ export const activarSms = async (branchId: string, body: { phone?: string; pin?:
 export const desactivarSms = async (branchId: string) => {
   const actual = await perfilDe(branchId)
   if (!actual) throw notFound('SMS de esta rama')
-  await sql().query(`delete from profiles where channel = $1`, [actual.phone])
+  await deleteProfile(actual.phone)
   await revoke(actual.mandateId)
   return actual
 }

@@ -17,7 +17,7 @@ vi.mock('../src/op/settle.ts', async (importOriginal) => {
 })
 
 const { buildApp } = await import('../src/app.ts')
-const store = await import('../src/db.ts')
+const store = { ...(await import('../src/store/payments.ts')), ...(await import('../src/store/feed.ts')) }
 const { seed } = await import('../src/demo/seed.ts')
 const { DEMO_WALLETS } = await import('../src/demo/wallets.ts')
 const { getMandate } = await import('../src/gateway/mandates.ts')

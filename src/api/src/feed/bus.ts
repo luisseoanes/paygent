@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { randomId, type FeedEvent } from '@openroute/shared'
-import { insertEvent } from '../db.ts'
+import { insertEvent } from '../store/feed.ts'
 
 const bus = new EventEmitter()
 bus.setMaxListeners(100)

@@ -11,14 +11,14 @@ The Spanish source of truth is `docs/api/endpoints.md` in the repo.
 | Payer vs. beneficiary | **Titular** delegates (has a wallet and root mandate). **Beneficiario** receives a branch |
 | Tree scope | Payer routes take `?root=<rootMandateId>` or `rootMandateId` in the body. Default: demo root `root` |
 | Agent auth | `x-api-key: <AGENT_SERVICE_KEY>` + `x-agent-id: <agent id>`. An `x-api-key` request can never change addresses, payouts, or create merchants/agents (403) |
-| Payer auth | `x-user-id: <account id>` on payer-only routes (no session token yet) |
+| Person auth | `Authorization: Bearer <token>` from login or registration (HMAC-signed by the api, 7 days); the SSE feed takes `?token=`. Who may call each route: [permissions matrix](https://github.com/luisseoanes/paygent/blob/main/docs/api/endpoints.md#quién-puede-llamar-a-cada-ruta) |
 | Errors | `{ "error": "<message>" }` · 400 data · 401 credential · 403 gateway rule · 404 · 409 duplicate · 503 agents down |
 
 ## Accounts
 
 | Route | Purpose |
 |---|---|
-| `POST /auth/login` | Validate `{ email, password }`, return the account |
+| `POST /auth/login` | Validate `{ email, password }`, return the account and its session `token` |
 | `POST /auth/register/titular` | New payer with their own root mandate |
 | `POST /auth/register/beneficiario` | New beneficiary, linked with the payer's code (`mandateId`) |
 

@@ -12,8 +12,9 @@ vi.mock('../src/lib/agents.ts', () => ({
 const { buildApp } = await import('../src/app.ts')
 const { seed, CHAT_MARIA, PIN_DEMO } = await import('../src/demo/seed.ts')
 const { checkPin } = await import('../src/gateway/pin.ts')
-const { pesos } = await import('../src/op/asset.ts')
+const { pesos } = await import('../src/demo/asset.ts')
 const { getMandate } = await import('../src/gateway/mandates.ts')
+const { asUser } = await import('./helpers.ts')
 
 const app = await buildApp({ logger: false })
 
@@ -23,7 +24,9 @@ beforeEach(async () => {
   agents.down = false
 })
 
-const chat = (payload: object) => app.inject({ method: 'POST', url: '/asistente/chat', payload })
+// La PWA de María manda su sesión: solo chatea con el Asistente de sus propias ramas.
+const chat = (payload: object, headers: Record<string, string> = asUser('maria')) =>
+  app.inject({ method: 'POST', url: '/asistente/chat', payload, headers })
 
 describe('Asistente de María: una hoja de su rama', () => {
   it('cuelga de María con $40 al mes y PIN si pasa de $10', async () => {
@@ -62,7 +65,14 @@ describe('POST /asistente/chat', () => {
 
   it('una rama que no es de María (el Asistente de la mamá) no abre el chat de María', async () => {
     const res = await chat({ mensajes: [{ rol: 'usuario', texto: 'hola' }], contexto: { mandato: 'asistente' } })
-    expect(res.statusCode).toBe(400)
+    expect(res.statusCode).toBe(403)
+    expect(agents.calls).toHaveLength(0)
+  })
+
+  it('sin sesión nadie habla con el Asistente de María', async () => {
+    const res = await chat({ mensajes: [{ rol: 'usuario', texto: 'hola' }], contexto: { mandato: 'maria-device' } }, {})
+    expect(res.statusCode).toBe(401)
+    expect(agents.calls).toHaveLength(0)
   })
 
   it('si el Asistente no responde, devuelve un error para que el chat ofrezca reintentar', async () => {

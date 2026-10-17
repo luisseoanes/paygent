@@ -10,9 +10,11 @@
     "typecheck": "tsc --noEmit",
     "op:smoke": "tsx scripts/op-smoke.ts",
     "e2e": "tsx scripts/e2e.ts",
+    "sms:guia": "tsx scripts/sms-guia.ts",
     "fx:probe": "tsx scripts/fx-probe.ts",
     "sms:bridge": "tsx scripts/sms-bridge.ts",
-    "guardian:check": "tsx scripts/guardian-check.ts"
+    "guardian:check": "tsx scripts/guardian-check.ts",
+    "demo:reset": "tsx scripts/reset.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",

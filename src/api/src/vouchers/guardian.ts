@@ -1,5 +1,5 @@
 import { amount as A, type Amount, type Mandate } from '@openroute/shared'
-import { vouchersOfMandate } from '../db.ts'
+import { vouchersOfMandate } from '../store/offline.ts'
 import { emit } from '../feed/bus.ts'
 import { offlineDevices, restrict } from '../gateway/mandates.ts'
 import { callAgents } from '../lib/agents.ts'

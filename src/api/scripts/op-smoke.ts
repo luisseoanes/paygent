@@ -7,10 +7,12 @@
  * Requiere MOCK_OP=0, OP_KEY_ID y la llave privada en el .env de la raíz.
  */
 import { prepareStore } from '../src/app.ts'
-import { getActiveGrant, getMerchant, payerOfRoot } from '../src/db.ts'
+import { payerOfRoot } from '../src/store/accounts.ts'
+import { getActiveGrant } from '../src/store/grants.ts'
+import { getMerchant } from '../src/store/merchants.ts'
 import { env } from '../src/env.ts'
-import { ROOT_ID } from '../src/gateway/mandates.ts'
-import { pesos } from '../src/op/asset.ts'
+import { DEMO_ROOT_ID as ROOT_ID } from '../src/demo/constants.ts'
+import { pesos } from '../src/demo/asset.ts'
 import { continueRootGrant, requestRootGrant } from '../src/op/grants.ts'
 import { settle } from '../src/op/settle.ts'
 
@@ -26,6 +28,7 @@ if (!payer || !tienda) throw new Error('Falta la semilla: no hay payer o comerci
 const callback = process.argv[2]
 if (!callback) {
   const { redirectUrl } = await requestRootGrant({
+    rootId: ROOT_ID,
     walletAddress: payer.walletAddress,
     maxDebit: pesos(20_000),
     interval: `R/${new Date().toISOString()}/PT5M`,
@@ -40,15 +43,15 @@ if (!callback) {
   if (!interactRef || !hash) {
     console.error(
       '\nEsa no es la URL de vuelta. Tras pulsar "Aprobar", la billetera te lleva a\n' +
-        `  ${env.PUBLIC_API_URL}/callback?hash=…&interact_ref=…\n` +
+        `  ${env.PUBLIC_API_URL}/callback/${ROOT_ID}?hash=…&interact_ref=…\n` +
         'Copia esa (la página puede fallar, es normal) y vuelve a correr el script.\n',
     )
     process.exit(1)
   }
-  await continueRootGrant(interactRef, hash)
+  await continueRootGrant(interactRef, hash, ROOT_ID)
   console.log('Grant raíz OK. Pagando 40 COP (≈ $0.01) a', tienda.wallet)
   const t = Date.now()
-  const result = await settle({ merchantWallet: tienda.wallet, amount: pesos(40), metadata: { description: 'smoke' } })
+  const result = await settle({ rootId: ROOT_ID, merchantWallet: tienda.wallet, amount: pesos(40), metadata: { description: 'smoke' } })
   console.log(result, `${Date.now() - t} ms`)
   console.log('✅ Revisa el pago en el Test Wallet. rootGrant guardado:', !!(await getActiveGrant(ROOT_ID)))
 }

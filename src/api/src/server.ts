@@ -1,8 +1,9 @@
 import { buildApp } from './app.ts'
-import { getActiveGrant, listMerchants } from './db.ts'
+import { getActiveGrant } from './store/grants.ts'
+import { listMerchants } from './store/merchants.ts'
 import { env } from './env.ts'
 import { refreshFx } from './fx/trm.ts'
-import { ROOT_ID } from './gateway/mandates.ts'
+import { DEMO_ROOT_ID } from './demo/constants.ts'
 import { payoutFor } from './gateway/payout.ts'
 import { prewarm } from './op/settle.ts'
 
@@ -16,7 +17,7 @@ console.log(`
   Paygent api → http://localhost:${env.PORT}
   MOCK_OP=${env.MOCK_OP ? '1  ⚠️  Open Payments SIMULADO (nunca en la demo)' : '0  ✅ Open Payments real'}
   Tasa COP/USD: ${fx.copPerUsd} (${fx.fuente === 'trm' ? `TRM del ${fx.fecha}` : 'respaldo FX_COP_PER_USD'})
-  MOCK_SMS=${env.MOCK_SMS ? 1 : 0} · grant raíz: ${(await getActiveGrant(ROOT_ID)) ? 'sí' : 'no (abre /juan y aprueba)'}
+  MOCK_SMS=${env.MOCK_SMS ? 1 : 0} · grant raíz: ${(await getActiveGrant(DEMO_ROOT_ID)) ? 'sí' : 'no (abre /juan y aprueba)'}
   Base de datos: ${process.env.DATABASE_URL ? 'Postgres (DATABASE_URL)' : 'PGlite local (.data/pglite)'}
 `)
 

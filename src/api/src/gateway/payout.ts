@@ -1,5 +1,5 @@
 import type { Payout } from '@openroute/shared'
-import { getMerchant, merchantByWallet } from '../db.ts'
+import { getMerchant, merchantByWallet } from '../store/merchants.ts'
 
 /** El comercio que liquida por su red a los tenderos sin wallet. */
 export const PUNTORED_ID = 'puntored'

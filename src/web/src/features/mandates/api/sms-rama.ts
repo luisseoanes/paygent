@@ -7,7 +7,6 @@ import {
 import * as z from 'zod';
 
 import { api } from '@/lib/api-client';
-import { currentUserId } from '@/lib/auth';
 import { type MutationConfig, type QueryConfig } from '@/lib/react-query';
 
 // GET/PUT/DELETE /mandates/:id/sms — el titular activa el SMS de una rama: el celular con el que su beneficiario
@@ -35,10 +34,8 @@ export const activarSmsInputSchema = z
 
 export type ActivarSmsValues = z.output<typeof activarSmsInputSchema>;
 
-const comoTitular = () => ({ headers: { 'x-user-id': currentUserId() ?? '' } });
-
 export const getSmsRama = (mandateId: string): Promise<EstadoSms> =>
-  api.get(`/mandates/${mandateId}/sms`, comoTitular());
+  api.get(`/mandates/${mandateId}/sms`);
 
 export const getSmsRamaQueryOptions = (mandateId: string) =>
   queryOptions({
@@ -60,15 +57,13 @@ export const activarSms = ({
 }: {
   mandateId: string;
   data: { phone: string; pin: string };
-}): Promise<EstadoSms> =>
-  api.put(`/mandates/${mandateId}/sms`, data, comoTitular());
+}): Promise<EstadoSms> => api.put(`/mandates/${mandateId}/sms`, data);
 
 export const apagarSms = ({
   mandateId,
 }: {
   mandateId: string;
-}): Promise<EstadoSms> =>
-  api.delete(`/mandates/${mandateId}/sms`, comoTitular());
+}): Promise<EstadoSms> => api.delete(`/mandates/${mandateId}/sms`);
 
 // El árbol también cambia (la hoja del Asistente): se refresca todo ['mandates'].
 const useRefrescarMandatos = () => {

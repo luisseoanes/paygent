@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { amount as A } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
-import { getActiveGrant } from '../src/db.ts'
+import { getActiveGrant } from '../src/store/grants.ts'
 import { seed } from '../src/demo/seed.ts'
 import { DEMO_WALLETS } from '../src/demo/wallets.ts'
 import { getMandate } from '../src/gateway/mandates.ts'
+import { asUser } from './helpers.ts'
 
 // Cuantos titulares se quiera, cada uno con su raíz, su grant, su feed y sus beneficiarios.
 const app = await buildApp({ logger: false })
@@ -49,7 +50,7 @@ describe('Alta de titulares', () => {
 describe('Beneficiarios de cada titular', () => {
   it('se enlazan con el código de la rama que les dio su titular', async () => {
     const rama = (
-      await post(`/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'hija-ana', holderName: 'Hija de Ana', maxDebit: A.cop(100_000) })
+      await post(`/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'hija-ana', holderName: 'Hija de Ana', maxDebit: A.cop(100_000) }, asUser(ana.id))
     ).json()
     const res = await post('/auth/register/beneficiario', {
       documento: '80000001', nombre: 'Hija de Ana', email: 'hija@correo.co', telefono: '+573110000001', password: 'clave-segura', mandateId: rama.id,
@@ -70,7 +71,7 @@ describe('Beneficiarios de cada titular', () => {
 
 describe('Grant, pagos y feed por titular', () => {
   it('cada titular firma su propio grant; el de los demás no cambia', async () => {
-    const { redirectUrl } = (await post('/mandates/root', { rootMandateId: ana.rootMandateId })).json()
+    const { redirectUrl } = (await post('/mandates/root', { rootMandateId: ana.rootMandateId }, asUser(ana.id))).json()
     expect(redirectUrl).toContain(`/callback/${ana.rootMandateId}`)
     const back = await app.inject({ method: 'GET', url: new URL(redirectUrl).pathname + new URL(redirectUrl).search })
     expect(back.headers.location).toMatch(/ok=1/)
@@ -85,7 +86,7 @@ describe('Grant, pagos y feed por titular', () => {
     const agente = (
       await post(`/mandates/${ana.rootMandateId}/delegate`, {
         holderType: 'agent', holderId: 'asistente', holderName: 'Asistente de Ana', maxDebit: A.cop(50_000), categories: ['farmacia'],
-      })
+      }, asUser(ana.id))
     ).json()
     const pay = await post(
       '/pay',
@@ -97,14 +98,14 @@ describe('Grant, pagos y feed por titular', () => {
     expect((await getMandate(beto.rootMandateId)).spentInPeriod).toEqual(A.cop(0))
     expect((await getMandate('root')).spentInPeriod).toEqual(A.cop(0))
 
-    const feedAna = (await app.inject({ method: 'GET', url: `/feed?root=${ana.rootMandateId}` })).json()
-    const feedBeto = (await app.inject({ method: 'GET', url: `/feed?root=${beto.rootMandateId}` })).json()
+    const feedAna = (await app.inject({ method: 'GET', url: `/feed?root=${ana.rootMandateId}`, headers: asUser(ana.id) })).json()
+    const feedBeto = (await app.inject({ method: 'GET', url: `/feed?root=${beto.rootMandateId}`, headers: asUser(beto.id) })).json()
     expect(feedAna.some((e: { reason?: string }) => e.reason === 'losartán para Ana')).toBe(true)
     expect(feedBeto).toHaveLength(0)
   })
 
   it('resetear la demo no borra a los titulares registrados ni su grant', async () => {
-    await post('/demo/reset', { full: true })
+    await post('/demo/reset', { full: true }, asUser('juan'))
     expect((await post('/auth/login', { email: 'titular1@correo.co', password: 'clave-segura' })).statusCode).toBe(200)
     expect(await getActiveGrant(ana.rootMandateId)).not.toBeNull()
     expect((await getMandate(ana.rootMandateId)).spentInPeriod).toEqual(A.cop(12_000))
@@ -115,7 +116,7 @@ describe('El titular registra un beneficiario: alias, tope, PIN y tope sin seña
   it('sale de su raíz, crea la persona (PIN siempre) y su celular, y entrega el código para enlazar', async () => {
     const res = await post(`/mandates/${beto.rootMandateId}/beneficiaries`, {
       alias: 'Mamá de Beto', maxDebit: A.cop(200_000), offlineCap: A.cop(50_000), pin: '4321',
-    })
+    }, asUser(beto.id))
     expect(res.statusCode).toBe(201)
     const { code, mandateId } = res.json()
     const persona = await getMandate(mandateId)
@@ -138,6 +139,7 @@ describe('El titular registra un beneficiario: alias, tope, PIN y tope sin seña
   it('PIN, tope y tope sin señal son obligatorios; el tope sin señal no puede superar el del periodo', async () => {
     const base = { alias: 'X', maxDebit: A.cop(10_000), offlineCap: A.cop(5_000), pin: '1234' }
     const url = `/mandates/${beto.rootMandateId}/beneficiaries`
+    const post = (u: string, body: object) => app.inject({ method: 'POST', url: u, payload: body, headers: asUser(beto.id) })
     expect((await post(url, { ...base, pin: '12' })).statusCode).toBe(400)
     expect((await post(url, { ...base, pin: undefined })).statusCode).toBe(400)
     expect((await post(url, { ...base, offlineCap: undefined })).statusCode).toBe(400)
@@ -148,7 +150,7 @@ describe('El titular registra un beneficiario: alias, tope, PIN y tope sin seña
   })
 
   it('no se puede colgar de una rama que no sea la raíz', async () => {
-    const res = await post(`/mandates/maria/beneficiaries`, { alias: 'X', maxDebit: A.cop(1), offlineCap: A.cop(1), pin: '1234' })
+    const res = await post(`/mandates/maria/beneficiaries`, { alias: 'X', maxDebit: A.cop(1), offlineCap: A.cop(1), pin: '1234' }, asUser('juan'))
     expect(res.statusCode).toBe(400)
   })
 })

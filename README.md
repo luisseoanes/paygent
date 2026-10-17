@@ -67,6 +67,11 @@ tree. The Python agents (Assistant, Inventory, Guardian) **propose**; they hold 
 funds. The PIN never reaches the LLM, the Guardian can only restrict, and every LLM path has a
 deterministic fallback.
 
+Inside the api, routes only authenticate (signed session token for people, service key for agents) and
+call a use case; SQL lives only in `store/` repositories, and Open Payments is an adapter that knows
+nothing of the tree. A test checks these layer rules on the real imports. Rationale, money path,
+security model and known trade-offs: [`docs/arquitectura.md`](docs/arquitectura.md) (Spanish).
+
 | Path | Stack | What it is |
 | ---- | ----- | ---------- |
 | [`src/api/`](src/api/) | TypeScript · Fastify | Open Payments client, Mandate Gateway, vouchers, SMS, SSE feed |

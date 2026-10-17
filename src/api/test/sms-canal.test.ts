@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { amount as A } from '@openroute/shared'
 import { buildApp } from '../src/app.ts'
-import { getProfile } from '../src/db.ts'
+import { getProfile } from '../src/store/profiles.ts'
 import { seed, PHONE_MAMA } from '../src/demo/seed.ts'
 import { getMandate } from '../src/gateway/mandates.ts'
 import { checkPin } from '../src/gateway/pin.ts'
 import { normalizarCelular, pinSmsInvalido } from '../src/gateway/sms-canal.ts'
+import { asUser } from './helpers.ts'
 
 // El titular activa el SMS en una rama que delegó: número + PIN → perfil del Asistente para ese número.
 const app = await buildApp({ logger: false })
@@ -29,12 +30,12 @@ const titular = async (n: number) =>
 
 const ana = await titular(1)
 const beto = await titular(2)
-const comoAna = { 'x-user-id': ana.id }
+const comoAna = asUser(ana.id)
 const mama = (
-  await req('POST', `/mandates/${ana.rootMandateId}/beneficiaries`, { alias: 'Mamá', maxDebit: A.cop(300_000), offlineCap: A.cop(50_000), pin: '4321' })
+  await req('POST', `/mandates/${ana.rootMandateId}/beneficiaries`, { alias: 'Mamá', maxDebit: A.cop(300_000), offlineCap: A.cop(50_000), pin: '4321' }, comoAna)
 ).json()
 const persona = (
-  await req('POST', `/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'tio', holderName: 'Tío', maxDebit: A.cop(100_000) })
+  await req('POST', `/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'tio', holderName: 'Tío', maxDebit: A.cop(100_000) }, comoAna)
 ).json()
 const sms = (id: string, body: object, headers = comoAna) => req('PUT', `/mandates/${id}/sms`, body, headers)
 
@@ -101,9 +102,9 @@ describe('PUT /mandates/:id/sms', () => {
     expect((await sms(agente, { phone: '3005550000', pin: '2580' })).statusCode).toBe(400)
     // Una persona que ya repartió todo su tope (como un alta de antes de los modos).
     const tio2 = (
-      await req('POST', `/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'tio2', holderName: 'Tío 2', maxDebit: A.cop(10_000) })
+      await req('POST', `/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'tio2', holderName: 'Tío 2', maxDebit: A.cop(10_000) }, comoAna)
     ).json()
-    await req('POST', `/mandates/${tio2.id}/delegate`, { holderType: 'device', holderId: 'cel-tio2', maxDebit: A.cop(10_000), offlineCap: A.cop(1_000) })
+    await req('POST', `/mandates/${tio2.id}/delegate`, { holderType: 'device', holderId: 'cel-tio2', maxDebit: A.cop(10_000), offlineCap: A.cop(1_000) }, comoAna)
     const lleno = await sms(tio2.id, { phone: '3005550000', pin: '2580' })
     expect(lleno.statusCode).toBe(409)
     expect(lleno.json().error).toMatch(/cupo/)
@@ -111,10 +112,10 @@ describe('PUT /mandates/:id/sms', () => {
 
   it('solo el titular dueño de la raíz; nunca un agente', async () => {
     expect((await sms(persona.id, { phone: '3005550000', pin: '2580' }, {} as typeof comoAna)).statusCode).toBe(401)
-    expect((await sms(persona.id, { phone: '3005550000', pin: '2580' }, { 'x-user-id': beto.id })).statusCode).toBe(403)
-    const agente = { 'x-user-id': ana.id, 'x-api-key': 'dev-agents-key', 'x-agent-id': 'asistente' }
+    expect((await sms(persona.id, { phone: '3005550000', pin: '2580' }, asUser(beto.id))).statusCode).toBe(403)
+    const agente = { ...asUser(ana.id), 'x-api-key': 'dev-agents-key', 'x-agent-id': 'asistente' }
     expect((await req('PUT', `/mandates/${persona.id}/sms`, { phone: '3005550000', pin: '2580' }, agente)).statusCode).toBe(403)
-    expect((await req('GET', `/mandates/${persona.id}/sms`, undefined, { 'x-user-id': beto.id })).statusCode).toBe(403)
+    expect((await req('GET', `/mandates/${persona.id}/sms`, undefined, asUser(beto.id))).statusCode).toBe(403)
   })
 
   it('una persona con cupo libre también lo puede activar', async () => {
@@ -140,7 +141,7 @@ describe('DELETE /mandates/:id/sms', () => {
 
   it('sin SMS activo → 404', async () => {
     const otra = (
-      await req('POST', `/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'prima', holderName: 'Prima', maxDebit: A.cop(10_000) })
+      await req('POST', `/mandates/${ana.rootMandateId}/delegate`, { holderType: 'person', holderId: 'prima', holderName: 'Prima', maxDebit: A.cop(10_000) }, comoAna)
     ).json()
     expect((await req('DELETE', `/mandates/${otra.id}/sms`, undefined, comoAna)).statusCode).toBe(404)
   })
