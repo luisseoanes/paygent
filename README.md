@@ -38,6 +38,8 @@ each payment goes straight from Juan's wallet to the merchant: nobody in the mid
   </picture>
 </p>
 
+## Features 
+
 <table>
   <tr>
     <td align="center" width="33%"><img src="site-docs/assets/screenshots/1-payer.png" width="240"><br><sub><b>Juan</b> approves one grant and sees who spent what.</sub></td>
@@ -45,10 +47,6 @@ each payment goes straight from Juan's wallet to the merchant: nobody in the mid
     <td align="center" width="33%"><img src="site-docs/assets/screenshots/4-offline-voucher.png" width="240"><br><sub>No signal: her phone signs a voucher the shop verifies offline.</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="site-docs/assets/screenshots/5-shopkeeper.png" width="240"><br><sub><b>The shopkeeper</b> scans vouchers and gets paid, online or by SMS.</sub></td>
-    <td align="center"><img src="site-docs/assets/screenshots/6-feature-phone.png" width="240"><br><sub><b>Doña Carmen</b> texts the AI Assistant; purchases need her PIN.</sub></td>
-    <td align="center"><img src="site-docs/assets/screenshots/2-feed.png" width="240"><br><sub>Every payment lands in Juan's feed with its <i>why</i>.</sub></td>
-  </tr>
 </table>
 
 ## Architecture
