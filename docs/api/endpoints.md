@@ -30,7 +30,7 @@ Convenciones:
 | cadena | `POST /mandates/:id/device-key`, `POST /asistente/chat` (de su rama) |
 | cadena o agente | `GET /mandates/:id`, `GET /mandates/:id/tree`, `GET /mandates/:id/modes`, `GET /delivery-address/:rootId`, `GET /payments/:id` |
 | agente | `POST /pay` (y solo con mandatos de los que es titular), `GET /sms/profile`, `GET /vouchers` |
-| tendero | `GET /merchants/:id/orders`, `PUT /merchants/:id/payout` |
+| tendero | `GET /merchants/:id/orders`, `GET /merchants/:id/payments`, `PUT /merchants/:id/payout` |
 
 ## Cuentas
 
@@ -82,6 +82,7 @@ Convenciones:
 | `POST /guardian/review` | — | Cambios de tope offline propuestos por el Guardián |
 | `GET /merchants` · `POST /merchants` | `{ id?, name, category, wallet \| payout }` | Lista · comercio creado (201) |
 | `GET /merchants/:id/orders` | — | Pedidos con entrega |
+| `GET /merchants/:id/payments` | — | Todo lo que recibió el comercio (vales liquidados y compras del Asistente), del más nuevo al más viejo, hasta 200: `Payment & { received }`, con `received` = lo que llegó en su moneda. Es la caja del tendero |
 | `PUT /merchants/:id/payout` | `{ via: wallet, wallet }` o `{ via: puntored, llave }` | Comercio |
 | `POST /agents` | `{ id?, name, role, walletAddress? }` | Agente creado (201), sin clave propia |
 

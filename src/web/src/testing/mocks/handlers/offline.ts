@@ -112,6 +112,38 @@ export const offlineHandlers = [
     return HttpResponse.json(mockMerchants);
   }),
 
+  // La caja del tendero: lo que recibió su tienda, a partir de la libreta simulada.
+  http.get(
+    apiUrl('/merchants/:merchantId/payments'),
+    async ({ params, request }) => {
+      await networkDelay();
+      if (!request.headers.get('authorization'))
+        return fail('Inicia sesión', 401);
+      const tienda = mockMerchants.find((m) => m.id === params.merchantId);
+      if (!tienda) return fail('Comercio no existe', 404);
+      return HttpResponse.json(
+        db.feed
+          .filter(
+            (e) =>
+              e.merchant === tienda.name &&
+              e.amount &&
+              (e.kind === 'payment' || e.kind === 'voucher_settled'),
+          )
+          .map((e) => ({
+            id: e.id,
+            mandateId: e.mandateId,
+            merchantWallet: tienda.wallet,
+            amount: e.amount,
+            received: e.amount,
+            category: tienda.category,
+            reason: e.reason ?? '',
+            status: 'completed',
+            createdAt: e.at,
+          })),
+      );
+    },
+  ),
+
   http.get(apiUrl('/gateway/public-key'), async () => {
     await networkDelay();
     return HttpResponse.json({ publicKey: gateway.publicKey });

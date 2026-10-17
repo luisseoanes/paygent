@@ -6,21 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { useNotifications } from '@/components/ui/notifications';
 import { env } from '@/config/env';
+import { useUser } from '@/lib/auth';
 import { etiquetaTasa } from '@/lib/catalogo';
 import { cn } from '@/utils/cn';
-import { formatCop, formatCurrency, formatDate, formatTime } from '@/utils/format';
+import {
+  formatCop,
+  formatCurrency,
+  formatDate,
+  formatTime,
+} from '@/utils/format';
 
 import { cobrarVales } from '../api/cobrar-vales';
+import { type Cobro, useCobros } from '../api/get-cobros';
 import { type ValeRecibido, useCobroStore } from '../stores/cobro-store';
 import { enlaceCobroSms } from '../utils/cobro-sms';
 import { estadoVale } from '../utils/estado';
 import { motivoLegible } from '../utils/verificar';
 
-// La caja del tendero (FE-04): cuánto recibió hoy en pesos, qué falta por
-// cobrar, el historial con su estado y un botón grande para escanear.
+// La caja del tendero (FE-04): cuánto recibió hoy en pesos (según la api, en
+// cualquier celular), qué falta por cobrar, el historial de cobros de la tienda
+// y un botón grande para escanear. Sin señal, cuenta lo de este celular.
 
 const esHoy = (iso: string) =>
   new Date(iso).toDateString() === new Date().toDateString();
+
+// Un pago a la tienda, con el estilo del estado de vale que le corresponde.
+const estadoCobro: Record<Cobro['status'], { label: string; chip: string }> = {
+  completed: { label: 'Cobrado', chip: estadoVale.settled.chip },
+  pending: { label: 'En camino', chip: estadoVale.pending.chip },
+  failed: { label: 'No llegó', chip: estadoVale.rejected.chip },
+};
 
 const Chip = ({ vale }: { vale: ValeRecibido }) => (
   <span
@@ -162,12 +177,25 @@ export const Caja = ({
   );
   const elegirTienda = useCobroStore((s) => s.elegirTienda);
   const [abierto, setAbierto] = React.useState<string>();
+  const miTienda = useUser().data?.merchantId ?? undefined;
+  const cobros = useCobros({
+    merchantId: miTienda ?? '',
+    queryConfig: { enabled: !!miTienda && online, refetchInterval: 15_000 },
+  });
 
   const cop = (v: ValeRecibido) => A.toCop(v.voucher.amount, fx);
+  const recibido = (c: Cobro) => A.toCop(c.received, fx);
   const deHoy = vales.filter((v) => esHoy(v.scannedAt));
-  const cobrado = deHoy
-    .filter((v) => v.status === 'settled' || v.status === 'flagged')
-    .reduce((s, v) => s + cop(v), 0);
+  const cobrados = cobros.data?.filter((c) => c.status === 'completed');
+  // Los vales liquidados ya están en la api: con su historial no se suman dos veces.
+  const cobrado = cobrados
+    ? cobrados
+        .filter((c) => esHoy(c.createdAt))
+        .reduce((s, c) => s + recibido(c), 0)
+    : deHoy
+        .filter((v) => v.status === 'settled' || v.status === 'flagged')
+        .reduce((s, v) => s + cop(v), 0);
+  const total = cobrados?.reduce((s, c) => s + recibido(c), 0);
   const porCobrar = deHoy
     .filter((v) => v.status === 'pending')
     .reduce((s, v) => s + cop(v), 0);
@@ -189,14 +217,20 @@ export const Caja = ({
           </p>
           {tienda && (
             <p className="mt-1.5 text-sm text-ink-2">
-              {tienda.name} ·{' '}
-              <button
-                type="button"
-                onClick={() => elegirTienda(undefined)}
-                className="min-h-8 underline underline-offset-2 hover:text-grafito"
-              >
-                cambiar
-              </button>
+              {tienda.name}
+              {total !== undefined && ` · En total: ${formatCop(total)}`}
+              {!miTienda && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={() => elegirTienda(undefined)}
+                    className="min-h-8 underline underline-offset-2 hover:text-grafito"
+                  >
+                    cambiar
+                  </button>
+                </>
+              )}
             </p>
           )}
         </div>
@@ -231,9 +265,63 @@ export const Caja = ({
         )}
       </section>
 
+      {miTienda && (
+        <section aria-labelledby="cobros" className="space-y-2">
+          <h2 id="cobros" className="px-1 text-base font-medium text-grafito">
+            Historial de cobros
+          </h2>
+          {!cobros.data ? (
+            <p className="rounded-2xl bg-paper-raised p-4 text-sm text-ink-2">
+              {online
+                ? cobros.isError
+                  ? 'No pudimos traer tu historial. Lo intentamos de nuevo en un momento.'
+                  : 'Cargando tus cobros…'
+                : 'Sin señal: tu historial aparece cuando vuelva.'}
+            </p>
+          ) : cobros.data.length === 0 ? (
+            <p className="rounded-2xl bg-paper-raised p-4 text-sm text-ink-2">
+              Todavía no has recibido pagos. Los vales y las compras del
+              Asistente aparecen aquí.
+            </p>
+          ) : (
+            <ul className="divide-y divide-rule rounded-3xl bg-paper-raised px-2">
+              {cobros.data.slice(0, 50).map((c) => (
+                <li
+                  key={c.id}
+                  className="flex min-h-16 items-center gap-3 px-2 py-3"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="cifra block text-[0.9375rem] text-grafito">
+                      {formatCop(recibido(c))}
+                    </span>
+                    <span className="block truncate text-xs text-ink-2">
+                      {c.reason} ·{' '}
+                      {esHoy(c.createdAt)
+                        ? formatTime(c.createdAt).slice(0, 5)
+                        : formatDate(c.createdAt, {
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium',
+                      estadoCobro[c.status].chip,
+                    )}
+                  >
+                    {estadoCobro[c.status].label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section aria-labelledby="historial" className="space-y-2">
         <h2 id="historial" className="px-1 text-base font-medium text-grafito">
-          Vales recibidos
+          Vales escaneados en este celular
         </h2>
         {vales.length === 0 ? (
           <p className="rounded-2xl bg-paper-raised p-4 text-sm text-ink-2">

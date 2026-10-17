@@ -141,6 +141,8 @@ export type User = {
   mandateId?: string;
   // Todas sus ramas (la de la persona y la de su celular)
   mandateIds?: string[];
+  // Tienda de la cuenta del tendero (su caja muestra lo que recibió)
+  merchantId?: string | null;
   // Token de sesión firmado por la api (Authorization: Bearer)
   token?: string;
 };

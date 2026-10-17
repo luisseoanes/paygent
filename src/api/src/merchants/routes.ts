@@ -4,7 +4,7 @@ import { requireMerchantOwner, requireSession } from '../auth/guards.ts'
 import { getMerchant, listMerchants } from '../store/merchants.ts'
 import { ordersFor } from '../store/payments.ts'
 import { forbidden, notFound } from '../gateway/errors.ts'
-import { registerMerchant, setPayout, type NewMerchant } from './registry.ts'
+import { merchantPayments, registerMerchant, setPayout, type NewMerchant } from './registry.ts'
 import { merchantBody, payoutBody } from '../http/schemas.ts'
 
 export default async function merchantRoutes(app: FastifyInstance) {
@@ -24,6 +24,12 @@ export default async function merchantRoutes(app: FastifyInstance) {
     const merchant = await getMerchant(req.params.id)
     if (!merchant) throw notFound('Comercio')
     return ordersFor(merchant.wallet)
+  })
+
+  // Historial de cobros del comercio: la caja del tendero lo muestra en cualquier celular.
+  app.get<{ Params: { id: string } }>('/merchants/:id/payments', async (req) => {
+    await requireMerchantOwner(req, req.params.id)
+    return merchantPayments(req.params.id)
   })
 
   // Cómo cobra el comercio: lo decide su tendero, nunca un agente.

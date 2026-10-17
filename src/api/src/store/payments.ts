@@ -81,6 +81,12 @@ export const ordersFor = async (wallet: string, conn?: Sql) =>
     )
   ).map(toPayment)
 
+/** Todos los pagos a un comercio (cualquier estado), del más nuevo al más viejo. */
+export const paymentsTo = async (wallet: string, limit = 200, conn?: Sql) =>
+  (await s(conn).query(`select * from payments where merchant_wallet = $1 order by created_at desc, id limit $2`, [wallet, limit])).map(
+    toPayment,
+  )
+
 const toPending = (r: Row): Pending =>
   clean({
     id: r.id,

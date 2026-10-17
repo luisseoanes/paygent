@@ -62,6 +62,7 @@ The Spanish source of truth is `docs/api/endpoints.md` in the repo.
 | `POST /guardian/review` | Offline-cap changes proposed by the Guardian |
 | `GET`, `POST /merchants` | List / create a merchant (`wallet` or `payout`) |
 | `GET /merchants/:id/orders` | Orders with delivery |
+| `GET /merchants/:id/payments` | Everything the shop received (settled vouchers and Assistant purchases), newest first, with `received` in its currency. Shopkeeper only |
 | `PUT /merchants/:id/payout` | `{ via: wallet, wallet }` or `{ via: puntored, llave }` |
 | `POST /agents` | Register an agent (no key of its own) |
 

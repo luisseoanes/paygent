@@ -47,6 +47,7 @@ describe('Sin sesión no se toca ningún árbol', () => {
     ['GET', '/feed', undefined],
     ['GET', '/mandates/maria', undefined],
     ['GET', '/mandates/root/tree', undefined],
+    ['GET', '/merchants/tienda/payments', undefined],
   ] as const)('%s %s → 401', async (method, url, payload) => {
     expect((await call(method, url, {}, payload)).statusCode).toBe(401)
   })

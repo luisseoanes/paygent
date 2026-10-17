@@ -36,6 +36,7 @@ export const demoUsers: User[] = [
     apellido: 'Gómez',
     email: 'tendero@paygent.dev',
     rootMandateId: null,
+    merchantId: 'tienda',
   },
 ];
 

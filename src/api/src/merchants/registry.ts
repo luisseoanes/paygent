@@ -1,6 +1,7 @@
 import type { Category, Merchant, Payout } from '@openroute/shared'
 import { getMerchant, merchantByWallet, upsertMerchant } from '../store/merchants.ts'
 import { emit } from '../feed/bus.ts'
+import { paymentsTo } from '../store/payments.ts'
 import { badRequest, HttpError, notFound } from '../gateway/errors.ts'
 import { DEMO_ROOT_ID } from '../demo/constants.ts'
 import { describePayout } from '../gateway/payout.ts'
@@ -42,6 +43,13 @@ export const registerMerchant = async (body: NewMerchant, ownerUserId: string) =
 }
 
 /** Cómo cobra el comercio. Su dirección de cobro no cambia, así que los vales que ya recibió siguen valiendo. */
+/** Lo que recibió el comercio: vales liquidados y compras del Asistente, con lo que llegó en su moneda. */
+export const merchantPayments = async (merchantId: string) => {
+  const merchant = await getMerchant(merchantId)
+  if (!merchant) throw notFound('Comercio')
+  return (await paymentsTo(merchant.wallet)).map((p) => ({ ...p, received: p.receiveAmount ?? p.price ?? p.amount }))
+}
+
 export const setPayout = async (merchantId: string, body?: Payout): Promise<Merchant> => {
   const merchant = await getMerchant(merchantId)
   if (!merchant || merchant.isAgent) throw notFound('Comercio')
