@@ -14,24 +14,16 @@ import {
   type Voucher,
 } from '@openroute/shared'
 import { env } from '../src/env.ts'
+import { demoClient } from './demo-client.ts'
 
 const API = `http://localhost:${env.PORT}`
 const CELULAR_A = process.env.SMS_GUIA_PHONE ?? '+573009998877'
 // PIN que se le pone al SMS en esta prueba; nunca el de un número real en producción.
 const PIN = process.env.SMS_GUIA_PIN ?? '7391'
 const PIN_MALO = PIN === '1357' ? '2468' : '1357'
-const JUAN = { 'x-user-id': 'juan' }
 
-const call = async <T = any>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST', headers = {}): Promise<T> => {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(`${path} → ${res.status} ${JSON.stringify(json)}`)
-  return json as T
-}
+// Entra como Juan: activar el SMS, leer la libreta y pedir certificados son cosas del titular.
+const call = await demoClient(API)
 
 let failures = 0
 const step = (name: string, ok: boolean, detail = '') => {
@@ -45,7 +37,7 @@ await call('/demo/reset', {})
 await fetch(`${env.AGENTS_URL}/assistant/reset`, { method: 'POST' }).catch(() => {})
 
 // ─── Parte 1: Juan activa el SMS de la rama de María para el celular A ───
-const estado = await call<{ active: boolean; phone: string }>('/mandates/maria/sms', { phone: CELULAR_A, pin: PIN }, 'PUT', JUAN)
+const estado = await call<{ active: boolean; phone: string }>('/mandates/maria/sms', { phone: CELULAR_A, pin: PIN }, 'PUT')
 step('1–5. Juan activa el SMS; la rama muestra el número enmascarado', estado.active && /•/.test(estado.phone) && estado.phone.endsWith(CELULAR_A.slice(-4)), JSON.stringify(estado))
 
 // ─── Parte 2: la mamá le escribe al Asistente desde el celular A ───
