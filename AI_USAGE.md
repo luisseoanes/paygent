@@ -1,11 +1,9 @@
 # Declaración de uso de IA
 
-<!-- TODO: completar lo marcado con [COMPLETAR] (lo de cada miembro del equipo) antes de la entrega. No dejar ninguna marca. -->
-
 ## Herramientas utilizadas
 
 * Claude Code (Claude Opus 5.5)
-* [COMPLETAR: resto de herramientas del equipo y modelo, p. ej. ChatGPT (GPT-…), Copilot, Cursor]
+* Es la única herramienta de IA que usó el equipo (Pedro, Luis, Rosvend y Carlos): no usamos ChatGPT, Copilot ni Cursor.
 
 ## Dónde y cómo usamos la IA
 
@@ -26,7 +24,10 @@ Lo hecho en las sesiones de Claude Code de Pedro (S1–S6) y de Luis (S7), con f
 * Claude Code (S5): si `settle` reintenta tras rotar un token vencido, devuelve la primera reserva y cierra el primer
   incoming payment (`op/settle.ts`, `gateway/pay.ts`; tests `op-settle-reintento.test.ts` y
   `pay-reintento-token.test.ts`). Probado con el cliente de Open Payments simulado, no contra el Test Wallet.
-* [COMPLETAR: lo hecho por el resto del equipo en `op/` y con qué herramienta]
+* Claude Code (Luis): cobro en pesos con la wallet de Juan en dólares, umbral de PIN calculado con el débito real
+  cotizado y `fx-probe` para medir la tasa del Test Wallet (`op/`, `gateway/pay.ts`, `src/api/scripts/`).
+* Claude Code (Rosvend): la moneda raíz es la de la wallet de Juan (COP por defecto) y `op:smoke` explica cuándo la
+  URL pegada no es el callback de la wallet.
 
 ### 2. Backend – Mandate Gateway, persistencia y vales (`src/api/src/gateway/`, `store/`, `auth/`, `vouchers/`, `src/shared/`)
 
@@ -74,7 +75,13 @@ Lo hecho en las sesiones de Claude Code de Pedro (S1–S6) y de Luis (S7), con f
     (`merchants/routes.ts` con `/merchants/:id/payments` y `/merchants/:id/credits`, `docs/api/endpoints.md`).
   * Prueba de humo contra producción sin `/demo/reset` (script temporal, no se subió): grant raíz, TRM, Asistente
     (saldo y compra), vale firmado y liquidado por SMS, y el SMS de un beneficiario. Pasaron los 9 pasos.
-* [COMPLETAR: lo hecho por el resto del equipo en el gateway, los vales y `src/shared/`, y con qué herramienta]
+* Claude Code (Luis): domicilio, cobro de comercios por Puntored y umbral de PIN; PIN bloqueado tras fallos, vale
+  cobrado una sola vez y SMS liberado al revocar (`gateway/pin.ts`, `vouchers/settle.ts`, `gateway/sms-canal.ts`); el
+  tendero que se registra y cobra sin wallet, con acreditación simulada de Puntored en su llave Bre-B
+  (`gateway/acreditacion.ts`, `merchants/`).
+* Claude Code (Rosvend): el titular activa el SMS de una rama con celular y PIN (`gateway/sms-canal.ts`), proveedores
+  de SMS Telnyx y SMS Gateway for Android con webhook firmado y filtro de privacidad (`sms/`), y el puente SMS por adb
+  con vales liquidados por SMS (`sms-bridge/`, `sms/vale.ts`).
 
 ### 3. Agentes (`src/agents/`)
 
@@ -84,8 +91,12 @@ Lo hecho en las sesiones de Claude Code de Pedro (S1–S6) y de Luis (S7), con f
 * Claude Code (S5): el PIN se intercepta también dentro de una frase («mi pin es 1234», «Clave: 1234»), y si hay una
   compra esperando PIN, los dígitos llegan tapados al LLM (`assistant/router.py`, `tests/test_assistant.py`).
   Se quitó código sin uso (`web_offers`).
-* [COMPLETAR: el servicio FastAPI, el Asistente con *tool use*, el Inventario, el Guardián y el compilador de intención:
-  quién y con qué herramienta]
+* Claude Code (Luis): el servicio FastAPI y el compilador de intención (commit inicial); el Asistente con Claude y
+  *tool use* para cualquier beneficiario, con las reglas de Paygent en el prompt (`assistant/`); el Agente de
+  Inventario que busca el producto en internet y en la zona de la demo (OpenStreetMap con varios servidores de
+  Overpass) y ordena las tiendas de la más cercana a la más lejana (`inventory/`); el Guardián, con sus reglas
+  revisadas en vivo y el tope sin señal que sube con buen uso (`guardian/`); y el reintento de la TRM al arrancar.
+* Claude Code (Rosvend): las respuestas por SMS se recortan en una frase completa, nunca a mitad de palabra.
 
 ### 4. Frontend – PWA (`src/web/src/`)
 
@@ -110,7 +121,12 @@ Lo hecho en las sesiones de Claude Code de Pedro (S1–S6) y de Luis (S7), con f
   de firmar si su rama ya no existe y toma la TRM del día en cada revisión con señal
   (`features/billetera/hooks/use-refrescar-dispositivo.ts`, test en `hooks/__tests__/`). En el merge,
   `app/routes/tendero.tsx` conserva la tienda de la cuenta y la sección de cobros de Puntored.
-* [COMPLETAR: el resto de vistas y componentes: quién y con qué herramienta]
+* Claude Code (Carlos, prompts en [`prompts/prompts_carlos_florez.md`](prompts/prompts_carlos_florez.md)): el
+  frontend nuevo con la estructura de *bulletproof-react* y referencias de Mobbin; la portada pixel art con paisajes
+  animados, la historia «sin señal» por escenas y la sección de agentes (`features/marketing/`); las PWAs de María y
+  del tendero con vales sin señal; cuentas por tipo, registro, enlace y menú de cuenta; el login en nube pixelada;
+  el chat con el Asistente para María; el historial por delegado; y el logo (la P con ramas) en la app y el favicon.
+* Claude Code (Rosvend): servir el build de producción con *service worker* en Railway.
 
 ### 5. Documentación
 
@@ -123,7 +139,10 @@ Lo hecho en las sesiones de Claude Code de Pedro (S1–S6) y de Luis (S7), con f
   `docs/arquitectura.md` y `site-docs/security.md`. El registro de `prompts/` (S6), por área de trabajo.
 * Claude Code (S7, Luis): `prompts/produccion-y-diagnostico.md`, esta actualización de `AI_USAGE.md`, la
   descripción del repositorio para GitHub y la revisión de la entrega frente a los criterios del jurado.
-* [COMPLETAR: `docs/producto/context.md`, `docs/producto/backlog.md` y el resto: con qué herramienta y cuánto se editó a mano]
+* Claude Code (Rosvend, Pedro y Luis): `docs/producto/context.md` y `docs/producto/backlog.md`, escritos a partir de
+  las ideas del equipo y revisados a mano; Rosvend también el sitio técnico en inglés con Zensical, publicado en
+  GitHub Pages, y los diagramas de arquitectura y del flujo de pago.
+* Claude Code (Carlos): el pitch de 5 minutos y las diapositivas de `entrega/`, según los criterios del jurado.
 
 ## IA dentro del producto (no como herramienta de desarrollo)
 
@@ -145,9 +164,17 @@ Paygent llama a la API de Claude en tiempo de ejecución. Esto es parte de la so
   arreglaban y cuáles quedaban como compromiso conocido.
 * Decisiones de Luis (S7): autorizar cada cambio en la base de producción después de ver el diagnóstico, integrar
   `feat/puntored-simulado` en `main` antes de grabar, y desplegar el arreglo del celular que firmaba vales.
-* [COMPLETAR: decisiones de diseño del resto del equipo: el mandato delegable, las reglas de los agentes, el modelo de vales offline, el guion de la demo…]
+* Decisiones del equipo, en `docs/producto/context.md` y `backlog.md`: el mandato delegable como primitiva (un solo
+  grant repartido en ramas firmadas cuya suma nunca supera a la de arriba), que el gateway decida cada pago y nunca el
+  modelo, los vales firmados con tope sin señal para pagar sin internet, y el SMS con PIN para celulares básicos.
+* Luis: el Guardián administra el tope sin señal, el Asistente busca lo más cercano a la persona y responde en lo que
+  cabe en un SMS, el umbral de PIN, y Puntored con llave Bre-B para tenderos sin wallet.
+* Rosvend: Colombia primero (pesos por defecto), SMS Gateway for Android como número real y la documentación técnica
+  en inglés.
+* Carlos: la identidad pixel art, la historia «sin señal» contada por escenas y el guion del pitch y de la demo.
 * Ficheros hechos con poca o ninguna IA: los retoques de texto de la portada que Pedro hizo a mano (commit `71fe3a0`:
-  `features/marketing/components/hero-paisaje.tsx`, `problema.tsx` y `sin-senal.tsx`); [COMPLETAR: resto del equipo].
+  `features/marketing/components/hero-paisaje.tsx`, `problema.tsx` y `sin-senal.tsx`). El resto se hizo con Claude
+  Code y lo revisó y probó a mano quien lo pidió.
 
 ## Registro de prompts
 

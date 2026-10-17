@@ -1,3 +1,14 @@
+# Frontend PWA, identidad visual y entrega (Carlos Flórez)
+
+90 prompts · Claude Code (Claude Opus 5.5).
+
+Estructura del frontend con *bulletproof-react*, referencias de diseño en Mobbin, portada pixel art, pantallas de Juan,
+María y el tendero, login, historia «sin señal», logo, pitch y diapositivas de la entrega.
+
+Código afectado: `src/web/`, `entrega/`.
+
+Texto literal, en el orden en que se enviaron.
+
 - utilizando /bulletproof-react-init necesito que setes la estructura de carpetas inciial del proyecto, siguiendo lo mas riguorsamente posible los principios de diseño, /be-ambitious tu rol es el de un ingneiero seniro de diseño, la imagen de marca y los estilos quiero que en el hero principa busca en mobbbin referencias para ejecutar una imagen de marca tipo "pixelart" lo que quiero es crear una imagen diferenciadora y algo que distinga nuestro proyecto, para ello quiero que el hero sea un tipo de video animado en el cual se ilustra unas montañas con pixeles, arriba a la izuqierda que se vea el cielo y nubes ya que aca va a estar el titulo del hero debe de ser algo como "pagar no deberia de necesitar internet" ademas necesito que leas el @backlog.md, todo lo que vayamos a hacer lo trabajamos en una carpeta web, no toques nada de nignun otro lado ya que nosotros solo nos encargamos del frontend, crea el primer borrador del hero, este paisaje un tanto animado basado en referencias que encuenttres de mobbin, siguiendo los principios bulletprroof, y abajo crea varias secciones principales tambien basado en ideas que encuentres de mobbin, un pimer boceto con as ideas que queremos implementar, por ahora haz el hero y revisa el backlog para hacer la pantalla de juan, esta tambien necesito que crees los pirmeros bocetos basados de lo que encuentres en mobbin  
 - Revisa que cosas del @backlog.md nos falta para el fronted, con ll que tenemos ya realziado que es el hero, la aprte de juan (revisa que csoas de la pantalla de juan nos falta) y dame el analisis para ver que seguimos desarrollando
 - Termina la pantalla de juan primero siguiendo los principios de /bulletproof-feature , recuerda no modificar nada mas que no sea lo de la carpeta web, lo unico que tenemos que desarrollar es el frontend
