@@ -24,7 +24,13 @@ import { Avatar } from './avatar';
 const subtitulo = (node: MandateTree) => {
   if (node.holderType === 'device')
     return node.offlineCap
-      ? `Paga sin señal hasta ${money(amountToNumber(node.offlineCap))}`
+      ? `Sin señal hoy ${money(amountToNumber(node.offlineCap))}${
+          node.offlineCapCeiling &&
+          amountToNumber(node.offlineCapCeiling) >
+            amountToNumber(node.offlineCap)
+            ? ` de un techo de ${money(amountToNumber(node.offlineCapCeiling))}`
+            : ''
+        }`
       : 'Llave del celular';
   const categorias = node.categories.map((c) => categoryLabels[c]).join(', ');
   return node.holderType === 'agent' ? `Agente · ${categorias}` : categorias;

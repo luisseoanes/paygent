@@ -86,13 +86,23 @@ export const InicioBilletera = ({
               lo reactive.
             </p>
           ) : (
-            <p className="text-xs text-ink-2">
-              De {formatCop(topeCop)}
-              {d.topeMaximo &&
-                A.cmp(d.topeMaximo, d.cert.offlineCap) > 0 &&
-                ` · máximo ${formatCop(A.toCop(d.topeMaximo, d.fx))}: el Guardián lo sube con buen uso`}
-              . Se renueva cada vez que tienes señal.
-            </p>
+            <>
+              {d.topeMaximo && A.cmp(d.topeMaximo, d.cert.offlineCap) > 0 && (
+                <p className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="text-ink-2">Tu techo sin señal</span>
+                  <span className="cifra text-grafito">
+                    {formatCop(A.toCop(d.topeMaximo, d.fx))}
+                  </span>
+                </p>
+              )}
+              <p className="text-xs text-ink-2">
+                Hoy puedes gastar hasta {formatCop(topeCop)} sin señal
+                {d.topeMaximo && A.cmp(d.topeMaximo, d.cert.offlineCap) > 0
+                  ? '; el Guardián lo sube con buen uso, hasta tu techo'
+                  : ''}
+                . Se renueva cada vez que tienes señal.
+              </p>
+            </>
           )}
         </div>
       </section>
@@ -166,8 +176,7 @@ export const InicioBilletera = ({
       {/* Solo si Juan paga en USD: en COP no hay conversión. */}
       {d.cert.offlineCap.assetCode !== 'COP' && (
         <p className="mt-auto text-center text-xs text-ink-2">
-          1 USD ={' '}
-          {formatCurrency(d.fx, 'COP', { maximumFractionDigits: 2 })} ·{' '}
+          1 USD = {formatCurrency(d.fx, 'COP', { maximumFractionDigits: 2 })} ·{' '}
           {etiquetaTasa(d.fxFecha)}
         </p>
       )}

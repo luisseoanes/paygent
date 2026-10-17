@@ -464,8 +464,13 @@ const Formulario = ({
                     onChange={(n) => moverTecho(m, n)}
                   />
                   <p className="text-xs text-ink-2">
-                    Lo máximo que aceptas perder sin señal. Nunca supera el tope
-                    del celular; el Guardián se mueve por debajo.
+                    Lo máximo que aceptas perder sin señal.{' '}
+                    <span className="cifra text-grafito">
+                      Hoy puede gastar{' '}
+                      {mostrar(Math.min(menor(m.offlineCap), v.techo), like)}
+                    </span>
+                    : el Guardián lo sube con buen uso, hasta este techo, y lo
+                    baja si ve algo raro.
                   </p>
                 </div>
               )}

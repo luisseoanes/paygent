@@ -38,7 +38,12 @@ const Modo = ({ modo }: { modo: ModeView }) => {
             Quedan {money(amountToNumber(modo.remaining))} de{' '}
             {money(amountToNumber(modo.maxDebit))}
             {modo.offlineCap &&
-              ` · sin señal hasta ${money(amountToNumber(modo.offlineCap))}`}
+              ` · sin señal hoy ${money(amountToNumber(modo.offlineCap))}`}
+            {modo.offlineCap &&
+              modo.offlineCapCeiling &&
+              amountToNumber(modo.offlineCapCeiling) >
+                amountToNumber(modo.offlineCap) &&
+              ` de un techo de ${money(amountToNumber(modo.offlineCapCeiling))}`}
             {modo.pinThreshold &&
               (amountToNumber(modo.pinThreshold) === 0
                 ? ' · PIN en cada compra'

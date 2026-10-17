@@ -58,8 +58,10 @@ test('the sliders move the caps, update what is left in real time and stop where
   expect(libre).toHaveTextContent('$0');
   expect(celular).toHaveValue('15000');
 
-  // El techo sin señal nunca supera el tope del celular.
+  // El techo sin señal nunca supera el tope del celular, y junto a él se ve lo
+  // que el celular puede gastar hoy (lo mueve el Guardián).
   const techo = within(modal).getByRole('slider', { name: /techo sin señal/i });
+  expect(within(modal).getByText(/hoy puede gastar/i)).toBeInTheDocument();
   fireEvent.change(celular, { target: { value: '1000' } });
   expect(techo).toHaveValue('1000');
 
