@@ -32,7 +32,7 @@ each payment goes straight from Juan's wallet to the merchant: nobody in the mid
 ## Architecture
 
 <p align="center">
-  <img alt="Paygent architecture" src="diagrams/architecture.svg" width="100%">
+  <img alt="Paygent architecture" src="diagrams/architecture.png" width="100%">
 </p>
 
 A Fastify api holds the **Mandate Gateway**: every spend — person, device or agent — goes through
