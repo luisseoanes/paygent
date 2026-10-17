@@ -12,6 +12,7 @@ Lo declara [`AI_USAGE.md`](../AI_USAGE.md).
 | [arquitectura-y-calidad.md](arquitectura-y-calidad.md) | Arquitectura por capas del backend, auditoría del código, CI y cobertura | 8 |
 | [despliegue-y-entorno.md](despliegue-y-entorno.md) | Railway, variables de entorno, workflow de la documentación, `.gitignore` | 13 |
 | [documentacion-y-politica-ia.md](documentacion-y-politica-ia.md) | `AI_USAGE.md`, este registro, `CLAUDE.md`, `docs/` y `README.md` | 16 |
+| [produccion-y-diagnostico.md](produccion-y-diagnostico.md) | Diagnóstico en producción (SMS, vales, cuentas), merge a `main`, prueba de humo y revisión de la entrega | 19 |
 
 Prompts de otros miembros del equipo: [prompts_carlos_florez.md](prompts_carlos_florez.md) (Carlos Flórez, frontend).
 
@@ -25,6 +26,7 @@ Cada prompt indica su sesión y su hora:
 | S4 | 16/10 21:17 – 17/10 06:46 | Arquitectura, workflow de documentación, frontend del tendero y del vale |
 | S5 | 17/10, 07:44–08:34 | Auditoría del código |
 | S6 | 17/10, 09:35–09:53 | Este registro, `AI_USAGE.md`, CI y cobertura |
+| S7 (Luis) | 17/10, ≈00:08–02:20 | Diagnóstico y arreglos en producción, merge a `main`, entrega |
 
 Cómo leerlos:
 

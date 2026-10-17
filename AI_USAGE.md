@@ -9,8 +9,9 @@
 
 ## Dónde y cómo usamos la IA
 
-Lo hecho en las sesiones de Claude Code de Pedro (S1–S6, fechas en [`prompts/README.md`](prompts/README.md)) está
-detallado abajo, con sus ficheros; sus prompts literales están en [`/prompts`](prompts/). Cada miembro completa lo suyo.
+Lo hecho en las sesiones de Claude Code de Pedro (S1–S6) y de Luis (S7), con fechas en
+[`prompts/README.md`](prompts/README.md), está detallado abajo, con sus ficheros; sus prompts literales están en
+[`/prompts`](prompts/). Cada miembro completa lo suyo.
 
 ### 1. Backend – Flujo de Open Payments (`src/api/src/op/`)
 
@@ -63,6 +64,16 @@ detallado abajo, con sus ficheros; sus prompts literales están en [`/prompts`](
 * Claude Code (S6): CI con typecheck y todos los tests en cada push (`.github/workflows/ci.yml`, verificado en un clon
   limpio con Node 22), medición de cobertura y un test del feed en vivo: un titular no recibe los eventos de otro árbol
   (`test/feed-stream.test.ts`, que falla si se quita el filtro). Sección *Quality* del `README.md`.
+* Claude Code (S7, Luis), diagnóstico en producción con la CLI de Railway (logs, consultas de solo lectura a la base
+  y la API de la nube de SMS Gateway):
+  * Un número no se podía activar en el SMS de una rama («ya habla con el Asistente desde otra rama») porque seguía en
+    la hoja SMS viva de otra rama: se liberó con `desactivarSms` (`gateway/sms-canal.ts`), con aprobación explícita.
+  * Una cuenta de beneficiario registrada con el código de otra rama: se movió a la rama correcta con
+    `linkHolderUser`, `linkPersonIfFree` y `linkModeProfiles` en una transacción, con aprobación explícita.
+  * Merge de `feat/puntored-simulado` a `main`: conflictos resueltos conservando los dos lados
+    (`merchants/routes.ts` con `/merchants/:id/payments` y `/merchants/:id/credits`, `docs/api/endpoints.md`).
+  * Prueba de humo contra producción sin `/demo/reset` (script temporal, no se subió): grant raíz, TRM, Asistente
+    (saldo y compra), vale firmado y liquidado por SMS, y el SMS de un beneficiario. Pasaron los 9 pasos.
 * [COMPLETAR: lo hecho por el resto del equipo en el gateway, los vales y `src/shared/`, y con qué herramienta]
 
 ### 3. Agentes (`src/agents/`)
@@ -94,6 +105,11 @@ detallado abajo, con sus ficheros; sus prompts literales están en [`/prompts`](
   `repartir-modos.tsx`).
 * Claude Code (S5): borrado de código muerto (10 componentes sin uso, entre ellos badge, card, pagination y
   delegate-mandate, además de `useT9` y helpers de la landing) y del `src/web/package-lock.json` sobrante.
+* Claude Code (S7, Luis): un celular enlazado a una rama borrada seguía firmando vales con su certificado (el 404 se
+  callaba) y con la TRM de cuando se enlazó; la tienda los leía con otro monto y el gateway los rechazaba. Ahora deja
+  de firmar si su rama ya no existe y toma la TRM del día en cada revisión con señal
+  (`features/billetera/hooks/use-refrescar-dispositivo.ts`, test en `hooks/__tests__/`). En el merge,
+  `app/routes/tendero.tsx` conserva la tienda de la cuenta y la sección de cobros de Puntored.
 * [COMPLETAR: el resto de vistas y componentes: quién y con qué herramienta]
 
 ### 5. Documentación
@@ -105,6 +121,8 @@ detallado abajo, con sus ficheros; sus prompts literales están en [`/prompts`](
   en `docs/api/endpoints.md`, `docs/operacion/sms.md`, `src/web/README.md` y, en el sitio público,
   `site-docs/architecture.md`, `security.md` y `api-reference.md`. S5: compromisos conocidos y riesgos al día en
   `docs/arquitectura.md` y `site-docs/security.md`. El registro de `prompts/` (S6), por área de trabajo.
+* Claude Code (S7, Luis): `prompts/produccion-y-diagnostico.md`, esta actualización de `AI_USAGE.md`, la
+  descripción del repositorio para GitHub y la revisión de la entrega frente a los criterios del jurado.
 * [COMPLETAR: `docs/producto/context.md`, `docs/producto/backlog.md` y el resto: con qué herramienta y cuánto se editó a mano]
 
 ## IA dentro del producto (no como herramienta de desarrollo)
@@ -125,6 +143,8 @@ Paygent llama a la API de Claude en tiempo de ejecución. Esto es parte de la so
   de la entrega empezando por la autenticación, un tendero de demo por comercio en lugar de uno con selector, resolver
   el techo sin señal con claridad en la interfaz sin cambiar la regla, y elegir qué hallazgos de la auditoría se
   arreglaban y cuáles quedaban como compromiso conocido.
+* Decisiones de Luis (S7): autorizar cada cambio en la base de producción después de ver el diagnóstico, integrar
+  `feat/puntored-simulado` en `main` antes de grabar, y desplegar el arreglo del celular que firmaba vales.
 * [COMPLETAR: decisiones de diseño del resto del equipo: el mandato delegable, las reglas de los agentes, el modelo de vales offline, el guion de la demo…]
 * Ficheros hechos con poca o ninguna IA: los retoques de texto de la portada que Pedro hizo a mano (commit `71fe3a0`:
   `features/marketing/components/hero-paisaje.tsx`, `problema.tsx` y `sin-senal.tsx`); [COMPLETAR: resto del equipo].
