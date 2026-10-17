@@ -143,6 +143,7 @@ const BilleteraApp = () => {
           merchant={vista.merchant}
           cop={vista.cop}
           onListo={() => setVista({ tipo: 'inicio' })}
+          onOtroPago={() => setVista({ tipo: 'pagar' })}
         />
       ) : (
         <InicioBilletera

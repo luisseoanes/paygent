@@ -1,5 +1,5 @@
 import { encodeVoucher, type Merchant, type Voucher } from '@openroute/shared';
-import { Copy } from 'lucide-react';
+import { ArrowLeft, Copy, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { Button } from '@/components/ui/button';
@@ -14,18 +14,21 @@ import { formatCop } from '@/utils/format';
 //
 // Cabe entero en la pantalla del celular, sin scroll: ocupa la altura visible
 // (100dvh menos el encabezado de 4rem y el relleno del main, 2.5rem) y el QR
-// toma todo el espacio que sobra, lo más grande posible sin desbordar.
+// toma todo el espacio que sobra, lo más grande posible sin desbordar. Por eso
+// volver y otro pago van en una sola fila: una más le quitaría alto al QR.
 
 export const ValeQr = ({
   voucher,
   merchant,
   cop,
   onListo,
+  onOtroPago,
 }: {
   voucher: Voucher;
   merchant: Merchant;
   cop: number;
   onListo: () => void;
+  onOtroPago: () => void;
 }) => {
   const online = useOnline();
   const addNotification = useNotifications((s) => s.addNotification);
@@ -78,9 +81,25 @@ export const ValeQr = ({
       </p>
 
       <div className="space-y-1 lg:mt-auto lg:space-y-2">
-        <Button size="lg" className="w-full rounded-full" onClick={onListo}>
-          Listo
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full rounded-full"
+            icon={<ArrowLeft aria-hidden="true" />}
+            onClick={onListo}
+          >
+            Mi billetera
+          </Button>
+          <Button
+            size="lg"
+            className="w-full rounded-full"
+            icon={<QrCode aria-hidden="true" />}
+            onClick={onOtroPago}
+          >
+            Otro pago
+          </Button>
+        </div>
         <Button
           variant="ghost"
           size="sm"
