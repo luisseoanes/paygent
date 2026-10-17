@@ -30,6 +30,10 @@ class FakeApi:
     async def mandate(self, mandate_id):
         return {"remaining": {"value": "10000000", "assetCode": "COP", "assetScale": 2}, "revoked": False}
 
+    async def modes(self, mandate_id):
+        """La persona tiene más que su Asistente: la billetera muestra el total."""
+        return {"remaining": {"value": "50000000", "assetCode": "COP", "assetScale": 2}}
+
     async def payment(self, payment_id):
         return None
 
@@ -73,10 +77,10 @@ def test_domicilio_suma_el_envio_y_paga_sin_pin(fake):
     reply = say("2")
     assert "lleva" in reply and "casa de María" in reply and "código" in reply and "PIN" not in reply
     compra = fake.calls[-1]
-    # $12.000 + $4.000 de envío = $16.000 COP, en un solo pago a la tienda y en la moneda de Juan
+    # $12.000 + $4.000 de envío = $16.000 COP, en un solo pago a la tienda y en la moneda del titular
     assert compra["amount"] == {"value": "1600000", "assetCode": "COP", "assetScale": 2}
     assert compra["delivery"]["mode"] == "delivery" and compra["delivery"]["fee"]["value"] == "400000"
-    # La dirección NUNCA la manda el agente: la pone el gateway con lo que registró Juan.
+    # La dirección NUNCA la manda el agente: la pone el gateway con lo que registró el titular.
     assert "address" not in compra["delivery"]
 
 
@@ -161,7 +165,23 @@ def test_si_no_esta_cerca_lo_busca_en_internet(fake, fake_web):
 
 
 def test_saldo():
-    assert "Le quedan" in say("cuánto me queda?")
+    reply = say("cuánto me queda?")
+    # Lo mismo que muestra la billetera (todas sus formas de pagar) y lo que puede gastar por este medio.
+    assert "Le quedan $500.000" in reply and "hasta $100.000" in reply
+
+
+def test_saldo_sin_modos_da_lo_del_asistente(fake, monkeypatch):
+    async def sin_modos(_):
+        return None
+    monkeypatch.setattr(fake, "modes", sin_modos)
+    assert say("cuánto me queda?") == "Le quedan $100.000 disponibles este periodo."
+
+
+def test_asistente_desactivado_no_nombra_a_nadie(fake, monkeypatch):
+    async def revocado(_):
+        return {"remaining": {"value": "0", "assetCode": "COP", "assetScale": 2}, "revoked": True}
+    monkeypatch.setattr(fake, "mandate", revocado)
+    assert say("saldo") == "Su asistente está desactivado. Hable con quien le dio el permiso."
 
 
 def test_cancelar():
@@ -171,3 +191,16 @@ def test_cancelar():
 
 def test_numero_desconocido():
     assert "no está registrado" in asyncio.run(router.respond("+570000", "hola"))
+
+
+@pytest.mark.parametrize("estado, texto", [
+    ({"revoked": True}, "Su asistente está desactivado. Hable con quien le dio el permiso."),
+    ({"frozen": True}, "Sus compras están en pausa. Hable con quien le dio el permiso."),
+])
+def test_rama_revocada_o_pausada_avisa_de_entrada_sin_gastar(fake, monkeypatch, estado, texto):
+    async def rama(_):
+        return {"remaining": {"value": "0", "assetCode": "COP", "assetScale": 2}, "revoked": False, "frozen": False, **estado}
+    monkeypatch.setattr(fake, "mandate", rama)
+    assert say("necesito acetaminofén") == texto
+    # Ni la consulta al Inventario se intenta: el gateway la negaría.
+    assert fake.calls == []

@@ -75,4 +75,31 @@ def test_respuesta_larga_del_llm_se_corta_en_una_frase(llm, monkeypatch):
     monkeypatch.setattr(llm, "_client", fake)
     reply = asyncio.run(router.respond("+573001112233", "hola mijo, solo dígame para qué me sirve este servicio"))
     assert reply == replies.clip(PROD) and reply.endswith(".")
-    assert f"máximo {SMS_MAX} caracteres" in fake.kwargs["system"]
+    assert f"Máximo {SMS_MAX} caracteres" in fake.kwargs["system"]
+
+
+def test_el_llm_recibe_lo_que_permite_la_rama_del_asistente(llm, monkeypatch):
+    from test_assistant import FakeApi
+
+    class Rama(FakeApi):
+        async def mandate(self, _):
+            return {"categories": ["farmacia"], "pinThreshold": {"value": "0", "assetCode": "COP", "assetScale": 2}}
+
+    fake = FakeClient("Listo.")
+    monkeypatch.setattr(llm, "_client", fake)
+    monkeypatch.setattr(router, "api", Rama())
+    asyncio.run(router.respond("+573001112233", "necesito algo"))
+    assert "categorías: farmacia" in fake.kwargs["system"] and "Toda compra pide PIN." in fake.kwargs["system"]
+
+
+def test_sin_api_el_llm_igual_responde(llm, monkeypatch):
+    from test_assistant import FakeApi
+
+    class SinApi(FakeApi):
+        async def mandate(self, _):
+            raise RuntimeError("api caída")
+
+    fake = FakeClient("Hola. ¿Qué necesita?")
+    monkeypatch.setattr(llm, "_client", fake)
+    monkeypatch.setattr(router, "api", SinApi())
+    assert asyncio.run(router.respond("+573001112233", "hola")) == "Hola. ¿Qué necesita?"

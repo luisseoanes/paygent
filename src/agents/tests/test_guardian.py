@@ -46,7 +46,7 @@ def test_score_sube_dentro_del_techo():
     r = score("maria-device", "María", cop(80_000), cop(200_000), False, [])
     assert r["newCap"] == cop(130_000)  # +25 % del techo
     r = score("maria-device", "María", cop(180_000), cop(200_000), False, [])
-    assert r["newCap"] == cop(200_000)  # nunca supera el techo de Juan
+    assert r["newCap"] == cop(200_000)  # nunca supera el techo del titular
 
 
 def test_score_baja_con_alertas():

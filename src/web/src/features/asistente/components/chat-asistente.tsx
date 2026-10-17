@@ -257,7 +257,7 @@ const Vacio = ({ onElegir }: { onElegir: (t: string) => void }) => (
     <Avatar />
     <div>
       <p className="font-geist text-lg font-medium text-grafito">
-        Hola, María. ¿En qué te ayudo?
+        Hola. ¿Qué necesitas?
       </p>
       <p className="mt-1 text-sm text-ink-2">
         Te ayudo a encontrar dónde comprar y cuánto te queda. El pago lo

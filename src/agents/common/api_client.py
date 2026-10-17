@@ -24,7 +24,7 @@ class Api:
             return None
 
     async def root_asset(self) -> dict:
-        """Moneda de la wallet de Juan, según la api. No cambia mientras la api corre."""
+        """Moneda de la wallet del titular de la demo, según la api. No cambia mientras la api corre."""
         if self._asset is None:
             self._asset = (await self._get("/demo/status"))["asset"]
         return self._asset
@@ -32,6 +32,13 @@ class Api:
     async def fx(self) -> dict:
         """TRM vigente: {copPerUsd, fecha, fuente}."""
         return await self._get("/fx")
+
+    async def modes(self, mandate_id: str) -> dict | None:
+        """Formas de pagar de la persona dueña de esa rama; `remaining` es lo que le queda en total."""
+        try:
+            return await self._get(f"/mandates/{mandate_id}/modes")
+        except httpx.HTTPStatusError:
+            return None
 
     async def mandate(self, mandate_id: str) -> dict:
         return await self._get(f"/mandates/{mandate_id}")

@@ -312,7 +312,9 @@ export default async function gatewayRoutes(app: FastifyInstance) {
     const profile = await getProfile(req.query.phone)
     if (!profile) throw notFound('Teléfono')
     // La moneda del árbol de esa persona: el Asistente arma los montos en ella (no en la de la demo).
-    const asset = A.assetOf((await getMandate(profile.rootId)).maxDebit)
-    return { ...profile, asset, deliveryAddress: await getAddress(profile.rootId) }
+    const root = await getMandate(profile.rootId)
+    const asset = A.assetOf(root.maxDebit)
+    // Quién delegó: el Asistente lo nombra en vez de suponer un titular fijo.
+    return { ...profile, asset, titularName: root.holderName, deliveryAddress: await getAddress(profile.rootId) }
   })
 }

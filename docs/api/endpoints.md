@@ -73,7 +73,7 @@ Convenciones:
 |---|---|---|
 | `GET /feed?root=` · `GET /feed/stream?root=` (SSE) | — | Eventos del árbol de ese titular (sin `root`, todos) |
 | `POST /sms/inbound` | `{ From, Body }` (JSON o form de Twilio) | `{ reply }` |
-| `GET /sms/profile?phone=` | — | Perfil del Asistente para ese canal, con `asset` (la moneda de su árbol) |
+| `GET /sms/profile?phone=` | — | Perfil del Asistente para ese canal, con `asset` (la moneda de su árbol), `titularName` (quien delegó) y `deliveryAddress`. El canal `app:<persona>` es el chat de la app |
 | `POST /asistente/chat` | `{ mensajes: { rol, texto }[], contexto: { mandato } }` | `{ texto }` |
 | `POST /demo/reset` | `{ full? }` | Vuelve a sembrar **solo** la demo de Juan |
 | `GET /health` · `GET /health/op?root=` | — | Estado de la api y de Open Payments |

@@ -1,7 +1,7 @@
 """GRD-01 / GRD-02: reglas DETERMINISTAS. La IA solo redacta la explicación (explain.py).
 
 Invariante: el Guardián solo puede restringir. Cualquier tope que proponga lo acota la api
-con restrict() contra el techo que autorizó Juan.
+con restrict() contra el techo que autorizó el titular.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -64,7 +64,7 @@ def evaluate(vouchers: list[dict], history: list[dict], now: datetime | None = N
 
 
 def score(mandate_id: str, holder: str, offline_cap: dict, ceiling: dict, frozen: bool, history: list[dict]) -> dict:
-    """Puntaje de confianza → nuevo tope offline, siempre ≤ techo de Juan."""
+    """Puntaje de confianza → nuevo tope offline, siempre ≤ el techo que autorizó el titular."""
     clean = sum(1 for h in history if h.get("status") == "settled") + SIMULATED_CLEAN_SETTLEMENTS.get(mandate_id, 0)
     alerts = sum(1 for h in history if h.get("status") in ("rejected", "flagged"))
     cap, top = to_cop(offline_cap), to_cop(ceiling)
@@ -74,7 +74,7 @@ def score(mandate_id: str, holder: str, offline_cap: dict, ceiling: dict, frozen
         why = f"bajé el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)} por {alerts} alerta(s)"
     elif clean >= CLEAN_TO_RAISE and cap < top:
         new = min(top, cap + round(top * CAP_STEP_PCT))
-        why = f"subí el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)}: {clean} compras liquidadas sin problemas (techo de Juan: {fmt_cop(top)})"
+        why = f"subí el tope offline de {holder} de {fmt_cop(cap)} a {fmt_cop(new)}: {clean} compras liquidadas sin problemas (techo que autorizó el titular: {fmt_cop(top)})"
     else:
         new = cap
         why = "sin cambios"

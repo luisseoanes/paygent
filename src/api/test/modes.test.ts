@@ -70,7 +70,7 @@ describe('Alta de beneficiario con todos los modos', () => {
     const sms = (await modosDe(mandateId)).find((m) => m.mode === 'sms')!
     expect(sms.phone).toBe('+573129990001')
     const perfil = (await get('/sms/profile?phone=%2B573129990001')).json()
-    expect(perfil).toMatchObject({ mandateId: sms.mandateId, dataMandateId: `${sms.mandateId}-datos`, asset: { assetCode: 'COP' } })
+    expect(perfil).toMatchObject({ mandateId: sms.mandateId, dataMandateId: `${sms.mandateId}-datos`, asset: { assetCode: 'COP' }, titularName: 'Pedro' })
   })
 
   it('el Asistente paga con el modo SMS, y siempre con PIN', async () => {

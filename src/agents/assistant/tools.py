@@ -23,7 +23,7 @@ async def _asset(s: Session) -> dict:
 
 
 def recipient(s: Session) -> str | None:
-    """Quién recibe los domicilios. Lo registró Juan; el agente no puede cambiarlo."""
+    """Quién recibe los domicilios. Lo registró el titular; el agente no puede cambiarlo."""
     return (s.profile.get("deliveryAddress") or {}).get("recipientName")
 
 
@@ -90,7 +90,7 @@ async def proponer_compra(s: Session, indice: int = 0, entrega: str = PICKUP) ->
         return {"error": "Primero hay que buscar el producto"}
     o = s.options[indice]
     if entrega == DELIVERY and not can_deliver(s, o):
-        return {"error": f"{o['merchant']} no hace domicilios" if recipient(s) else "Juan no ha registrado una dirección"}
+        return {"error": f"{o['merchant']} no hace domicilios" if recipient(s) else "El titular no ha registrado una dirección de entrega"}
     fee = o["deliveryFeeCOP"] if entrega == DELIVERY else 0
     total = o["priceCOP"] + fee
     code = _code()
@@ -99,7 +99,7 @@ async def proponer_compra(s: Session, indice: int = 0, entrega: str = PICKUP) ->
         delivery["fee"] = from_cop(fee, await _asset(s))
     where = f"con envío a casa de {recipient(s)}" if entrega == DELIVERY else "para recoger"
     pay = await api.pay(
-        # price: el comercio recibe exactamente sus pesos; amount es el estimado en la moneda de Juan
+        # price: el comercio recibe exactamente sus pesos; amount es el estimado en la moneda del titular
         mandateId=s.profile["mandateId"], merchantWallet=o["wallet"], amount=from_cop(total, await _asset(s)),
         price=of(COP, total),
         category=o["category"], reason=f"{o['product']} en {o['merchant']} para {s.profile['name']}, {where}",
@@ -133,8 +133,13 @@ async def confirmar_pin(s: Session, pin: str) -> dict:
 
 
 async def consultar_saldo(s: Session) -> dict:
+    """Lo que puede gastar el Asistente y, si se sabe, lo que le queda a la persona entre todas sus formas de pagar."""
     m = await api.mandate(s.profile["mandateId"])
-    return {"disponible": fmt_cop(to_cop(m["remaining"])), "estado": "revocado" if m["revoked"] else "activo"}
+    out = {"disponible": fmt_cop(to_cop(m["remaining"])), "estado": "revocado" if m["revoked"] else "activo"}
+    modos = await api.modes(s.profile["mandateId"])
+    if modos and modos.get("remaining"):
+        out["disponible_total"] = fmt_cop(to_cop(modos["remaining"]))
+    return out
 
 
 TOOL_SCHEMAS = [
@@ -153,8 +158,8 @@ TOOL_SCHEMAS = [
     {
         "name": "proponer_compra",
         "description": "Inicia el pago de una de las opciones de la última búsqueda, para recoger en el comercio "
-                       "o con domicilio a la casa registrada por Juan (el envío se suma al precio). Si requiere PIN, "
-                       "la persona debe responder con su PIN de 4 dígitos.",
+                       "o con domicilio a la casa que registró el titular (el envío se suma al precio). Si devuelve "
+                       "necesita_pin, la persona debe responder con su PIN (4 a 6 números) o NO para cancelar.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -172,7 +177,7 @@ TOOL_SCHEMAS = [
         "description": "Busca el producto en cadenas reales de Colombia (droguerías y supermercados) y devuelve "
                        "las de sucursal más cercana a la persona, con distancia y precio. Solo informa: no compra ni "
                        "paga. Úsala si la persona pide buscar en internet o comparar precios, o si no está en las "
-                       "tiendas de la vereda.",
+                       "tiendas cercanas.",
         "input_schema": {
             "type": "object",
             "properties": {"consulta": {"type": "string", "description": "Lo que pidió la persona, en sus palabras"}},
@@ -183,7 +188,8 @@ TOOL_SCHEMAS = [
     },
     {
         "name": "consultar_saldo",
-        "description": "Consulta cuánto le queda disponible a la persona en este periodo.",
+        "description": "Consulta cuánto puede gastar el asistente (disponible) y cuánto le queda a la persona en "
+                       "total entre todas sus formas de pagar (disponible_total) en este periodo.",
         "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
         "strict": True,
     },
