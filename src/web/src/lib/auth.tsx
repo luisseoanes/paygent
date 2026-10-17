@@ -175,11 +175,12 @@ export const useRegistrarBeneficiario = ({
 
 const logout = async () => writeSession(null);
 
-// Cerrar sesión desde una pantalla protegida: primero se sale de ella y la
-// sesión se cierra al llegar (useCierrePendiente, en el layout de destino).
-// Si se cerrara antes, ProtectedRoute mandaría a iniciar sesión.
+// Cerrar sesión desde una pantalla protegida: la sesión guardada se borra ya
+// (sobrevive a una recarga por versión nueva) y la de memoria al llegar
+// (useCierrePendiente); si se borrara antes, ProtectedRoute mandaría al login.
 let cierrePendiente = false;
 export const pedirCierreDeSesion = () => {
+  writeSession(null);
   cierrePendiente = true;
 };
 
