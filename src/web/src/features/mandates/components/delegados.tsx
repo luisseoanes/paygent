@@ -101,7 +101,9 @@ const FilaRama = ({
   const modos = node.children
     .filter((c) => c.canSpend && !c.revoked && esModo(c))
     .sort((a, b) => MODOS.indexOf(modoDe(a)!) - MODOS.indexOf(modoDe(b)!));
-  const hijos = node.children.filter((c) => c.canSpend && !esModo(c));
+  const hijos = node.children.filter(
+    (c) => c.canSpend && !c.revoked && !esModo(c),
+  );
 
   return (
     <li>
@@ -194,7 +196,8 @@ export type DelegadosProps = {
 };
 
 export const Delegados = ({ root, onOpen, onDelegar }: DelegadosProps) => {
-  const ramas = root.children.filter((c) => c.canSpend);
+  // Una rama revocada sale de la lista; su historia queda en la libreta.
+  const ramas = root.children.filter((c) => c.canSpend && !c.revoked);
 
   return (
     <ul className="rounded-3xl bg-paper-raised p-1.5 shadow-[0_1px_2px_rgb(28_34_48/0.04),0_12px_32px_-22px_rgb(28_34_48/0.3)]">
@@ -245,7 +248,7 @@ export const TarjetaGuardian = ({
   root: MandateTree;
   onOpen: (id: string) => void;
 }) => {
-  const guardianes = root.children.filter((c) => !c.canSpend);
+  const guardianes = root.children.filter((c) => !c.canSpend && !c.revoked);
   if (guardianes.length === 0) return null;
 
   return (

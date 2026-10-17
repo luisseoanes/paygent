@@ -35,6 +35,9 @@ const setupFlow = (url: string, { signedIn = false } = {}) => {
 };
 
 const delegados = () => screen.findByRole('region', { name: /delegados/i });
+// Con el cajón abierto la lista queda oculta para el lector: se busca igual.
+const lista = () =>
+  screen.getByRole('region', { name: /delegados/i, hidden: true });
 
 test('the titular signs in and sees their mandate from the API', async () => {
   const { router } = setupFlow(paths.cuenta.getHref());
@@ -254,6 +257,21 @@ test('revoking María takes three taps and the rest keeps working', async () => 
   expect(db.tree.children.find((c) => c.id === 'mnd_rosa')?.revoked).toBe(
     false,
   );
+  // Revocada, sale de la lista de delegados (su historia queda en la libreta).
+  await waitFor(() =>
+    expect(
+      within(lista()).queryByRole('button', {
+        name: /^maría: ver detalle$/i,
+        hidden: true,
+      }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    within(lista()).getByRole('button', {
+      name: /^doña rosa: ver detalle$/i,
+      hidden: true,
+    }),
+  ).toBeInTheDocument();
 });
 
 test('from a delegate the titular opens their whole history', async () => {
